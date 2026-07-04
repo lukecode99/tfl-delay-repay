@@ -68,6 +68,27 @@ const CONTACTLESS = `Date,Journey/Action,Charge,Card
   ok(j2.destination === null && j2.incomplete, 'contactless: "[No touch-out]" destination → null + incomplete');
 }
 
+// --- parseStatement: contactless WEB export (combined Time column) ------
+// Real format from tfl.gov.uk "last 7 days" journey download, 2026-07-04.
+const CONTACTLESS_WEB = `Date,Time,Journey,Charge (GBP),Capped,Notes
+01/07/2026,08:55 - 09:22,South Ruislip to White City,-3.40,N,
+01/07/2026,17:24,"Bus Journey, Route 282",-1.75,N,
+02/07/2026,10:12 - 10:32,South Ruislip to White City,-2.50,N,
+02/07/2026,17:23 - ,White City to Northolt,-3.40,N,
+`;
+{
+  const r = parseStatement(CONTACTLESS_WEB, 'Visa-5006');
+  ok(r.journeys.length === 3, 'web export: 3 rail journeys parsed');
+  ok(r.skipped === 1, 'web export: bus row skipped');
+  const [j1, , j3] = r.journeys;
+  ok(j1.tapInTime === '08:55' && j1.tapOutTime === '09:22',
+    'web export: combined "Time" column split into tap-in/tap-out');
+  ok(j1.charge === 3.40, 'web export: negative charge normalised to positive fare');
+  ok(!j1.incomplete, 'web export: journey with both times is complete');
+  ok(j3.tapInTime === '17:23' && j3.tapOutTime === null && j3.incomplete,
+    'web export: dangling "17:23 - " → tap-out null, incomplete');
+}
+
 // --- header detection with preamble -------------------------------------
 {
   const r = parseStatement(`TfL journey history\nStatement for May 2026\n\n${OYSTER}`, 'c');

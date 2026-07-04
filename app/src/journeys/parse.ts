@@ -73,7 +73,9 @@ function parseCharge(s: string | undefined): number | null {
   const m = (s || '').replace(/[£\s]/g, '');
   if (!m) return null;
   const n = parseFloat(m);
-  return Number.isNaN(n) ? null : n;
+  // Contactless web exports list journey charges as negative amounts
+  // (-3.40); fares are stored as positive £ regardless of export sign.
+  return Number.isNaN(n) ? null : Math.abs(n);
 }
 
 const NO_TOUCH = /no touch[- ](in|out)/i;
@@ -101,6 +103,7 @@ export function parseStatement(text: string, defaultCard = 'unknown'): ParseResu
     date: col('date'),
     start: col('start time', 'touch in', 'start'),
     end: col('end time', 'touch out', 'end'),
+    time: col('time'), // combined "08:55 - 09:22" column (contactless web export)
     action: col('journey'),
     charge: col('charge', 'amount', 'fare'),
     note: col('note'),
@@ -121,8 +124,15 @@ export function parseStatement(text: string, defaultCard = 'unknown'): ParseResu
 
     const origin = m[1].trim();
     let destination: string | null = m[2].trim();
-    const tapInTime = parseTime(ci.start >= 0 ? r[ci.start] : undefined);
+    let tapInTime = parseTime(ci.start >= 0 ? r[ci.start] : undefined);
     let tapOutTime = parseTime(ci.end >= 0 ? r[ci.end] : undefined);
+    if (ci.start === -1 && ci.end === -1 && ci.time >= 0) {
+      // Contactless web export: one "Time" column, "08:55 - 09:22"
+      // (single "17:24" for bus rows, which never reach here).
+      const parts = (r[ci.time] || '').split(/[-–]/);
+      tapInTime = parseTime(parts[0]);
+      tapOutTime = parts.length > 1 ? parseTime(parts[1]) : null;
+    }
     const note = ci.note >= 0 ? (r[ci.note] || '') : '';
 
     let incomplete = false;
