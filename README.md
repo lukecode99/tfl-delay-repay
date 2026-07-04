@@ -57,7 +57,8 @@ The fare matrix is an *estimator* — the actual charge for an imported journey 
 TfL journey-history CSV statements come in via the iOS share sheet ("Open in" — `CFBundleDocumentTypes` in `app.json`) or an in-app document picker; both paths funnel through `import.ts`.
 
 - `parse.ts` — pure CSV parser (no RN imports; testable with `node --experimental-strip-types src/journeys/test-parse.ts`). Handles Oyster and contactless export layouts by mapping columns from the header row; only "X to Y" rows count as rail journeys (bus journeys, top-ups, refunds are skipped — Delay Repay doesn't cover buses). Journeys missing a tap-out (`[No touch-out]` or empty End Time) are kept and flagged `incomplete` for the claim flow to handle later; rows with no touch-*in* are unusable and counted as malformed.
-- `db.ts` — expo-sqlite store. Dedupe on re-import is a UNIQUE index on (card, date, tap-in time, origin) with `INSERT OR IGNORE`, per the card+tap-in-datetime+origin key.
+- `store-core.ts` — the store's SQL (schema, insert/upgrade, legacy-import migration) as pure functions over a `DbLike` handle, testable against node:sqlite (`node --experimental-strip-types src/journeys/test-db.ts`). Dedupe on re-import is a UNIQUE index on (card, date, tap-in time, origin) with `INSERT OR IGNORE`. Re-importing a statement whose rows the pre-hotfix parser stored broken (null tap times) upgrades those rows in place — same row id, so claims stay attached — and an idempotent migration at every db open fixes negative stored charges and sweeps broken/timed duplicate pairs, remapping claims onto the surviving row.
+- `db.ts` — thin expo-sqlite binding over `store-core.ts` (open + migrate, insert, list, count).
 - `import.ts` — document-picker and file-URL entry points → read → parse → insert, returning an `ImportOutcome` (inserted / duplicates / incomplete / skipped counts) for the UI.
 
 ### Eligibility engine (`app/src/eligibility/`)

@@ -70,6 +70,7 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
       {lastImport && (
         <Text style={styles.importSummary}>
           {lastImport.fileName}: {lastImport.inserted} new
+          {lastImport.upgraded > 0 ? `, ${lastImport.upgraded} fixed` : ''}
           {lastImport.duplicates > 0 ? `, ${lastImport.duplicates} duplicates skipped` : ''}
           {lastImport.incomplete > 0 ? `, ${lastImport.incomplete} incomplete` : ''}
           {lastImport.parsed.skipped > 0 ? ` (${lastImport.parsed.skipped} non-rail rows ignored)` : ''}
