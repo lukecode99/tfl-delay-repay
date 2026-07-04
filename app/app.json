@@ -18,7 +18,19 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.nanoluke.tfldelayrepay",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSSupportsOpeningDocumentsInPlace": true,
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "TfL journey statement (CSV)",
+            "CFBundleTypeRole": "Viewer",
+            "LSHandlerRank": "Alternate",
+            "LSItemContentTypes": [
+              "public.comma-separated-values-text",
+              "public.plain-text"
+            ]
+          }
+        ]
       },
       "buildNumber": "1"
     },
