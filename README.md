@@ -58,3 +58,13 @@ TfL journey-history CSV statements come in via the iOS share sheet ("Open in" �
 - `parse.ts` — pure CSV parser (no RN imports; testable with `node --experimental-strip-types src/journeys/test-parse.ts`). Handles Oyster and contactless export layouts by mapping columns from the header row; only "X to Y" rows count as rail journeys (bus journeys, top-ups, refunds are skipped — Delay Repay doesn't cover buses). Journeys missing a tap-out (`[No touch-out]` or empty End Time) are kept and flagged `incomplete` for the claim flow to handle later; rows with no touch-*in* are unusable and counted as malformed.
 - `db.ts` — expo-sqlite store. Dedupe on re-import is a UNIQUE index on (card, date, tap-in time, origin) with `INSERT OR IGNORE`, per the card+tap-in-datetime+origin key.
 - `import.ts` — document-picker and file-URL entry points → read → parse → insert, returning an `ImportOutcome` (inserted / duplicates / incomplete / skipped counts) for the UI.
+
+### Eligibility engine (`app/src/eligibility/`)
+
+Pure modules with injected I/O (tests: `node --experimental-strip-types src/eligibility/test-eligibility.ts`).
+
+- `planner.ts` — expected duration + plausible lines per station pair from the TfL Journey Planner API, cache-first (`TimingCache` injected). `plausibleLines` is the union of line ids across the returned routes — it doubles as the disruption match set.
+- `resolve-core.ts` / `resolve.ts` — CSV station names → dataset stations ("Kings Cross [London Underground]" → King's Cross St. Pancras). Core is data-injected for node tests; `resolve.ts` binds the bundled dataset.
+- `engine.ts` — `assessJourney`: actual = tapOut − tapIn (Europe/London → UTC incl. BST rules, overnight wrap), overage vs threshold (15 min Tube/DLR, 30 min Overground/Elizabeth, by the fastest route's modes), then ledger corroboration → confidence: **high** = severity <9 disruption on a plausible line during the journey (with 45 min lead), **medium** = Minor Delays during, or severe within ±3 h, **low** = Minor Delays within ±3 h, or a collector coverage gap (can't corroborate, can't refute). Healthy lines with coverage → not eligible. Refund value = CSV charge, else peak/off-peak zone estimate by tap-in time.
+- `assess.ts` — orchestrator: resolve → timing → verdict.
+- `adapters.ts` — expo-sqlite implementations of `TimingCache` and `DisruptionLookup` (reads a synced copy of the collector's `status_log`; sync mechanism lands with the UI ticket).

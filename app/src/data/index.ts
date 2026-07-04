@@ -30,10 +30,10 @@ const fareMatrix: Record<string, Fare> = faresJson.matrix as Record<string, Fare
 const byId = new Map(stations.map(s => [s.id, s]));
 export const stationById = (id: string): Station | undefined => byId.get(id);
 
-/** Zones a station can count as — boundary stations ("2+3") belong to both. */
+/** Zones a station can count as — boundary stations ("2+3" or "2/3") belong to both. */
 function zonesOf(station: Station): number[] {
   if (!station.zone) return [];
-  return station.zone.split('+').map(Number).filter(n => !Number.isNaN(n));
+  return station.zone.split(/[+/]/).map(Number).filter(n => !Number.isNaN(n));
 }
 
 /**
