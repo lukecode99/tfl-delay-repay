@@ -1,0 +1,895 @@
+{
+ "generatedAt": "2026-07-04T18:22:20.083Z",
+ "sinceISO": "2026-03-06T18:22:20.068Z",
+ "coverage": [
+  {
+   "from": "2026-07-04T11:17:52.976Z",
+   "to": "2026-07-04T18:20:00.502Z",
+   "polls": 87
+  }
+ ],
+ "spans": [
+  {
+   "line": "bakerloo",
+   "lineName": "Bakerloo",
+   "from": "2026-07-04T11:17:52.976Z",
+   "to": "2026-07-04T16:00:00.364Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Bakerloo Line: Minor delays due to train cancellations.  "
+  },
+  {
+   "line": "district",
+   "lineName": "District",
+   "from": "2026-07-04T11:17:52.976Z",
+   "to": "2026-07-04T16:30:00.520Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DISTRICT LINE: Saturday 4 and Sunday 5 July, no service between Tower Hill and Upminster. There will also be no c2c services at Fenchurch Street and West Ham. A reduced c2c service operates to/from Liverpool Street via Stratford. Replacement buses operate."
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T11:17:52.976Z",
+   "to": "2026-07-04T17:35:00.262Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DOCKLANDS LIGHT RAILWAY: Saturday 4 and Sunday 5 July, no service between Prince Regent and Beckton. Please use local London Buses services."
+  },
+  {
+   "line": "hammersmith-city",
+   "lineName": "Hammersmith & City",
+   "from": "2026-07-04T11:17:52.976Z",
+   "to": "2026-07-04T18:20:00.502Z",
+   "severity": 4,
+   "description": "Planned Closure",
+   "reason": "HAMMERSMITH & CITY LINE: Saturday 4 and Sunday 5 July, no service on the entire line. There will also be no c2c services at Fenchurch Street and West Ham. A reduced c2c service operates to/from Liverpool Street via Stratford. Replacement buses operate."
+  },
+  {
+   "line": "lioness",
+   "lineName": "Lioness",
+   "from": "2026-07-04T11:17:52.976Z",
+   "to": "2026-07-04T18:20:00.502Z",
+   "severity": 7,
+   "description": "Reduced Service",
+   "reason": "LIONESS LINE: Saturday 4 and Sunday 5 July: On Saturday and Sunday a reduced service will run at certain times between Kilburn High Road and Euston. On Saturday, trains departing Watford Junction, between 0630 and 2030, at 30 minutes past each hour, will terminate at Kilburn High Road. Trains departing Euston, between 0715 and 2115, at 15 minutes each hour will start from Kilburn High Road. On Sunday, trains departing Watford Junction, between 1130 and 2030, at 30 minutes past each hour, will terminate at Kilburn High Road. Trains departing Euston, between 1215 and 2115, at 15 minutes each hour will start from Kilburn High Road."
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-04T11:17:52.976Z",
+   "to": "2026-07-04T18:20:00.502Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: Minor delays between Harrow-on-the-Hill and Baker Street due to a track fault at Wembley Park. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T11:17:52.976Z",
+   "to": "2026-07-04T13:55:00.141Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes.  "
+  },
+  {
+   "line": "waterloo-city",
+   "lineName": "Waterloo & City",
+   "from": "2026-07-04T11:17:52.976Z",
+   "to": "2026-07-04T18:20:00.502Z",
+   "severity": 4,
+   "description": "Planned Closure",
+   "reason": "Waterloo & City line: service operates 06:00 until 00:30, Monday to Friday only. There is no service on Saturdays, Sundays and on bank/public holidays."
+  },
+  {
+   "line": "windrush",
+   "lineName": "Windrush",
+   "from": "2026-07-04T11:17:52.976Z",
+   "to": "2026-07-04T14:05:00.330Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Windrush Line: No service between Surrey Quays and Clapham Junction while we fix a track fault at Peckham Rye. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "victoria",
+   "lineName": "Victoria",
+   "from": "2026-07-04T13:30:00.528Z",
+   "to": "2026-07-04T18:05:00.402Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Victoria Line: Minor delays due to train cancellations. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:00:00.491Z",
+   "to": "2026-07-04T14:00:00.491Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:00:00.491Z",
+   "to": "2026-07-04T14:00:00.491Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:05:00.330Z",
+   "to": "2026-07-04T14:05:00.330Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:05:00.330Z",
+   "to": "2026-07-04T14:05:00.330Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:10:00.163Z",
+   "to": "2026-07-04T14:10:00.163Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:10:00.163Z",
+   "to": "2026-07-04T14:10:00.163Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:15:00.549Z",
+   "to": "2026-07-04T14:15:00.549Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:15:00.549Z",
+   "to": "2026-07-04T14:15:00.549Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:20:00.356Z",
+   "to": "2026-07-04T14:20:00.356Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:20:00.356Z",
+   "to": "2026-07-04T14:20:00.356Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:25:00.274Z",
+   "to": "2026-07-04T14:25:00.274Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:25:00.274Z",
+   "to": "2026-07-04T14:25:00.274Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:30:00.125Z",
+   "to": "2026-07-04T14:30:00.125Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:30:00.125Z",
+   "to": "2026-07-04T14:30:00.125Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:35:00.462Z",
+   "to": "2026-07-04T14:35:00.462Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:35:00.462Z",
+   "to": "2026-07-04T14:35:00.462Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:40:00.381Z",
+   "to": "2026-07-04T14:40:00.381Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:40:00.381Z",
+   "to": "2026-07-04T14:40:00.381Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:45:00.196Z",
+   "to": "2026-07-04T14:45:00.196Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:45:00.196Z",
+   "to": "2026-07-04T14:45:00.196Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:50:00.558Z",
+   "to": "2026-07-04T14:50:00.558Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:50:00.558Z",
+   "to": "2026-07-04T14:50:00.558Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:55:00.374Z",
+   "to": "2026-07-04T14:55:00.374Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T14:55:00.374Z",
+   "to": "2026-07-04T14:55:00.374Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:00:00.220Z",
+   "to": "2026-07-04T15:00:00.220Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:00:00.220Z",
+   "to": "2026-07-04T15:00:00.220Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:05:00.114Z",
+   "to": "2026-07-04T15:05:00.114Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:05:00.114Z",
+   "to": "2026-07-04T15:05:00.114Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:10:00.461Z",
+   "to": "2026-07-04T15:10:00.461Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:10:00.461Z",
+   "to": "2026-07-04T15:10:00.461Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:15:00.300Z",
+   "to": "2026-07-04T15:15:00.300Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:15:00.300Z",
+   "to": "2026-07-04T15:15:00.300Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:20:00.108Z",
+   "to": "2026-07-04T15:20:00.108Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:20:00.108Z",
+   "to": "2026-07-04T15:20:00.108Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:25:00.466Z",
+   "to": "2026-07-04T15:25:00.466Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:25:00.466Z",
+   "to": "2026-07-04T15:25:00.466Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:30:00.334Z",
+   "to": "2026-07-04T15:30:00.334Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:30:00.334Z",
+   "to": "2026-07-04T15:30:00.334Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Cockfosters and Arnos Grove, and between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS on the rest of the line.  "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T15:33:51.168Z",
+   "to": "2026-07-04T16:05:00.231Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T16:10:00.086Z",
+   "to": "2026-07-04T16:10:00.086Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS between Acton Town and Arnos Grove eastbound only due to an earlier faulty train at Piccadilly Circus. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T16:10:00.086Z",
+   "to": "2026-07-04T16:10:00.086Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS between Acton Town and Arnos Grove eastbound only due to an earlier faulty train at Piccadilly Circus. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T16:15:00.448Z",
+   "to": "2026-07-04T16:15:00.448Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS between Acton Town and Arnos Grove eastbound only due to an earlier faulty train at Piccadilly Circus. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T16:15:00.448Z",
+   "to": "2026-07-04T16:15:00.448Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS between Acton Town and Arnos Grove eastbound only due to an earlier faulty train at Piccadilly Circus. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T16:20:00.267Z",
+   "to": "2026-07-04T16:20:00.267Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS between Acton Town and Arnos Grove eastbound only due to an earlier faulty train at Piccadilly Circus. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T16:20:00.267Z",
+   "to": "2026-07-04T16:20:00.267Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS between Acton Town and Arnos Grove eastbound only due to an earlier faulty train at Piccadilly Circus. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T16:25:00.150Z",
+   "to": "2026-07-04T16:25:00.150Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS between Acton Town and Arnos Grove eastbound only due to an earlier faulty train at Piccadilly Circus. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T16:25:00.150Z",
+   "to": "2026-07-04T16:25:00.150Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS between Acton Town and Arnos Grove eastbound only due to an earlier faulty train at Piccadilly Circus. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "district",
+   "lineName": "District",
+   "from": "2026-07-04T16:30:00.520Z",
+   "to": "2026-07-04T16:30:00.520Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "District Line: No service between Tower Hill and Upminster, and between Earl's Court to Kensington (Olympia) due to planned engineering work. MINOR DELAYS between Earl's Court and Wimbledon due to an earlier customer incident at West Brompton. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T16:30:00.520Z",
+   "to": "2026-07-04T16:30:00.520Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS between Acton Town and Arnos Grove eastbound only due to an earlier faulty train at Piccadilly Circus. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T16:30:00.520Z",
+   "to": "2026-07-04T16:30:00.520Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. MINOR DELAYS between Acton Town and Arnos Grove eastbound only due to an earlier faulty train at Piccadilly Circus. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "district",
+   "lineName": "District",
+   "from": "2026-07-04T16:35:00.368Z",
+   "to": "2026-07-04T16:35:00.368Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DISTRICT LINE: Saturday 4 and Sunday 5 July, no service between Tower Hill and Upminster. There will also be no c2c services at Fenchurch Street and West Ham. A reduced c2c service operates to/from Liverpool Street via Stratford. Replacement buses operate."
+  },
+  {
+   "line": "district",
+   "lineName": "District",
+   "from": "2026-07-04T16:35:00.368Z",
+   "to": "2026-07-04T16:35:00.368Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "District Line: No service between Tower Hill and Upminster, and between Earl's Court to Kensington (Olympia) due to planned engineering work. MINOR DELAYS between Earl's Court and Wimbledon due to an earlier customer incident at West Brompton. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T16:35:00.368Z",
+   "to": "2026-07-04T17:15:00.404Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow Terminals due to an earlier signal failure at Acton Town. SEVERE DELAYS between King's Cross and Cockfosters due to an earlier faulty train at Piccadilly Circus. Tickets will be accepted on London Buses and Elizabeth line via any reasonable routes. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "district",
+   "lineName": "District",
+   "from": "2026-07-04T16:40:00.209Z",
+   "to": "2026-07-04T16:40:00.209Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DISTRICT LINE: Saturday 4 and Sunday 5 July, no service between Tower Hill and Upminster. There will also be no c2c services at Fenchurch Street and West Ham. A reduced c2c service operates to/from Liverpool Street via Stratford. Replacement buses operate."
+  },
+  {
+   "line": "district",
+   "lineName": "District",
+   "from": "2026-07-04T16:40:00.209Z",
+   "to": "2026-07-04T16:40:00.209Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "District Line: No service between Tower Hill and Upminster, and between Earl's Court to Kensington (Olympia) due to planned engineering work. MINOR DELAYS between Earl's Court and Wimbledon due to an earlier customer incident at West Brompton. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "district",
+   "lineName": "District",
+   "from": "2026-07-04T16:45:00.567Z",
+   "to": "2026-07-04T16:45:00.567Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DISTRICT LINE: Saturday 4 and Sunday 5 July, no service between Tower Hill and Upminster. There will also be no c2c services at Fenchurch Street and West Ham. A reduced c2c service operates to/from Liverpool Street via Stratford. Replacement buses operate."
+  },
+  {
+   "line": "district",
+   "lineName": "District",
+   "from": "2026-07-04T16:45:00.567Z",
+   "to": "2026-07-04T16:45:00.567Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "District Line: No service between Tower Hill and Upminster, and between Earl's Court to Kensington (Olympia) due to planned engineering work. MINOR DELAYS between Earl's Court and Wimbledon due to an earlier customer incident at West Brompton. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "district",
+   "lineName": "District",
+   "from": "2026-07-04T16:50:00.445Z",
+   "to": "2026-07-04T16:50:00.445Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DISTRICT LINE: Saturday 4 and Sunday 5 July, no service between Tower Hill and Upminster. There will also be no c2c services at Fenchurch Street and West Ham. A reduced c2c service operates to/from Liverpool Street via Stratford. Replacement buses operate."
+  },
+  {
+   "line": "district",
+   "lineName": "District",
+   "from": "2026-07-04T16:50:00.445Z",
+   "to": "2026-07-04T16:50:00.445Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "District Line: No service between Tower Hill and Upminster, and between Earl's Court to Kensington (Olympia) due to planned engineering work. MINOR DELAYS between Earl's Court and Wimbledon due to an earlier customer incident at West Brompton. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "district",
+   "lineName": "District",
+   "from": "2026-07-04T16:55:00.281Z",
+   "to": "2026-07-04T18:20:00.502Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DISTRICT LINE: Saturday 4 and Sunday 5 July, no service between Tower Hill and Upminster. There will also be no c2c services at Fenchurch Street and West Ham. A reduced c2c service operates to/from Liverpool Street via Stratford. Replacement buses operate."
+  },
+  {
+   "line": "jubilee",
+   "lineName": "Jubilee",
+   "from": "2026-07-04T16:55:00.281Z",
+   "to": "2026-07-04T18:05:00.402Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Jubilee Line: Minor delays due to train cancellations. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T17:20:00.222Z",
+   "to": "2026-07-04T17:55:00.230Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Piccadilly Line: Minor delays between Acton Town and Uxbridge / Heathrow due to an earlier faulty train at Piccadilly Circus. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T17:35:00.262Z",
+   "to": "2026-07-04T17:35:00.262Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Docklands Light Railway: Minor delays between Canary Wharf and Stratford while we fix a faulty train at Langdon Park. NO SERVICE between Prince Regent and Beckton due to planned engineering work. GOOD SERVICE on other DLR routes. "
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T17:40:00.137Z",
+   "to": "2026-07-04T17:40:00.137Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DOCKLANDS LIGHT RAILWAY: Saturday 4 and Sunday 5 July, no service between Prince Regent and Beckton. Please use local London Buses services."
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T17:40:00.137Z",
+   "to": "2026-07-04T17:40:00.137Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Docklands Light Railway: Minor delays between Canary Wharf and Stratford while we fix a faulty train at Langdon Park. NO SERVICE between Prince Regent and Beckton due to planned engineering work. GOOD SERVICE on other DLR routes. "
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T17:45:00.543Z",
+   "to": "2026-07-04T17:45:00.543Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DOCKLANDS LIGHT RAILWAY: Saturday 4 and Sunday 5 July, no service between Prince Regent and Beckton. Please use local London Buses services."
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T17:45:00.543Z",
+   "to": "2026-07-04T17:45:00.543Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Docklands Light Railway: Minor delays between Canary Wharf and Stratford while we fix a faulty train at Langdon Park. NO SERVICE between Prince Regent and Beckton due to planned engineering work. GOOD SERVICE on other DLR routes. "
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T17:50:00.402Z",
+   "to": "2026-07-04T17:50:00.402Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DOCKLANDS LIGHT RAILWAY: Saturday 4 and Sunday 5 July, no service between Prince Regent and Beckton. Please use local London Buses services."
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T17:50:00.402Z",
+   "to": "2026-07-04T17:50:00.402Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Docklands Light Railway: Minor delays between Canary Wharf and Stratford while we fix a faulty train at Langdon Park. NO SERVICE between Prince Regent and Beckton due to planned engineering work. GOOD SERVICE on other DLR routes. "
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T17:55:00.230Z",
+   "to": "2026-07-04T17:55:00.230Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DOCKLANDS LIGHT RAILWAY: Saturday 4 and Sunday 5 July, no service between Prince Regent and Beckton. Please use local London Buses services."
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T17:55:00.230Z",
+   "to": "2026-07-04T17:55:00.230Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Docklands Light Railway: Minor delays between Canary Wharf and Stratford while we fix a faulty train at Langdon Park. NO SERVICE between Prince Regent and Beckton due to planned engineering work. GOOD SERVICE on other DLR routes. "
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T18:00:00.578Z",
+   "to": "2026-07-04T18:00:00.578Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DOCKLANDS LIGHT RAILWAY: Saturday 4 and Sunday 5 July, no service between Prince Regent and Beckton. Please use local London Buses services."
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T18:00:00.578Z",
+   "to": "2026-07-04T18:00:00.578Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Docklands Light Railway: Minor delays between Canary Wharf and Stratford while we fix a faulty train at Langdon Park. NO SERVICE between Prince Regent and Beckton due to planned engineering work. GOOD SERVICE on other DLR routes. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T18:00:00.578Z",
+   "to": "2026-07-04T18:15:00.107Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow due to an earlier faulty train at Piccadilly Circus and an earlier customer incident. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T18:05:00.402Z",
+   "to": "2026-07-04T18:05:00.402Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DOCKLANDS LIGHT RAILWAY: Saturday 4 and Sunday 5 July, no service between Prince Regent and Beckton. Please use local London Buses services."
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T18:05:00.402Z",
+   "to": "2026-07-04T18:05:00.402Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Docklands Light Railway: Minor delays between Canary Wharf and Stratford while we fix a faulty train at Langdon Park. NO SERVICE between Prince Regent and Beckton due to planned engineering work. GOOD SERVICE on other DLR routes. "
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T18:10:00.251Z",
+   "to": "2026-07-04T18:10:00.251Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DOCKLANDS LIGHT RAILWAY: Saturday 4 and Sunday 5 July, no service between Prince Regent and Beckton. Please use local London Buses services."
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T18:10:00.251Z",
+   "to": "2026-07-04T18:10:00.251Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Docklands Light Railway: Minor delays between Canary Wharf and Stratford while we fix a faulty train at Langdon Park. NO SERVICE between Prince Regent and Beckton due to planned engineering work. GOOD SERVICE on other DLR routes. "
+  },
+  {
+   "line": "jubilee",
+   "lineName": "Jubilee",
+   "from": "2026-07-04T18:10:00.251Z",
+   "to": "2026-07-04T18:10:00.251Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Jubilee Line: Severe delays between Stanmore and Wembley Park due to an earlier trespasser on the track at Neasden and MINOR DELAYS due to train cancellations. Tickets are being accepted on London Buses. "
+  },
+  {
+   "line": "jubilee",
+   "lineName": "Jubilee",
+   "from": "2026-07-04T18:10:00.251Z",
+   "to": "2026-07-04T18:10:00.251Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Jubilee Line: Severe delays between Stanmore and Wembley Park due to an earlier trespasser on the track at Neasden and MINOR DELAYS due to train cancellations. Tickets are being accepted on London Buses. "
+  },
+  {
+   "line": "victoria",
+   "lineName": "Victoria",
+   "from": "2026-07-04T18:10:00.251Z",
+   "to": "2026-07-04T18:10:00.251Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Victoria Line: Severe delays due to train cancellations. "
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-04T18:15:00.107Z",
+   "to": "2026-07-04T18:20:00.502Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "DOCKLANDS LIGHT RAILWAY: Saturday 4 and Sunday 5 July, no service between Prince Regent and Beckton. Please use local London Buses services."
+  },
+  {
+   "line": "jubilee",
+   "lineName": "Jubilee",
+   "from": "2026-07-04T18:15:00.107Z",
+   "to": "2026-07-04T18:15:00.107Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Jubilee Line: Severe delays between Stanmore and Wembley Park due to an earlier trespasser on the track at Neasden and MINOR DELAYS due to train cancellations. Tickets are being accepted on London Buses. "
+  },
+  {
+   "line": "jubilee",
+   "lineName": "Jubilee",
+   "from": "2026-07-04T18:15:00.107Z",
+   "to": "2026-07-04T18:15:00.107Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Jubilee Line: Severe delays between Stanmore and Wembley Park due to an earlier trespasser on the track at Neasden and MINOR DELAYS due to train cancellations. Tickets are being accepted on London Buses. "
+  },
+  {
+   "line": "victoria",
+   "lineName": "Victoria",
+   "from": "2026-07-04T18:15:00.107Z",
+   "to": "2026-07-04T18:20:00.502Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Victoria Line: Severe delays due to train cancellations. London Underground tickets will be accepted on London buses, Weaver line, Suffragette line, Great Northern, Thameslink, Greater Anglia, South Western railways and Southeastern. "
+  },
+  {
+   "line": "jubilee",
+   "lineName": "Jubilee",
+   "from": "2026-07-04T18:20:00.502Z",
+   "to": "2026-07-04T18:20:00.502Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Jubilee Line: Severe delays between Stanmore and Wembley Park due to an earlier trespasser on the track at Neasden and MINOR DELAYS due to train cancellations. Tickets are being accepted on London Buses. "
+  },
+  {
+   "line": "jubilee",
+   "lineName": "Jubilee",
+   "from": "2026-07-04T18:20:00.502Z",
+   "to": "2026-07-04T18:20:00.502Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Jubilee Line: Severe delays between Stanmore and Wembley Park due to an earlier trespasser on the track at Neasden and MINOR DELAYS due to train cancellations. Tickets are being accepted on London Buses. "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-04T18:20:00.502Z",
+   "to": "2026-07-04T18:20:00.502Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow due to an earlier faulty train at Piccadilly Circus and an earlier customer incident. London Underground tickets will be accepted on London buses, Elizabeth line and South Western Railway. GOOD SERVICE on the rest of the line. "
+  }
+ ]
+}

@@ -8,3 +8,4 @@ app/ios/
 app/android/
 app/.expo/
 app/dist/
+app/pnpm-lock.yaml

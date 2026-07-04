@@ -8,6 +8,10 @@ import { assessJourney, isPeak, londonToUtcMs, thresholdForTiming } from './engi
 import type { DisruptionLookup, LedgerStatus } from './engine.ts';
 import { expectedTiming, parseJourneyResults } from './planner.ts';
 import { makeResolver, normalizeStationName } from './resolve-core.ts';
+import { makeSnapshotLookup } from './ledger-json.ts';
+import type { LedgerSnapshot } from './ledger-json.ts';
+import { claimDeadline } from './deadline.ts';
+import { formatDay, groupByDay } from '../format.ts';
 import type { ParsedJourney } from '../journeys/parse';
 
 let passed = 0;
@@ -160,6 +164,54 @@ const severeEarlier: LedgerStatus = { ...severeDuring, ts: '2026-06-10T05:30:00.
   ok(resolve('Heathrow Terminals 2 & 3')?.name === 'Heathrow Terminals 2 & 3', 'resolve: ampersand names resolve');
   ok(resolve('Bank')?.name === 'Bank', 'resolve: short exact name');
   ok(resolve('Narnia Central') === null, 'resolve: unknown station → null');
+}
+
+// --- snapshot lookup (bundled ledger) -------------------------------------------
+{
+  const snap: LedgerSnapshot = {
+    generatedAt: 'x', sinceISO: 'x',
+    coverage: [{ from: '2026-07-04T10:00:00Z', to: '2026-07-04T18:00:00Z', polls: 96 }],
+    spans: [
+      {
+        line: 'central', lineName: 'Central', from: '2026-07-04T11:00:00Z', to: '2026-07-04T14:00:00Z',
+        severity: 6, description: 'Severe Delays', reason: 'Signal failure',
+      },
+      {
+        line: 'jubilee', lineName: 'Jubilee', from: '2026-07-04T11:00:00Z', to: '2026-07-04T14:00:00Z',
+        severity: 9, description: 'Minor Delays', reason: null,
+      },
+    ],
+  };
+  const lookup = makeSnapshotLookup(snap);
+  const hit = lookup(['central'], '2026-07-04T13:00:00Z', '2026-07-04T13:30:00Z');
+  ok(hit.coverage === 96 && hit.statuses.length === 1, 'snapshot: window inside a span → coverage + status');
+  ok(hit.statuses[0].ts === '2026-07-04T13:00:00Z', 'snapshot: span start clamped into the window');
+  const early = lookup(['central'], '2026-07-04T10:00:00Z', '2026-07-04T11:30:00Z');
+  ok(early.statuses[0].ts === '2026-07-04T11:00:00Z', 'snapshot: span starting mid-window keeps its own ts');
+  const both = lookup(['central', 'jubilee'], '2026-07-04T12:00:00Z', '2026-07-04T13:00:00Z');
+  ok(both.statuses.length === 2 && both.statuses[0].line === 'central', 'snapshot: worst severity sorts first');
+  const miss = lookup(['victoria'], '2026-07-04T13:00:00Z', '2026-07-04T13:30:00Z');
+  ok(miss.coverage === 96 && miss.statuses.length === 0, 'snapshot: healthy line → coverage, no statuses');
+  const gap = lookup(['central'], '2026-07-05T09:00:00Z', '2026-07-05T10:00:00Z');
+  ok(gap.coverage === 0 && gap.statuses.length === 0, 'snapshot: window outside coverage → collector gap');
+}
+
+// --- claim deadline ---------------------------------------------------------------
+{
+  const d = claimDeadline('2026-06-10', '2026-06-15');
+  ok(d.deadline === '2026-07-08' && d.daysLeft === 23, 'deadline: 28-day window, 23 days left after 5');
+  ok(claimDeadline('2026-06-10', '2026-07-08').daysLeft === 0, 'deadline: day 28 is the last day');
+  ok(claimDeadline('2026-06-10', '2026-07-09').daysLeft === -1, 'deadline: day 29 is expired');
+}
+
+// --- display helpers ---------------------------------------------------------------
+ok(formatDay('2026-06-10') === 'Wednesday 10 June 2026', 'format: formatDay');
+{
+  const g = groupByDay([
+    { date: '2026-06-11', id: 1 }, { date: '2026-06-11', id: 2 }, { date: '2026-06-10', id: 3 },
+  ]);
+  ok(g.length === 2 && g[0].data.length === 2 && g[1].title === 'Wednesday 10 June 2026',
+    'format: groupByDay keeps order and splits sections on date change');
 }
 
 console.log(`\nAll ${passed} assertions passed.`);
