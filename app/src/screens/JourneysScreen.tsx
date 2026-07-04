@@ -12,12 +12,14 @@ import { colors, spacing } from '../theme';
 interface Props {
   journeys: StoredJourney[];
   assessments: AssessmentMap;
+  claimedIds: Set<number>;
   lastImport: ImportOutcome | null;
   onImportPress: () => void;
   onSelect: (journey: StoredJourney) => void;
 }
 
-function Badge({ assessment }: { assessment: Assessment | undefined }) {
+function Badge({ assessment, claimed }: { assessment: Assessment | undefined; claimed: boolean }) {
+  if (claimed) return <Text style={styles.badgeClaimed}>✓ claimed</Text>;
   if (!assessment) return <Text style={styles.badgePending}>…</Text>;
   if (assessment.status === 'eligible') {
     const value = assessment.refundValue != null ? `≈${formatGBP(assessment.refundValue)}` : 'refund';
@@ -32,7 +34,7 @@ function Badge({ assessment }: { assessment: Assessment | undefined }) {
   return null; // not eligible / not assessable — keep rows quiet
 }
 
-export default function JourneysScreen({ journeys, assessments, lastImport, onImportPress, onSelect }: Props) {
+export default function JourneysScreen({ journeys, assessments, claimedIds, lastImport, onImportPress, onSelect }: Props) {
   const sections = groupByDay(journeys);
   const eligibleCount = journeys.filter(j => assessments.get(j.id)?.status === 'eligible').length;
 
@@ -75,7 +77,7 @@ export default function JourneysScreen({ journeys, assessments, lastImport, onIm
                 {item.charge != null ? `  ·  ${formatGBP(item.charge)}` : ''}
               </Text>
             </View>
-            <Badge assessment={assessments.get(item.id)} />
+            <Badge assessment={assessments.get(item.id)} claimed={claimedIds.has(item.id)} />
             <Text style={styles.chevron}>›</Text>
           </Pressable>
         )}
@@ -121,6 +123,7 @@ const styles = StyleSheet.create({
   route: { color: colors.text, fontSize: 15, fontWeight: '600' },
   meta: { color: colors.textDim, fontSize: 12, marginTop: 2 },
   badgePending: { color: colors.textDim, fontSize: 15, marginRight: spacing.s },
+  badgeClaimed: { color: colors.good, fontSize: 13, fontWeight: '700', marginRight: spacing.s },
   badgeWarn: { color: colors.warn, fontSize: 15, marginRight: spacing.s },
   badgeEligible: {
     backgroundColor: colors.good,

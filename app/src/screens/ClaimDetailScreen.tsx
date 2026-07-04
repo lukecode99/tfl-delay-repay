@@ -1,7 +1,8 @@
 // TfL-5: claim detail — the evidence behind a verdict: expected vs actual
 // duration, disruption from the ledger, refund value, days left to claim.
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { getClaim, unmarkClaimed } from '../claims/db';
 import { claimDeadline } from '../eligibility/deadline';
 import type { Assessment } from '../eligibility/engine';
 import { formatDay, formatGBP } from '../format';
@@ -12,6 +13,7 @@ interface Props {
   journey: StoredJourney;
   assessment: Assessment | undefined;
   onBack: () => void;
+  onFileClaim: () => void;
 }
 
 const REASON_TEXT: Record<string, string> = {
@@ -37,7 +39,8 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function ClaimDetailScreen({ journey, assessment: a, onBack }: Props) {
+export default function ClaimDetailScreen({ journey, assessment: a, onBack, onFileClaim }: Props) {
+  const [claim, setClaim] = useState(() => getClaim(journey.id));
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const { deadline, daysLeft } = claimDeadline(journey.date, todayStr);
@@ -133,12 +136,25 @@ export default function ClaimDetailScreen({ journey, assessment: a, onBack }: Pr
         )}
       </View>
 
-      {eligible && daysLeft >= 0 && (
-        <Text style={styles.footer}>
-          File this claim yourself on the TfL website — a guided flow lands in a later update.
-          This app never stores TfL credentials or submits claims for you.
-        </Text>
-      )}
+      {claim ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Claim filed</Text>
+          <Text style={styles.claimedText}>✓ Marked claimed on {formatDay(claim.claimedAt.slice(0, 10))}</Text>
+          <Pressable onPress={() => { unmarkClaimed(journey.id); setClaim(null); }} hitSlop={8}>
+            <Text style={styles.unmark}>Not right? Unmark</Text>
+          </Pressable>
+        </View>
+      ) : eligible && daysLeft >= 0 ? (
+        <>
+          <Pressable style={styles.fileButton} onPress={onFileClaim}>
+            <Text style={styles.fileButtonText}>File this claim on tfl.gov.uk</Text>
+          </Pressable>
+          <Text style={styles.footer}>
+            Opens TfL's service-delay-refund flow with your journey details ready to fill or copy.
+            You sign in and submit yourself — this app never stores TfL credentials or submits claims for you.
+          </Text>
+        </>
+      ) : null}
     </ScrollView>
   );
 }
@@ -179,5 +195,14 @@ const styles = StyleSheet.create({
   loggedAt: { color: colors.textDim, fontSize: 12, marginTop: spacing.s },
   dimText: { color: colors.textDim, fontSize: 13, lineHeight: 18 },
   daysLeft: { color: colors.good, fontSize: 20, fontWeight: '800', marginBottom: spacing.xs },
+  fileButton: {
+    backgroundColor: colors.accentBright,
+    borderRadius: 12,
+    padding: spacing.m,
+    alignItems: 'center',
+  },
+  fileButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  claimedText: { color: colors.good, fontSize: 15, fontWeight: '700', marginBottom: spacing.s },
+  unmark: { color: colors.textDim, fontSize: 13, textDecorationLine: 'underline' },
   footer: { color: colors.textDim, fontSize: 12, lineHeight: 18, marginTop: spacing.s },
 });
