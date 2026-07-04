@@ -1,0 +1,23 @@
+# TfL disruption collector — one-shot service, fired by tfl-collector.timer.
+# Install (as root on the VM):
+#   cp tfl-collector.service tfl-collector.timer /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now tfl-collector.timer
+# Adjust WorkingDirectory/ExecStart paths to wherever this repo lives on the VM.
+[Unit]
+Description=TfL disruption collector (tfl-delay-repay)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=node
+WorkingDirectory=/workspace/agent/projects/tfl-delay-repay/collector
+ExecStart=/usr/bin/node collector.mjs
+# Optional: registered TfL API key
+#Environment=TFL_APP_KEY=yourkey
+# Optional: override DB location
+#Environment=TFL_DB_PATH=/workspace/agent/projects/tfl-delay-repay/disruptions.db
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

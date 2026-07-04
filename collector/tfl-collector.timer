@@ -1,0 +1,13 @@
+# Fires tfl-collector.service every 5 minutes (mirrors the ig-bot.timer pattern).
+# TfL free tier is 500 req/min; one request per 5 min is negligible.
+[Unit]
+Description=Run TfL disruption collector every 5 minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
