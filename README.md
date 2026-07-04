@@ -13,6 +13,7 @@ Personal-use iOS app (Expo → TestFlight) that detects refund-eligible delays o
 |------|------|
 | `collector/` | VM-side disruption collector (Node + SQLite, zero npm deps) |
 | `app/` | Expo iOS app (TfL-2 onward) |
+| `.github/workflows/ios.yml` | TestFlight pipeline (push to `main` touching `app/**`) |
 
 ## Disruption collector (`collector/`)
 
@@ -33,3 +34,19 @@ Polls `https://api.tfl.gov.uk/Line/Mode/tube,dlr,overground,elizabeth-line/Statu
 **Currently deployed:** NanoClaw scheduled task, every 5 min, DB at `/workspace/ig-bot/projects/tfl-delay-repay/disruptions.db` on the VM. Collecting since 2026-07-04.
 
 Requires Node 22+ (`node:sqlite`).
+
+## App (`app/`)
+
+Expo (React Native) iOS app, bundle id `com.nanoluke.tfldelayrepay`, owner `nanoluke`. Built and shipped to TestFlight by `.github/workflows/ios.yml` on push to `main` (manual signing; secrets `IOS_P12_*`, `TFL_PROVISION_*`, `APP_STORE_CONNECT_*`, `IOS_TEAM_ID` live on the GitHub repo).
+
+### Bundled dataset (`app/src/data/`)
+
+- `stations.json` — 470 stations across 19 lines (Tube, DLR, Overground, Elizabeth line) with zone, coordinates and serving lines. From per-line StopPoints calls.
+- `fares.json` — Adult PAYG single fare matrix (peak/off-peak) keyed by zone range `"a-b"`. Sampled via the TfL Single Fare Finder along radial corridors (Central line Z1–6, Metropolitan/Lioness Z7–9), picking geographically nearest station pairs so the priced route stays inside the zone range being measured. `pairsUsed` records which station pair produced each entry.
+- `build-dataset.mjs` — regenerates both (`--fares-only` skips the station sweep). Fares change each March.
+- `index.ts` — typed access: `searchStations()`, `estimateFare(fromId, toId)` (boundary stations like Z2+3 use whichever zone is cheaper, matching TfL charging).
+
+The fare matrix is an *estimator* — the actual charge for an imported journey comes from the TfL CSV statement when present.
+
+- `App.tsx` — scaffold screen: from/to station autocomplete (`src/components/StationSearch.tsx`) + fare estimate. Replaced by the journeys/eligibility UI in TfL-5.
+- `assets/gen-assets.mjs` — regenerates the placeholder icon/splash PNGs (zero-dependency PNG writer).

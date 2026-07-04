@@ -1,0 +1,368 @@
+{
+ "generated": "2026-07-04T14:24:54.415Z",
+ "note": "Adult PAYG single fares via TfL Single Fare Finder, sampled along radial corridors (Central line Z1-6, Metropolitan Z7-9) so the priced route stays within the zone range. Key \"a-b\" = zone range travelled; symmetric. Peak: 06:30-09:30 & 16:00-19:00 Mon-Fri.",
+ "pairsUsed": {
+  "1-1": [
+   "940GZZLUBNK",
+   "940GZZLULVT"
+  ],
+  "1-2": [
+   "940GZZLUQWY",
+   "940GZZLUHPK"
+  ],
+  "1-3": [
+   "940GZZLULVT",
+   "940GZZLULYN"
+  ],
+  "1-4": [
+   "940GZZLULVT",
+   "940GZZLUSNB"
+  ],
+  "1-5": [
+   "940GZZLULVT",
+   "940GZZLUBKH"
+  ],
+  "1-6": [
+   "940GZZLULVT",
+   "940GZZLULGN"
+  ],
+  "1-7": [
+   "940GZZLUBST",
+   "940GZZLUWAF"
+  ],
+  "1-8": [
+   "910GEUSTON",
+   "910GBUSHYDC"
+  ],
+  "1-9": [
+   "940GZZLUBST",
+   "940GZZLUAMS"
+  ],
+  "2-2": [
+   "940GZZLUSBC",
+   "940GZZLUWCY"
+  ],
+  "2-3": [
+   "940GZZLUEAN",
+   "940GZZLUWTA"
+  ],
+  "2-4": [
+   "940GZZLUMED",
+   "940GZZLUSNB"
+  ],
+  "2-5": [
+   "940GZZLUEAN",
+   "940GZZLUNHT"
+  ],
+  "2-6": [
+   "940GZZLUMED",
+   "940GZZLULGN"
+  ],
+  "2-7": [
+   "940GZZLUFYR",
+   "940GZZLUWAF"
+  ],
+  "2-8": [
+   "910GKENSLG",
+   "910GBUSHYDC"
+  ],
+  "2-9": [
+   "940GZZLUFYR",
+   "940GZZLUAMS"
+  ],
+  "3-3": [
+   "940GZZLUHGR",
+   "940GZZLUWTA"
+  ],
+  "3-4": [
+   "940GZZLUEBY",
+   "940GZZLUPVL"
+  ],
+  "3-5": [
+   "940GZZLUEBY",
+   "940GZZLUNHT"
+  ],
+  "3-6": [
+   "940GZZLULYN",
+   "940GZZLULGN"
+  ],
+  "3-7": [
+   "910GSTNBGPK",
+   "910GCRPNDPK"
+  ],
+  "3-8": [
+   "910GSTNBGPK",
+   "910GBUSHYDC"
+  ],
+  "3-9": [
+   "910GFRSTGT",
+   "910GBRTWOOD"
+  ],
+  "4-4": [
+   "940GZZLUFLP",
+   "940GZZLUHLT"
+  ],
+  "4-5": [
+   "940GZZLURVY",
+   "940GZZLUBKH"
+  ],
+  "4-6": [
+   "940GZZLURVY",
+   "940GZZLULGN"
+  ],
+  "4-7": [
+   "940GZZLUNKP",
+   "940GZZLUWAF"
+  ],
+  "4-8": [
+   "910GKTON",
+   "910GBUSHYDC"
+  ],
+  "4-9": [
+   "940GZZLUNKP",
+   "940GZZLUAMS"
+  ],
+  "5-5": [
+   "940GZZLURSG",
+   "940GZZLUSRP"
+  ],
+  "5-6": [
+   "940GZZLUBKH",
+   "940GZZLULGN"
+  ],
+  "5-7": [
+   "940GZZLUPNR",
+   "940GZZLUWAF"
+  ],
+  "5-8": [
+   "910GHEDSTNL",
+   "910GBUSHYDC"
+  ],
+  "5-9": [
+   "940GZZLUEAE",
+   "940GZZLUAMS"
+  ],
+  "6-6": [
+   "940GZZLUEPG",
+   "940GZZLUTHB"
+  ],
+  "6-7": [
+   "940GZZLUNOW",
+   "940GZZLUCXY"
+  ],
+  "6-8": [
+   "910GHTCHEND",
+   "910GBUSHYDC"
+  ],
+  "6-9": [
+   "940GZZLUUXB",
+   "940GZZLUAMS"
+  ],
+  "7-7": [
+   "940GZZLUCXY",
+   "940GZZLUWAF"
+  ],
+  "7-8": [
+   "910GCRPNDPK",
+   "910GBUSHYDC"
+  ],
+  "7-9": [
+   "940GZZLUCYD",
+   "940GZZLUAMS"
+  ],
+  "8-8": [
+   "910GBUSHYDC",
+   "910GWATFDHS"
+  ],
+  "8-9": [
+   "910GWATFDHS",
+   "940GZZLUAMS"
+  ],
+  "9-9": [
+   "940GZZLUAMS",
+   "940GZZLUCSM"
+  ]
+ },
+ "matrix": {
+  "1-1": {
+   "peak": 3.1,
+   "offPeak": 3
+  },
+  "1-2": {
+   "peak": 3.1,
+   "offPeak": 3
+  },
+  "1-3": {
+   "peak": 3.9,
+   "offPeak": 3.3
+  },
+  "1-4": {
+   "peak": 4.8,
+   "offPeak": 3.6
+  },
+  "1-5": {
+   "peak": 5.3,
+   "offPeak": 3.8
+  },
+  "1-6": {
+   "peak": 5.9,
+   "offPeak": 4
+  },
+  "1-7": {
+   "peak": 7.1,
+   "offPeak": 5.2
+  },
+  "1-8": {
+   "peak": 8.3,
+   "offPeak": 5.2
+  },
+  "1-9": {
+   "peak": 8.8,
+   "offPeak": 5.3
+  },
+  "2-2": {
+   "peak": 2.3,
+   "offPeak": 2.2
+  },
+  "2-3": {
+   "peak": 2.5,
+   "offPeak": 2.3
+  },
+  "2-4": {
+   "peak": 3.2,
+   "offPeak": 2.4
+  },
+  "2-5": {
+   "peak": 3.4,
+   "offPeak": 2.5
+  },
+  "2-6": {
+   "peak": 3.8,
+   "offPeak": 2.6
+  },
+  "2-7": {
+   "peak": 5.2,
+   "offPeak": 3.7
+  },
+  "2-8": {
+   "peak": 5.9,
+   "offPeak": 3.8
+  },
+  "2-9": {
+   "peak": 5.9,
+   "offPeak": 3.8
+  },
+  "3-3": {
+   "peak": 2.3,
+   "offPeak": 2.2
+  },
+  "3-4": {
+   "peak": 2.5,
+   "offPeak": 2.3
+  },
+  "3-5": {
+   "peak": 3.2,
+   "offPeak": 2.4
+  },
+  "3-6": {
+   "peak": 3.4,
+   "offPeak": 2.5
+  },
+  "3-7": {
+   "peak": 4.2,
+   "offPeak": 2.4
+  },
+  "3-8": {
+   "peak": 5.1,
+   "offPeak": 2.4
+  },
+  "3-9": {
+   "peak": 7.8,
+   "offPeak": 4.7
+  },
+  "4-4": {
+   "peak": 2.3,
+   "offPeak": 2.2
+  },
+  "4-5": {
+   "peak": 2.5,
+   "offPeak": 2.3
+  },
+  "4-6": {
+   "peak": 3.2,
+   "offPeak": 2.4
+  },
+  "4-7": {
+   "peak": 3.4,
+   "offPeak": 2.4
+  },
+  "4-8": {
+   "peak": 4.2,
+   "offPeak": 2.4
+  },
+  "4-9": {
+   "peak": 4.3,
+   "offPeak": 2.4
+  },
+  "5-5": {
+   "peak": 2.3,
+   "offPeak": 2.2
+  },
+  "5-6": {
+   "peak": 2.5,
+   "offPeak": 2.3
+  },
+  "5-7": {
+   "peak": 3.1,
+   "offPeak": 2.4
+  },
+  "5-8": {
+   "peak": 3.4,
+   "offPeak": 2.4
+  },
+  "5-9": {
+   "peak": 3.7,
+   "offPeak": 2.4
+  },
+  "6-6": {
+   "peak": 2.3,
+   "offPeak": 2.2
+  },
+  "6-7": {
+   "peak": 2.3,
+   "offPeak": 2.1
+  },
+  "6-8": {
+   "peak": 3.1,
+   "offPeak": 2.3
+  },
+  "6-9": {
+   "peak": 3.7,
+   "offPeak": 2.4
+  },
+  "7-7": {
+   "peak": 2.1,
+   "offPeak": 2
+  },
+  "7-8": {
+   "peak": 2.3,
+   "offPeak": 2.1
+  },
+  "7-9": {
+   "peak": 2.4,
+   "offPeak": 2.2
+  },
+  "8-8": {
+   "peak": 2.1,
+   "offPeak": 2
+  },
+  "8-9": {
+   "peak": 4.3,
+   "offPeak": 2.4
+  },
+  "9-9": {
+   "peak": 2.3,
+   "offPeak": 2.1
+  }
+ }
+}

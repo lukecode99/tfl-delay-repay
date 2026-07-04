@@ -4,3 +4,7 @@ disruptions.db-*
 node_modules/
 .env
 credentials.md
+app/ios/
+app/android/
+app/.expo/
+app/dist/

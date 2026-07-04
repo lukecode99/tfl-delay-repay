@@ -1,0 +1,5392 @@
+{
+ "generated": "2026-07-04T14:10:55.114Z",
+ "lines": [
+  {
+   "id": "bakerloo",
+   "name": "Bakerloo",
+   "mode": "tube"
+  },
+  {
+   "id": "central",
+   "name": "Central",
+   "mode": "tube"
+  },
+  {
+   "id": "circle",
+   "name": "Circle",
+   "mode": "tube"
+  },
+  {
+   "id": "district",
+   "name": "District",
+   "mode": "tube"
+  },
+  {
+   "id": "dlr",
+   "name": "DLR",
+   "mode": "dlr"
+  },
+  {
+   "id": "elizabeth",
+   "name": "Elizabeth line",
+   "mode": "elizabeth-line"
+  },
+  {
+   "id": "hammersmith-city",
+   "name": "Hammersmith & City",
+   "mode": "tube"
+  },
+  {
+   "id": "jubilee",
+   "name": "Jubilee",
+   "mode": "tube"
+  },
+  {
+   "id": "liberty",
+   "name": "Liberty",
+   "mode": "overground"
+  },
+  {
+   "id": "lioness",
+   "name": "Lioness",
+   "mode": "overground"
+  },
+  {
+   "id": "metropolitan",
+   "name": "Metropolitan",
+   "mode": "tube"
+  },
+  {
+   "id": "mildmay",
+   "name": "Mildmay",
+   "mode": "overground"
+  },
+  {
+   "id": "northern",
+   "name": "Northern",
+   "mode": "tube"
+  },
+  {
+   "id": "piccadilly",
+   "name": "Piccadilly",
+   "mode": "tube"
+  },
+  {
+   "id": "suffragette",
+   "name": "Suffragette",
+   "mode": "overground"
+  },
+  {
+   "id": "victoria",
+   "name": "Victoria",
+   "mode": "tube"
+  },
+  {
+   "id": "waterloo-city",
+   "name": "Waterloo & City",
+   "mode": "tube"
+  },
+  {
+   "id": "weaver",
+   "name": "Weaver",
+   "mode": "overground"
+  },
+  {
+   "id": "windrush",
+   "name": "Windrush",
+   "mode": "overground"
+  }
+ ],
+ "stations": [
+  {
+   "id": "940GZZDLABR",
+   "name": "Abbey Road",
+   "fullName": "Abbey Road DLR Station",
+   "zone": "2/3",
+   "lat": 51.53193,
+   "lon": 0.00374,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "910GABWDXR",
+   "name": "Abbey Wood",
+   "fullName": "Abbey Wood",
+   "zone": "4",
+   "lat": 51.49124,
+   "lon": 0.12137,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "910GACTNCTL",
+   "name": "Acton Central",
+   "fullName": "Acton Central Rail Station",
+   "zone": "3",
+   "lat": 51.50872,
+   "lon": -0.26297,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "910GACTONML",
+   "name": "Acton Main Line",
+   "fullName": "Acton Main Line Rail Station",
+   "zone": "3",
+   "lat": 51.51718,
+   "lon": -0.26676,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUACT",
+   "name": "Acton Town",
+   "fullName": "Acton Town Underground Station",
+   "zone": "3",
+   "lat": 51.50306,
+   "lon": -0.28046,
+   "lines": [
+    "district",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUALD",
+   "name": "Aldgate",
+   "fullName": "Aldgate Underground Station",
+   "zone": "1",
+   "lat": 51.51425,
+   "lon": -0.07569,
+   "lines": [
+    "circle",
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLUADE",
+   "name": "Aldgate East",
+   "fullName": "Aldgate East Underground Station",
+   "zone": "1",
+   "lat": 51.51504,
+   "lon": -0.07238,
+   "lines": [
+    "district",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "940GZZDLALL",
+   "name": "All Saints",
+   "fullName": "All Saints DLR Station",
+   "zone": "2",
+   "lat": 51.511,
+   "lon": -0.01314,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUALP",
+   "name": "Alperton",
+   "fullName": "Alperton Underground Station",
+   "zone": "4",
+   "lat": 51.54063,
+   "lon": -0.29961,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUAMS",
+   "name": "Amersham",
+   "fullName": "Amersham Underground Station",
+   "zone": "9",
+   "lat": 51.67413,
+   "lon": -0.60771,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "910GANERLEY",
+   "name": "Anerley",
+   "fullName": "Anerley Rail Station",
+   "zone": "4",
+   "lat": 51.41215,
+   "lon": -0.06589,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUAGL",
+   "name": "Angel",
+   "fullName": "Angel Underground Station",
+   "zone": "1",
+   "lat": 51.53184,
+   "lon": -0.10635,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUACY",
+   "name": "Archway",
+   "fullName": "Archway Underground Station",
+   "zone": "2+3",
+   "lat": 51.56548,
+   "lon": -0.13482,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUASG",
+   "name": "Arnos Grove",
+   "fullName": "Arnos Grove Underground Station",
+   "zone": "4",
+   "lat": 51.61645,
+   "lon": -0.13306,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUASL",
+   "name": "Arsenal",
+   "fullName": "Arsenal Underground Station",
+   "zone": "2",
+   "lat": 51.55866,
+   "lon": -0.10746,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUBST",
+   "name": "Baker Street",
+   "fullName": "Baker Street Underground Station",
+   "zone": "1",
+   "lat": 51.52288,
+   "lon": -0.15713,
+   "lines": [
+    "bakerloo",
+    "circle",
+    "hammersmith-city",
+    "jubilee",
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLUBLM",
+   "name": "Balham",
+   "fullName": "Balham Underground Station",
+   "zone": "3",
+   "lat": 51.44329,
+   "lon": -0.153,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUBNK",
+   "name": "Bank",
+   "fullName": "Bank Underground Station",
+   "zone": "1",
+   "lat": 51.51336,
+   "lon": -0.0889,
+   "lines": [
+    "central",
+    "northern",
+    "waterloo-city"
+   ]
+  },
+  {
+   "id": "940GZZDLBNK",
+   "name": "Bank",
+   "fullName": "Bank DLR Station",
+   "zone": "1",
+   "lat": 51.51323,
+   "lon": -0.08851,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUBBN",
+   "name": "Barbican",
+   "fullName": "Barbican Underground Station",
+   "zone": "1",
+   "lat": 51.52027,
+   "lon": -0.09799,
+   "lines": [
+    "circle",
+    "hammersmith-city",
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLUBKG",
+   "name": "Barking",
+   "fullName": "Barking Underground Station",
+   "zone": "4",
+   "lat": 51.53932,
+   "lon": 0.08105,
+   "lines": [
+    "district",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "910GBARKING",
+   "name": "Barking",
+   "fullName": "Barking Rail Station",
+   "zone": "4",
+   "lat": 51.5395,
+   "lon": 0.0809,
+   "lines": [
+    "suffragette"
+   ]
+  },
+  {
+   "id": "910GBARKRIV",
+   "name": "Barking Riverside",
+   "fullName": "Barking Riverside",
+   "zone": "4",
+   "lat": 51.51953,
+   "lon": 0.11596,
+   "lines": [
+    "suffragette"
+   ]
+  },
+  {
+   "id": "940GZZLUBKE",
+   "name": "Barkingside",
+   "fullName": "Barkingside Underground Station",
+   "zone": "4",
+   "lat": 51.58569,
+   "lon": 0.08858,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUBSC",
+   "name": "Barons Court",
+   "fullName": "Barons Court Underground Station",
+   "zone": "2",
+   "lat": 51.49031,
+   "lon": -0.21343,
+   "lines": [
+    "district",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZBPSUST",
+   "name": "Battersea Power",
+   "fullName": "Battersea Power Station Underground Station",
+   "zone": "1",
+   "lat": 51.47993,
+   "lon": -0.14214,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUBWT",
+   "name": "Bayswater",
+   "fullName": "Bayswater Underground Station",
+   "zone": "1",
+   "lat": 51.51228,
+   "lon": -0.18794,
+   "lines": [
+    "circle",
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZDLBEC",
+   "name": "Beckton",
+   "fullName": "Beckton DLR Station",
+   "zone": "3",
+   "lat": 51.51436,
+   "lon": 0.06145,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZDLBPK",
+   "name": "Beckton Park",
+   "fullName": "Beckton Park DLR Station",
+   "zone": "3",
+   "lat": 51.50879,
+   "lon": 0.05493,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUBEC",
+   "name": "Becontree",
+   "fullName": "Becontree Underground Station",
+   "zone": "5",
+   "lat": 51.54033,
+   "lon": 0.12702,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUBZP",
+   "name": "Belsize Park",
+   "fullName": "Belsize Park Underground Station",
+   "zone": "2",
+   "lat": 51.55031,
+   "lon": -0.16465,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUBMY",
+   "name": "Bermondsey",
+   "fullName": "Bermondsey Underground Station",
+   "zone": "2",
+   "lat": 51.49775,
+   "lon": -0.06399,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "940GZZLUBLG",
+   "name": "Bethnal Green",
+   "fullName": "Bethnal Green Underground Station",
+   "zone": "2",
+   "lat": 51.52722,
+   "lon": -0.05551,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GBTHNLGR",
+   "name": "Bethnal Green",
+   "fullName": "Bethnal Green Rail Station",
+   "zone": "2",
+   "lat": 51.52392,
+   "lon": -0.05957,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUBKF",
+   "name": "Blackfriars",
+   "fullName": "Blackfriars Underground Station",
+   "zone": "1",
+   "lat": 51.51158,
+   "lon": -0.10366,
+   "lines": [
+    "circle",
+    "district"
+   ]
+  },
+  {
+   "id": "910GBLCHSRD",
+   "name": "Blackhorse Road",
+   "fullName": "Blackhorse Road Rail Station",
+   "zone": "3",
+   "lat": 51.5866,
+   "lon": -0.04124,
+   "lines": [
+    "suffragette"
+   ]
+  },
+  {
+   "id": "940GZZLUBLR",
+   "name": "Blackhorse Road",
+   "fullName": "Blackhorse Road Underground Station",
+   "zone": "3",
+   "lat": 51.58692,
+   "lon": -0.04115,
+   "lines": [
+    "victoria"
+   ]
+  },
+  {
+   "id": "940GZZDLBLA",
+   "name": "Blackwall",
+   "fullName": "Blackwall DLR Station",
+   "zone": "2",
+   "lat": 51.50799,
+   "lon": -0.00697,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUBND",
+   "name": "Bond Street",
+   "fullName": "Bond Street Underground Station",
+   "zone": "1",
+   "lat": 51.5143,
+   "lon": -0.14972,
+   "lines": [
+    "central",
+    "jubilee"
+   ]
+  },
+  {
+   "id": "910GBONDST",
+   "name": "Bond Street",
+   "fullName": "Bond Street",
+   "zone": "1",
+   "lat": 51.51389,
+   "lon": -0.14725,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUBOR",
+   "name": "Borough",
+   "fullName": "Borough Underground Station",
+   "zone": "1",
+   "lat": 51.5012,
+   "lon": -0.09337,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUBOS",
+   "name": "Boston Manor",
+   "fullName": "Boston Manor Underground Station",
+   "zone": "4",
+   "lat": 51.49564,
+   "lon": -0.32494,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUBDS",
+   "name": "Bounds Green",
+   "fullName": "Bounds Green Underground Station",
+   "zone": "3+4",
+   "lat": 51.60703,
+   "lon": -0.12423,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZDLBOW",
+   "name": "Bow Church",
+   "fullName": "Bow Church DLR Station",
+   "zone": "2",
+   "lat": 51.52786,
+   "lon": -0.02094,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUBWR",
+   "name": "Bow Road",
+   "fullName": "Bow Road Underground Station",
+   "zone": "2",
+   "lat": 51.52694,
+   "lon": -0.02513,
+   "lines": [
+    "district",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "940GZZLUBTX",
+   "name": "Brent Cross",
+   "fullName": "Brent Cross Underground Station",
+   "zone": "3",
+   "lat": 51.57665,
+   "lon": -0.21362,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "910GBRTWOOD",
+   "name": "Brentwood",
+   "fullName": "Brentwood Rail Station",
+   "zone": "9",
+   "lat": 51.6136,
+   "lon": 0.29959,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUBXN",
+   "name": "Brixton",
+   "fullName": "Brixton Underground Station",
+   "zone": "2",
+   "lat": 51.46262,
+   "lon": -0.11489,
+   "lines": [
+    "victoria"
+   ]
+  },
+  {
+   "id": "910GBROCKLY",
+   "name": "Brockley",
+   "fullName": "Brockley Rail Station",
+   "zone": "2",
+   "lat": 51.46465,
+   "lon": -0.03754,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUBBB",
+   "name": "Bromley-by-Bow",
+   "fullName": "Bromley-by-Bow Underground Station",
+   "zone": "2/3",
+   "lat": 51.52484,
+   "lon": -0.01154,
+   "lines": [
+    "district",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "910GBRBY",
+   "name": "Brondesbury",
+   "fullName": "Brondesbury Rail Station",
+   "zone": "2",
+   "lat": 51.54517,
+   "lon": -0.20231,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "910GBRBYPK",
+   "name": "Brondesbury Park",
+   "fullName": "Brondesbury Park Rail Station",
+   "zone": "2",
+   "lat": 51.54073,
+   "lon": -0.21005,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "910GBRUCGRV",
+   "name": "Bruce Grove",
+   "fullName": "Bruce Grove Rail Station",
+   "zone": "3",
+   "lat": 51.59396,
+   "lon": -0.06987,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUBKH",
+   "name": "Buckhurst Hill",
+   "fullName": "Buckhurst Hill Underground Station",
+   "zone": "5",
+   "lat": 51.6266,
+   "lon": 0.04676,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GBNHAM",
+   "name": "Burnham (Berks)",
+   "fullName": "Burnham (Berks) Rail Station",
+   "zone": null,
+   "lat": 51.52351,
+   "lon": -0.64637,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUBTK",
+   "name": "Burnt Oak",
+   "fullName": "Burnt Oak Underground Station",
+   "zone": "4",
+   "lat": 51.60277,
+   "lon": -0.26405,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "910GBHILLPK",
+   "name": "Bush Hill Park",
+   "fullName": "Bush Hill Park Rail Station",
+   "zone": "5",
+   "lat": 51.64152,
+   "lon": -0.06922,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "910GBUSHYDC",
+   "name": "Bushey",
+   "fullName": "Bushey Rail Station",
+   "zone": "8",
+   "lat": 51.64589,
+   "lon": -0.38523,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "940GZZLUCAR",
+   "name": "Caledonian Road",
+   "fullName": "Caledonian Road Underground Station",
+   "zone": "2",
+   "lat": 51.54852,
+   "lon": -0.11849,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "910GCLDNNRB",
+   "name": "Caledonian Road & Barnsbury",
+   "fullName": "Caledonian Road & Barnsbury Rail Station",
+   "zone": "2",
+   "lat": 51.54304,
+   "lon": -0.11673,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "910GCAMHTH",
+   "name": "Cambridge Heath (London)",
+   "fullName": "Cambridge Heath (London) Rail Station",
+   "zone": "2",
+   "lat": 51.53197,
+   "lon": -0.05728,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "910GCMDNRD",
+   "name": "Camden Road",
+   "fullName": "Camden Road Rail Station",
+   "zone": "2",
+   "lat": 51.54179,
+   "lon": -0.1387,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZLUCTN",
+   "name": "Camden Town",
+   "fullName": "Camden Town Underground Station",
+   "zone": "2",
+   "lat": 51.53929,
+   "lon": -0.14274,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUCWR",
+   "name": "Canada Water",
+   "fullName": "Canada Water Underground Station",
+   "zone": "2",
+   "lat": 51.49793,
+   "lon": -0.0494,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "910GCNDAW",
+   "name": "Canada Water",
+   "fullName": "Canada Water Rail Station",
+   "zone": "2",
+   "lat": 51.49799,
+   "lon": -0.04972,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZDLCAN",
+   "name": "Canary Wharf",
+   "fullName": "Canary Wharf DLR Station",
+   "zone": "2",
+   "lat": 51.50484,
+   "lon": -0.021,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "910GCANWHRF",
+   "name": "Canary Wharf",
+   "fullName": "Canary Wharf",
+   "zone": "2",
+   "lat": 51.5062,
+   "lon": -0.01883,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUCYF",
+   "name": "Canary Wharf",
+   "fullName": "Canary Wharf Underground Station",
+   "zone": "2",
+   "lat": 51.50349,
+   "lon": -0.01825,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "940GZZDLCGT",
+   "name": "Canning Town",
+   "fullName": "Canning Town DLR Station",
+   "zone": "2/3",
+   "lat": 51.51413,
+   "lon": 0.0081,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUCGT",
+   "name": "Canning Town",
+   "fullName": "Canning Town Underground Station",
+   "zone": "2/3",
+   "lat": 51.51358,
+   "lon": 0.00832,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "940GZZLUCST",
+   "name": "Cannon Street",
+   "fullName": "Cannon Street Underground Station",
+   "zone": "1",
+   "lat": 51.51151,
+   "lon": -0.09043,
+   "lines": [
+    "circle",
+    "district"
+   ]
+  },
+  {
+   "id": "910GCNNB",
+   "name": "Canonbury",
+   "fullName": "Canonbury Rail Station",
+   "zone": "2",
+   "lat": 51.54873,
+   "lon": -0.09219,
+   "lines": [
+    "mildmay",
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUCPK",
+   "name": "Canons Park",
+   "fullName": "Canons Park Underground Station",
+   "zone": "5",
+   "lat": 51.6077,
+   "lon": -0.29469,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "910GCRPNDPK",
+   "name": "Carpenders Park",
+   "fullName": "Carpenders Park Rail Station",
+   "zone": "7",
+   "lat": 51.62835,
+   "lon": -0.38594,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "910GCHDWLHT",
+   "name": "Chadwell Heath",
+   "fullName": "Chadwell Heath Rail Station",
+   "zone": "5",
+   "lat": 51.56804,
+   "lon": 0.12896,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUCAL",
+   "name": "Chalfont & Latimer",
+   "fullName": "Chalfont & Latimer Underground Station",
+   "zone": "8",
+   "lat": 51.66799,
+   "lon": -0.56069,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLUCFM",
+   "name": "Chalk Farm",
+   "fullName": "Chalk Farm Underground Station",
+   "zone": "2",
+   "lat": 51.54412,
+   "lon": -0.15339,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUCHL",
+   "name": "Chancery Lane",
+   "fullName": "Chancery Lane Underground Station",
+   "zone": "1",
+   "lat": 51.51825,
+   "lon": -0.11158,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUCHX",
+   "name": "Charing Cross",
+   "fullName": "Charing Cross Underground Station",
+   "zone": "1",
+   "lat": 51.50741,
+   "lon": -0.12728,
+   "lines": [
+    "bakerloo",
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUCSM",
+   "name": "Chesham",
+   "fullName": "Chesham Underground Station",
+   "zone": "9",
+   "lat": 51.70521,
+   "lon": -0.61125,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "910GCHESHNT",
+   "name": "Cheshunt",
+   "fullName": "Cheshunt Rail Station",
+   "zone": "8",
+   "lat": 51.70288,
+   "lon": -0.02396,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUCWL",
+   "name": "Chigwell",
+   "fullName": "Chigwell Underground Station",
+   "zone": "4",
+   "lat": 51.61792,
+   "lon": 0.07504,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GCHINGFD",
+   "name": "Chingford",
+   "fullName": "Chingford Rail Station",
+   "zone": "5",
+   "lat": 51.63309,
+   "lon": 0.0099,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUCWP",
+   "name": "Chiswick Park",
+   "fullName": "Chiswick Park Underground Station",
+   "zone": "3",
+   "lat": 51.49463,
+   "lon": -0.26797,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUCYD",
+   "name": "Chorleywood",
+   "fullName": "Chorleywood Underground Station",
+   "zone": "7",
+   "lat": 51.65436,
+   "lon": -0.51846,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLUCPC",
+   "name": "Clapham Common",
+   "fullName": "Clapham Common Underground Station",
+   "zone": "2",
+   "lat": 51.46174,
+   "lon": -0.13832,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "910GCLPHHS",
+   "name": "Clapham High Street",
+   "fullName": "Clapham High Street Rail Station",
+   "zone": "2",
+   "lat": 51.46548,
+   "lon": -0.13252,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "910GCLPHMJ1",
+   "name": "Clapham Junction",
+   "fullName": "Clapham Junction Rail Station",
+   "zone": null,
+   "lat": 51.46419,
+   "lon": -0.17022,
+   "lines": [
+    "mildmay",
+    "windrush"
+   ]
+  },
+  {
+   "id": "910GCLPHMJC",
+   "name": "Clapham Junction",
+   "fullName": "Clapham Junction Rail Station",
+   "zone": "2",
+   "lat": 51.46419,
+   "lon": -0.17029,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZLUCPN",
+   "name": "Clapham North",
+   "fullName": "Clapham North Underground Station",
+   "zone": "2",
+   "lat": 51.46513,
+   "lon": -0.13002,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUCPS",
+   "name": "Clapham South",
+   "fullName": "Clapham South Underground Station",
+   "zone": "2+3",
+   "lat": 51.45265,
+   "lon": -0.14758,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "910GCLAPTON",
+   "name": "Clapton",
+   "fullName": "Clapton Rail Station",
+   "zone": "2+3",
+   "lat": 51.56164,
+   "lon": -0.05702,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUCKS",
+   "name": "Cockfosters",
+   "fullName": "Cockfosters Underground Station",
+   "zone": "5",
+   "lat": 51.65152,
+   "lon": -0.14917,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUCND",
+   "name": "Colindale",
+   "fullName": "Colindale Underground Station",
+   "zone": "4",
+   "lat": 51.59542,
+   "lon": -0.24992,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUCSD",
+   "name": "Colliers Wood",
+   "fullName": "Colliers Wood Underground Station",
+   "zone": "3",
+   "lat": 51.41816,
+   "lon": -0.17809,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUCGN",
+   "name": "Covent Garden",
+   "fullName": "Covent Garden Underground Station",
+   "zone": "1",
+   "lat": 51.51309,
+   "lon": -0.12444,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZDLCLA",
+   "name": "Crossharbour",
+   "fullName": "Crossharbour DLR Station",
+   "zone": "2",
+   "lat": 51.49573,
+   "lon": -0.01461,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "910GCROUCHH",
+   "name": "Crouch Hill",
+   "fullName": "Crouch Hill Rail Station",
+   "zone": "3",
+   "lat": 51.5713,
+   "lon": -0.11715,
+   "lines": [
+    "suffragette"
+   ]
+  },
+  {
+   "id": "940GZZLUCXY",
+   "name": "Croxley",
+   "fullName": "Croxley Underground Station",
+   "zone": "7",
+   "lat": 51.64704,
+   "lon": -0.44172,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "910GCRYSTLP",
+   "name": "Crystal Palace",
+   "fullName": "Crystal Palace Rail Station",
+   "zone": "3+4",
+   "lat": 51.41811,
+   "lon": -0.07261,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "910GCUSTMHS",
+   "name": "Custom House",
+   "fullName": "Custom House Rail Station",
+   "zone": "3",
+   "lat": 51.50977,
+   "lon": 0.02673,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZDLCUS",
+   "name": "Custom House (for ExCel)",
+   "fullName": "Custom House (for ExCel) DLR Station",
+   "zone": "3",
+   "lat": 51.50972,
+   "lon": 0.0267,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZDLCUT",
+   "name": "Cutty Sark (for Maritime Greenwich)",
+   "fullName": "Cutty Sark (for Maritime Greenwich) DLR Station",
+   "zone": "2+3",
+   "lat": 51.48167,
+   "lon": -0.01081,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZDLCYP",
+   "name": "Cyprus",
+   "fullName": "Cyprus DLR Station",
+   "zone": "3",
+   "lat": 51.50847,
+   "lon": 0.06392,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUDGE",
+   "name": "Dagenham East",
+   "fullName": "Dagenham East Underground Station",
+   "zone": "5",
+   "lat": 51.5441,
+   "lon": 0.16602,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUDGY",
+   "name": "Dagenham Heathway",
+   "fullName": "Dagenham Heathway Underground Station",
+   "zone": "5",
+   "lat": 51.54164,
+   "lon": 0.14753,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "910GDALS",
+   "name": "Dalston Junction",
+   "fullName": "Dalston Junction Rail Station",
+   "zone": "2",
+   "lat": 51.54612,
+   "lon": -0.07514,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "910GDALSKLD",
+   "name": "Dalston Kingsland",
+   "fullName": "Dalston Kingsland Rail Station",
+   "zone": "2",
+   "lat": 51.54815,
+   "lon": -0.0757,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZLUDBN",
+   "name": "Debden",
+   "fullName": "Debden Underground Station",
+   "zone": "6",
+   "lat": 51.64539,
+   "lon": 0.08378,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GDENMRKH",
+   "name": "Denmark Hill",
+   "fullName": "Denmark Hill Rail Station",
+   "zone": "2",
+   "lat": 51.4682,
+   "lon": -0.08936,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZDLDEP",
+   "name": "Deptford Bridge",
+   "fullName": "Deptford Bridge DLR Station",
+   "zone": "2+3",
+   "lat": 51.47422,
+   "lon": -0.02244,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZDLDEV",
+   "name": "Devons Road",
+   "fullName": "Devons Road DLR Station",
+   "zone": "2",
+   "lat": 51.52267,
+   "lon": -0.01761,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUDOH",
+   "name": "Dollis Hill",
+   "fullName": "Dollis Hill Underground Station",
+   "zone": "3",
+   "lat": 51.55195,
+   "lon": -0.23907,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "940GZZLUEBY",
+   "name": "Ealing Broadway",
+   "fullName": "Ealing Broadway Underground Station",
+   "zone": "3",
+   "lat": 51.51502,
+   "lon": -0.30146,
+   "lines": [
+    "central",
+    "district"
+   ]
+  },
+  {
+   "id": "910GEALINGB",
+   "name": "Ealing Broadway",
+   "fullName": "Ealing Broadway Rail Station",
+   "zone": "3",
+   "lat": 51.51484,
+   "lon": -0.30175,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUECM",
+   "name": "Ealing Common",
+   "fullName": "Ealing Common Underground Station",
+   "zone": "3",
+   "lat": 51.51014,
+   "lon": -0.28826,
+   "lines": [
+    "district",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUECT",
+   "name": "Earl's Court",
+   "fullName": "Earl's Court Underground Station",
+   "zone": "1+2",
+   "lat": 51.49206,
+   "lon": -0.19338,
+   "lines": [
+    "district",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUEAN",
+   "name": "East Acton",
+   "fullName": "East Acton Underground Station",
+   "zone": "2",
+   "lat": 51.51661,
+   "lon": -0.24725,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUEFY",
+   "name": "East Finchley",
+   "fullName": "East Finchley Underground Station",
+   "zone": "3",
+   "lat": 51.58713,
+   "lon": -0.16501,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUEHM",
+   "name": "East Ham",
+   "fullName": "East Ham Underground Station",
+   "zone": "3+4",
+   "lat": 51.53895,
+   "lon": 0.05119,
+   "lines": [
+    "district",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "940GZZDLEIN",
+   "name": "East India",
+   "fullName": "East India DLR Station",
+   "zone": "2/3",
+   "lat": 51.50936,
+   "lon": -0.00233,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUEPY",
+   "name": "East Putney",
+   "fullName": "East Putney Underground Station",
+   "zone": "2+3",
+   "lat": 51.4592,
+   "lon": -0.211,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUEAE",
+   "name": "Eastcote",
+   "fullName": "Eastcote Underground Station",
+   "zone": "5",
+   "lat": 51.57651,
+   "lon": -0.39737,
+   "lines": [
+    "metropolitan",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUEGW",
+   "name": "Edgware",
+   "fullName": "Edgware Underground Station",
+   "zone": "5",
+   "lat": 51.61365,
+   "lon": -0.27493,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUERB",
+   "name": "Edgware Road (Bakerloo)",
+   "fullName": "Edgware Road (Bakerloo) Underground Station",
+   "zone": "1",
+   "lat": 51.5203,
+   "lon": -0.17015,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "940GZZLUERC",
+   "name": "Edgware Road (Circle Line)",
+   "fullName": "Edgware Road (Circle Line) Underground Station",
+   "zone": "1",
+   "lat": 51.51986,
+   "lon": -0.16783,
+   "lines": [
+    "circle",
+    "district",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "910GEDMNGRN",
+   "name": "Edmonton Green",
+   "fullName": "Edmonton Green Rail Station",
+   "zone": "4",
+   "lat": 51.62493,
+   "lon": -0.06111,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUEAC",
+   "name": "Elephant & Castle",
+   "fullName": "Elephant & Castle Underground Station",
+   "zone": "1+2",
+   "lat": 51.49454,
+   "lon": -0.10061,
+   "lines": [
+    "bakerloo",
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUEPK",
+   "name": "Elm Park",
+   "fullName": "Elm Park Underground Station",
+   "zone": "6",
+   "lat": 51.54977,
+   "lon": 0.19864,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZDLELV",
+   "name": "Elverson Road",
+   "fullName": "Elverson Road DLR Station",
+   "zone": "2+3",
+   "lat": 51.46907,
+   "lon": -0.01673,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUEMB",
+   "name": "Embankment",
+   "fullName": "Embankment Underground Station",
+   "zone": "1",
+   "lat": 51.50706,
+   "lon": -0.12267,
+   "lines": [
+    "bakerloo",
+    "circle",
+    "district",
+    "northern"
+   ]
+  },
+  {
+   "id": "910GEMRSPKH",
+   "name": "Emerson Park",
+   "fullName": "Emerson Park Rail Station",
+   "zone": "6",
+   "lat": 51.56864,
+   "lon": 0.22011,
+   "lines": [
+    "liberty"
+   ]
+  },
+  {
+   "id": "910GENFLDTN",
+   "name": "Enfield Town",
+   "fullName": "Enfield Town Rail Station",
+   "zone": "5",
+   "lat": 51.65203,
+   "lon": -0.07933,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUEPG",
+   "name": "Epping",
+   "fullName": "Epping Underground Station",
+   "zone": "6",
+   "lat": 51.69368,
+   "lon": 0.11377,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUEUS",
+   "name": "Euston",
+   "fullName": "Euston Underground Station",
+   "zone": "1",
+   "lat": 51.52806,
+   "lon": -0.13218,
+   "lines": [
+    "northern",
+    "victoria"
+   ]
+  },
+  {
+   "id": "940GZZLUESQ",
+   "name": "Euston Square",
+   "fullName": "Euston Square Underground Station",
+   "zone": "1",
+   "lat": 51.5256,
+   "lon": -0.13583,
+   "lines": [
+    "circle",
+    "hammersmith-city",
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLUFLP",
+   "name": "Fairlop",
+   "fullName": "Fairlop Underground Station",
+   "zone": "4",
+   "lat": 51.59562,
+   "lon": 0.091,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUFCN",
+   "name": "Farringdon",
+   "fullName": "Farringdon Underground Station",
+   "zone": "1",
+   "lat": 51.52025,
+   "lon": -0.10491,
+   "lines": [
+    "circle",
+    "hammersmith-city",
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "910GFRNDXR",
+   "name": "Farringdon",
+   "fullName": "Farringdon",
+   "zone": "1",
+   "lat": 51.52019,
+   "lon": -0.10491,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUFYC",
+   "name": "Finchley Central",
+   "fullName": "Finchley Central Underground Station",
+   "zone": "4",
+   "lat": 51.60092,
+   "lon": -0.19253,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUFYR",
+   "name": "Finchley Road",
+   "fullName": "Finchley Road Underground Station",
+   "zone": "2",
+   "lat": 51.54682,
+   "lon": -0.17985,
+   "lines": [
+    "jubilee",
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "910GFNCHLYR",
+   "name": "Finchley Road & Frognal",
+   "fullName": "Finchley Road & Frognal Rail Station",
+   "zone": "2",
+   "lat": 51.55027,
+   "lon": -0.18314,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZLUFPK",
+   "name": "Finsbury Park",
+   "fullName": "Finsbury Park Underground Station",
+   "zone": "2",
+   "lat": 51.56416,
+   "lon": -0.10683,
+   "lines": [
+    "piccadilly",
+    "victoria"
+   ]
+  },
+  {
+   "id": "910GFRSTGT",
+   "name": "Forest Gate",
+   "fullName": "Forest Gate Rail Station",
+   "zone": "3",
+   "lat": 51.54943,
+   "lon": 0.02435,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "910GFORESTH",
+   "name": "Forest Hill",
+   "fullName": "Forest Hill Rail Station",
+   "zone": "3",
+   "lat": 51.43928,
+   "lon": -0.05316,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUFBY",
+   "name": "Fulham Broadway",
+   "fullName": "Fulham Broadway Underground Station",
+   "zone": "2",
+   "lat": 51.48008,
+   "lon": -0.19542,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZDLGAL",
+   "name": "Gallions Reach",
+   "fullName": "Gallions Reach DLR Station",
+   "zone": "3",
+   "lat": 51.50894,
+   "lon": 0.07155,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUGTH",
+   "name": "Gants Hill",
+   "fullName": "Gants Hill Underground Station",
+   "zone": "4",
+   "lat": 51.57654,
+   "lon": 0.06618,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GGIDEAPK",
+   "name": "Gidea Park",
+   "fullName": "Gidea Park Rail Station",
+   "zone": "6",
+   "lat": 51.5819,
+   "lon": 0.20596,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUGTR",
+   "name": "Gloucester Road",
+   "fullName": "Gloucester Road Underground Station",
+   "zone": "1",
+   "lat": 51.49432,
+   "lon": -0.18266,
+   "lines": [
+    "circle",
+    "district",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUGGN",
+   "name": "Golders Green",
+   "fullName": "Golders Green Underground Station",
+   "zone": "3",
+   "lat": 51.57226,
+   "lon": -0.19404,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUGHK",
+   "name": "Goldhawk Road",
+   "fullName": "Goldhawk Road Underground Station",
+   "zone": "2",
+   "lat": 51.502,
+   "lon": -0.22671,
+   "lines": [
+    "circle",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "940GZZLUGDG",
+   "name": "Goodge Street",
+   "fullName": "Goodge Street Underground Station",
+   "zone": "1",
+   "lat": 51.5206,
+   "lon": -0.13436,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "910GGODMAYS",
+   "name": "Goodmayes",
+   "fullName": "Goodmayes Rail Station",
+   "zone": "4",
+   "lat": 51.56558,
+   "lon": 0.11081,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "910GGOSPLOK",
+   "name": "Gospel Oak",
+   "fullName": "Gospel Oak Rail Station",
+   "zone": "2",
+   "lat": 51.55533,
+   "lon": -0.15077,
+   "lines": [
+    "mildmay",
+    "suffragette"
+   ]
+  },
+  {
+   "id": "940GZZLUGGH",
+   "name": "Grange Hill",
+   "fullName": "Grange Hill Underground Station",
+   "zone": "4",
+   "lat": 51.61338,
+   "lon": 0.09207,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUGPS",
+   "name": "Great Portland Street",
+   "fullName": "Great Portland Street Underground Station",
+   "zone": "1",
+   "lat": 51.52384,
+   "lon": -0.14426,
+   "lines": [
+    "circle",
+    "hammersmith-city",
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLUGPK",
+   "name": "Green Park",
+   "fullName": "Green Park Underground Station",
+   "zone": "1",
+   "lat": 51.50695,
+   "lon": -0.14279,
+   "lines": [
+    "jubilee",
+    "piccadilly",
+    "victoria"
+   ]
+  },
+  {
+   "id": "940GZZLUGFD",
+   "name": "Greenford",
+   "fullName": "Greenford Underground Station",
+   "zone": "4",
+   "lat": 51.54242,
+   "lon": -0.34605,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZDLGRE",
+   "name": "Greenwich",
+   "fullName": "Greenwich DLR Station",
+   "zone": "2+3",
+   "lat": 51.47809,
+   "lon": -0.01367,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUGBY",
+   "name": "Gunnersbury",
+   "fullName": "Gunnersbury Underground Station",
+   "zone": "3",
+   "lat": 51.4918,
+   "lon": -0.27527,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "910GGNRSBRY",
+   "name": "Gunnersbury",
+   "fullName": "Gunnersbury Rail Station",
+   "zone": "3",
+   "lat": 51.49168,
+   "lon": -0.27529,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "910GHACKNYC",
+   "name": "Hackney Central",
+   "fullName": "Hackney Central Rail Station",
+   "zone": "2",
+   "lat": 51.54711,
+   "lon": -0.05606,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "910GHAKNYNM",
+   "name": "Hackney Downs",
+   "fullName": "Hackney Downs Rail Station",
+   "zone": "2",
+   "lat": 51.54876,
+   "lon": -0.06082,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "910GHACKNYW",
+   "name": "Hackney Wick",
+   "fullName": "Hackney Wick Rail Station",
+   "zone": "2",
+   "lat": 51.54341,
+   "lon": -0.02492,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "910GHAGGERS",
+   "name": "Haggerston",
+   "fullName": "Haggerston Rail Station",
+   "zone": "2",
+   "lat": 51.53871,
+   "lon": -0.07567,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUHLT",
+   "name": "Hainault",
+   "fullName": "Hainault Underground Station",
+   "zone": "4",
+   "lat": 51.60366,
+   "lon": 0.09348,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUHSD",
+   "name": "Hammersmith (Dist&Picc Line)",
+   "fullName": "Hammersmith (Dist&Picc Line) Underground Station",
+   "zone": "2",
+   "lat": 51.4923,
+   "lon": -0.22362,
+   "lines": [
+    "district",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUHSC",
+   "name": "Hammersmith (H&C Line)",
+   "fullName": "Hammersmith (H&C Line) Underground Station",
+   "zone": "2",
+   "lat": 51.49339,
+   "lon": -0.22503,
+   "lines": [
+    "circle",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "940GZZLUHTD",
+   "name": "Hampstead",
+   "fullName": "Hampstead Underground Station",
+   "zone": "2+3",
+   "lat": 51.55624,
+   "lon": -0.17746,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "910GHMPSTDH",
+   "name": "Hampstead Heath",
+   "fullName": "Hampstead Heath Rail Station",
+   "zone": "2",
+   "lat": 51.55521,
+   "lon": -0.1657,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZLUHGR",
+   "name": "Hanger Lane",
+   "fullName": "Hanger Lane Underground Station",
+   "zone": "3",
+   "lat": 51.53018,
+   "lon": -0.2927,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GHANWELL",
+   "name": "Hanwell",
+   "fullName": "Hanwell Rail Station",
+   "zone": "4",
+   "lat": 51.51183,
+   "lon": -0.33858,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUHSN",
+   "name": "Harlesden",
+   "fullName": "Harlesden Underground Station",
+   "zone": "3",
+   "lat": 51.53631,
+   "lon": -0.25788,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "910GHARLSDN",
+   "name": "Harlesden",
+   "fullName": "Harlesden Rail Station",
+   "zone": "3",
+   "lat": 51.53629,
+   "lon": -0.25767,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "910GHRLDWOD",
+   "name": "Harold Wood",
+   "fullName": "Harold Wood Rail Station",
+   "zone": "6",
+   "lat": 51.59277,
+   "lon": 0.23313,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "910GHRGYGL",
+   "name": "Harringay Green Lanes",
+   "fullName": "Harringay Green Lanes Rail Station",
+   "zone": "3",
+   "lat": 51.57718,
+   "lon": -0.09814,
+   "lines": [
+    "suffragette"
+   ]
+  },
+  {
+   "id": "940GZZLUHAW",
+   "name": "Harrow & Wealdstone",
+   "fullName": "Harrow & Wealdstone Underground Station",
+   "zone": "5",
+   "lat": 51.59227,
+   "lon": -0.33522,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "910GHROW",
+   "name": "Harrow & Wealdstone",
+   "fullName": "Harrow & Wealdstone Rail Station",
+   "zone": "5",
+   "lat": 51.59217,
+   "lon": -0.33457,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "940GZZLUHOH",
+   "name": "Harrow-on-the-Hill",
+   "fullName": "Harrow-on-the-Hill Underground Station",
+   "zone": "5",
+   "lat": 51.57919,
+   "lon": -0.33722,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "910GHTCHEND",
+   "name": "Hatch End",
+   "fullName": "Hatch End Rail Station",
+   "zone": "6",
+   "lat": 51.60942,
+   "lon": -0.3686,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "940GZZLUHNX",
+   "name": "Hatton Cross",
+   "fullName": "Hatton Cross Underground Station",
+   "zone": "5+6",
+   "lat": 51.46675,
+   "lon": -0.42319,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "910GHAYESAH",
+   "name": "Hayes & Harlington",
+   "fullName": "Hayes & Harlington Rail Station",
+   "zone": "5",
+   "lat": 51.5031,
+   "lon": -0.42068,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "910GHEDSTNL",
+   "name": "Headstone Lane",
+   "fullName": "Headstone Lane Rail Station",
+   "zone": "5",
+   "lat": 51.60265,
+   "lon": -0.35722,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "910GHTRWTM4",
+   "name": "Heathrow Terminal 4",
+   "fullName": "Heathrow Terminal 4 Rail Station",
+   "zone": "6",
+   "lat": 51.45827,
+   "lon": -0.44546,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUHR4",
+   "name": "Heathrow Terminal 4",
+   "fullName": "Heathrow Terminal 4 Underground Station",
+   "zone": "6",
+   "lat": 51.45852,
+   "lon": -0.44577,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "910GHTRWTM5",
+   "name": "Heathrow Terminal 5",
+   "fullName": "Heathrow Terminal 5 Rail Station",
+   "zone": "6",
+   "lat": 51.47005,
+   "lon": -0.49059,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUHR5",
+   "name": "Heathrow Terminal 5",
+   "fullName": "Heathrow Terminal 5 Underground Station",
+   "zone": "6",
+   "lat": 51.47005,
+   "lon": -0.49056,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "910GHTRWAPT",
+   "name": "Heathrow Terminals 2 & 3",
+   "fullName": "Heathrow Terminals 2 & 3 Rail Station",
+   "zone": "6",
+   "lat": 51.47199,
+   "lon": -0.45479,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUHRC",
+   "name": "Heathrow Terminals 2 & 3",
+   "fullName": "Heathrow Terminals 2 & 3 Underground Station",
+   "zone": "6",
+   "lat": 51.47124,
+   "lon": -0.45226,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUHCL",
+   "name": "Hendon Central",
+   "fullName": "Hendon Central Underground Station",
+   "zone": "3+4",
+   "lat": 51.5833,
+   "lon": -0.22642,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZDLHEQ",
+   "name": "Heron Quays",
+   "fullName": "Heron Quays DLR Station",
+   "zone": "2",
+   "lat": 51.50338,
+   "lon": -0.02142,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUHBT",
+   "name": "High Barnet",
+   "fullName": "High Barnet Underground Station",
+   "zone": "5",
+   "lat": 51.65054,
+   "lon": -0.1943,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUHSK",
+   "name": "High Street Kensington",
+   "fullName": "High Street Kensington Underground Station",
+   "zone": "1",
+   "lat": 51.50106,
+   "lon": -0.19279,
+   "lines": [
+    "circle",
+    "district"
+   ]
+  },
+  {
+   "id": "910GHGHMSPK",
+   "name": "Highams Park",
+   "fullName": "Highams Park Rail Station",
+   "zone": "4",
+   "lat": 51.60835,
+   "lon": -0.00022,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "910GHGHI",
+   "name": "Highbury & Islington",
+   "fullName": "Highbury & Islington Rail Station",
+   "zone": "2",
+   "lat": 51.54618,
+   "lon": -0.10376,
+   "lines": [
+    "mildmay",
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUHAI",
+   "name": "Highbury & Islington",
+   "fullName": "Highbury & Islington Underground Station",
+   "zone": "2",
+   "lat": 51.54635,
+   "lon": -0.10332,
+   "lines": [
+    "victoria"
+   ]
+  },
+  {
+   "id": "940GZZLUHGT",
+   "name": "Highgate",
+   "fullName": "Highgate Underground Station",
+   "zone": "3",
+   "lat": 51.57753,
+   "lon": -0.14586,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUHGD",
+   "name": "Hillingdon",
+   "fullName": "Hillingdon Underground Station",
+   "zone": "6",
+   "lat": 51.55371,
+   "lon": -0.44983,
+   "lines": [
+    "metropolitan",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUHBN",
+   "name": "Holborn",
+   "fullName": "Holborn Underground Station",
+   "zone": "1",
+   "lat": 51.51758,
+   "lon": -0.12047,
+   "lines": [
+    "central",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUHPK",
+   "name": "Holland Park",
+   "fullName": "Holland Park Underground Station",
+   "zone": "2",
+   "lat": 51.50714,
+   "lon": -0.20568,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUHWY",
+   "name": "Holloway Road",
+   "fullName": "Holloway Road Underground Station",
+   "zone": "2",
+   "lat": 51.5527,
+   "lon": -0.11324,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "910GHOMRTON",
+   "name": "Homerton",
+   "fullName": "Homerton Rail Station",
+   "zone": "2",
+   "lat": 51.54701,
+   "lon": -0.04236,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "910GHONROPK",
+   "name": "Honor Oak Park",
+   "fullName": "Honor Oak Park Rail Station",
+   "zone": "3",
+   "lat": 51.44999,
+   "lon": -0.0455,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUHCH",
+   "name": "Hornchurch",
+   "fullName": "Hornchurch Underground Station",
+   "zone": "6",
+   "lat": 51.55409,
+   "lon": 0.21912,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUHWC",
+   "name": "Hounslow Central",
+   "fullName": "Hounslow Central Underground Station",
+   "zone": "4",
+   "lat": 51.47129,
+   "lon": -0.36658,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUHWE",
+   "name": "Hounslow East",
+   "fullName": "Hounslow East Underground Station",
+   "zone": "4",
+   "lat": 51.47321,
+   "lon": -0.35647,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUHWT",
+   "name": "Hounslow West",
+   "fullName": "Hounslow West Underground Station",
+   "zone": "5",
+   "lat": 51.47347,
+   "lon": -0.38654,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "910GHOXTON",
+   "name": "Hoxton",
+   "fullName": "Hoxton Rail Station",
+   "zone": "1+2",
+   "lat": 51.53151,
+   "lon": -0.07568,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUHPC",
+   "name": "Hyde Park Corner",
+   "fullName": "Hyde Park Corner Underground Station",
+   "zone": "1",
+   "lat": 51.50303,
+   "lon": -0.15244,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUICK",
+   "name": "Ickenham",
+   "fullName": "Ickenham Underground Station",
+   "zone": "6",
+   "lat": 51.56199,
+   "lon": -0.442,
+   "lines": [
+    "metropolitan",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "910GILFORD",
+   "name": "Ilford",
+   "fullName": "Ilford Rail Station",
+   "zone": "4",
+   "lat": 51.55912,
+   "lon": 0.06968,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "910GCSEAH",
+   "name": "Imperial Wharf",
+   "fullName": "Imperial Wharf Rail Station",
+   "zone": "2",
+   "lat": 51.47495,
+   "lon": -0.18282,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZDLISL",
+   "name": "Island Gardens",
+   "fullName": "Island Gardens DLR Station",
+   "zone": "2",
+   "lat": 51.48781,
+   "lon": -0.01014,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "910GIVER",
+   "name": "Iver",
+   "fullName": "Iver Rail Station",
+   "zone": null,
+   "lat": 51.5085,
+   "lon": -0.50673,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUKNG",
+   "name": "Kennington",
+   "fullName": "Kennington Underground Station",
+   "zone": "1+2",
+   "lat": 51.48834,
+   "lon": -0.10596,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUKSL",
+   "name": "Kensal Green",
+   "fullName": "Kensal Green Underground Station",
+   "zone": "2",
+   "lat": 51.53054,
+   "lon": -0.22502,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "910GKENSLG",
+   "name": "Kensal Green",
+   "fullName": "Kensal Green Rail Station",
+   "zone": "2",
+   "lat": 51.53054,
+   "lon": -0.22509,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "910GKENR",
+   "name": "Kensal Rise",
+   "fullName": "Kensal Rise Rail Station",
+   "zone": "2",
+   "lat": 51.53455,
+   "lon": -0.21996,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZLUKOY",
+   "name": "Kensington (Olympia)",
+   "fullName": "Kensington (Olympia) Underground Station",
+   "zone": "2",
+   "lat": 51.49762,
+   "lon": -0.21002,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "910GKENOLYM",
+   "name": "Kensington (Olympia)",
+   "fullName": "Kensington (Olympia) Rail Station",
+   "zone": "2",
+   "lat": 51.4979,
+   "lon": -0.21036,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZLUKSH",
+   "name": "Kentish Town",
+   "fullName": "Kentish Town Underground Station",
+   "zone": "2",
+   "lat": 51.55031,
+   "lon": -0.14073,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "910GKNTSHTW",
+   "name": "Kentish Town West",
+   "fullName": "Kentish Town West Rail Station",
+   "zone": "2",
+   "lat": 51.54655,
+   "lon": -0.14666,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZLUKEN",
+   "name": "Kenton",
+   "fullName": "Kenton Underground Station",
+   "zone": "4",
+   "lat": 51.58176,
+   "lon": -0.31691,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "910GKTON",
+   "name": "Kenton",
+   "fullName": "Kenton Rail Station",
+   "zone": "4",
+   "lat": 51.5818,
+   "lon": -0.31698,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "940GZZLUKWG",
+   "name": "Kew Gardens",
+   "fullName": "Kew Gardens Underground Station",
+   "zone": "3+4",
+   "lat": 51.47706,
+   "lon": -0.28524,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "910GKEWGRDN",
+   "name": "Kew Gardens",
+   "fullName": "Kew Gardens Rail Station",
+   "zone": "3+4",
+   "lat": 51.47707,
+   "lon": -0.28505,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZLUKBN",
+   "name": "Kilburn",
+   "fullName": "Kilburn Underground Station",
+   "zone": "2",
+   "lat": 51.54718,
+   "lon": -0.20425,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "910GKLBRNHR",
+   "name": "Kilburn High Road",
+   "fullName": "Kilburn High Road Rail Station",
+   "zone": "2",
+   "lat": 51.53728,
+   "lon": -0.19224,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "940GZZLUKPK",
+   "name": "Kilburn Park",
+   "fullName": "Kilburn Park Underground Station",
+   "zone": "2",
+   "lat": 51.53498,
+   "lon": -0.19423,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "940GZZDLKGV",
+   "name": "King George V",
+   "fullName": "King George V DLR Station",
+   "zone": "3",
+   "lat": 51.502,
+   "lon": 0.06262,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUKSX",
+   "name": "King's Cross St. Pancras",
+   "fullName": "King's Cross St. Pancras Underground Station",
+   "zone": "1",
+   "lat": 51.53066,
+   "lon": -0.12319,
+   "lines": [
+    "circle",
+    "hammersmith-city",
+    "metropolitan",
+    "northern",
+    "piccadilly",
+    "victoria"
+   ]
+  },
+  {
+   "id": "940GZZLUKBY",
+   "name": "Kingsbury",
+   "fullName": "Kingsbury Underground Station",
+   "zone": "4",
+   "lat": 51.58485,
+   "lon": -0.27879,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "940GZZLUKNB",
+   "name": "Knightsbridge",
+   "fullName": "Knightsbridge Underground Station",
+   "zone": "1",
+   "lat": 51.50167,
+   "lon": -0.16051,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLULAD",
+   "name": "Ladbroke Grove",
+   "fullName": "Ladbroke Grove Underground Station",
+   "zone": "2",
+   "lat": 51.51745,
+   "lon": -0.21039,
+   "lines": [
+    "circle",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "940GZZLULBN",
+   "name": "Lambeth North",
+   "fullName": "Lambeth North Underground Station",
+   "zone": "1",
+   "lat": 51.49881,
+   "lon": -0.11231,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "940GZZLULGT",
+   "name": "Lancaster Gate",
+   "fullName": "Lancaster Gate Underground Station",
+   "zone": "1",
+   "lat": 51.51172,
+   "lon": -0.17549,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZDLLDP",
+   "name": "Langdon Park",
+   "fullName": "Langdon Park DLR Station",
+   "zone": "2",
+   "lat": 51.51517,
+   "lon": -0.01415,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "910GLANGLEY",
+   "name": "Langley (Berks)",
+   "fullName": "Langley (Berks) Rail Station",
+   "zone": null,
+   "lat": 51.50806,
+   "lon": -0.54176,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLULRD",
+   "name": "Latimer Road",
+   "fullName": "Latimer Road Underground Station",
+   "zone": "2",
+   "lat": 51.51339,
+   "lon": -0.2178,
+   "lines": [
+    "circle",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "940GZZLULSQ",
+   "name": "Leicester Square",
+   "fullName": "Leicester Square Underground Station",
+   "zone": "1",
+   "lat": 51.51139,
+   "lon": -0.12843,
+   "lines": [
+    "northern",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZDLLEW",
+   "name": "Lewisham",
+   "fullName": "Lewisham DLR Station",
+   "zone": "2+3",
+   "lat": 51.46466,
+   "lon": -0.01287,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLULYN",
+   "name": "Leyton",
+   "fullName": "Leyton Underground Station",
+   "zone": "3",
+   "lat": 51.55659,
+   "lon": -0.00552,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GLEYTNMR",
+   "name": "Leyton Midland Road",
+   "fullName": "Leyton Midland Road Rail Station",
+   "zone": "3",
+   "lat": 51.56972,
+   "lon": -0.00805,
+   "lines": [
+    "suffragette"
+   ]
+  },
+  {
+   "id": "940GZZLULYS",
+   "name": "Leytonstone",
+   "fullName": "Leytonstone Underground Station",
+   "zone": "3+4",
+   "lat": 51.56832,
+   "lon": 0.00819,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GLYTNSHR",
+   "name": "Leytonstone High Road",
+   "fullName": "Leytonstone High Road Rail Station",
+   "zone": "3",
+   "lat": 51.56355,
+   "lon": 0.00842,
+   "lines": [
+    "suffragette"
+   ]
+  },
+  {
+   "id": "940GZZDLLIM",
+   "name": "Limehouse",
+   "fullName": "Limehouse DLR Station",
+   "zone": "2",
+   "lat": 51.51239,
+   "lon": -0.03981,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLULVT",
+   "name": "Liverpool Street",
+   "fullName": "Liverpool Street Underground Station",
+   "zone": "1",
+   "lat": 51.51737,
+   "lon": -0.08318,
+   "lines": [
+    "central",
+    "circle",
+    "hammersmith-city",
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "910GLIVSTLL",
+   "name": "Liverpool Street",
+   "fullName": "Liverpool Street",
+   "zone": "1",
+   "lat": 51.51838,
+   "lon": -0.08109,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLULNB",
+   "name": "London Bridge",
+   "fullName": "London Bridge Underground Station",
+   "zone": "1",
+   "lat": 51.50572,
+   "lon": -0.08887,
+   "lines": [
+    "jubilee",
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZDLLCA",
+   "name": "London City Airport",
+   "fullName": "London City Airport DLR Station",
+   "zone": "3",
+   "lat": 51.50342,
+   "lon": 0.04874,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "910GEUSTON",
+   "name": "London Euston",
+   "fullName": "London Euston Rail Station",
+   "zone": "1",
+   "lat": 51.52814,
+   "lon": -0.13392,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "910GLONFLDS",
+   "name": "London Fields",
+   "fullName": "London Fields Rail Station",
+   "zone": "2",
+   "lat": 51.54115,
+   "lon": -0.05775,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "910GLIVST",
+   "name": "London Liverpool Street",
+   "fullName": "London Liverpool Street Rail Station",
+   "zone": "1",
+   "lat": 51.51799,
+   "lon": -0.08143,
+   "lines": [
+    "elizabeth",
+    "weaver"
+   ]
+  },
+  {
+   "id": "910GPADTON",
+   "name": "London Paddington",
+   "fullName": "London Paddington Rail Station",
+   "zone": "1",
+   "lat": 51.516,
+   "lon": -0.17617,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLULGN",
+   "name": "Loughton",
+   "fullName": "Loughton Underground Station",
+   "zone": "6",
+   "lat": 51.64144,
+   "lon": 0.05548,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUMVL",
+   "name": "Maida Vale",
+   "fullName": "Maida Vale Underground Station",
+   "zone": "2",
+   "lat": 51.52978,
+   "lon": -0.18576,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "910GMDNHEAD",
+   "name": "Maidenhead",
+   "fullName": "Maidenhead Rail Station",
+   "zone": null,
+   "lat": 51.51867,
+   "lon": -0.72266,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUMRH",
+   "name": "Manor House",
+   "fullName": "Manor House Underground Station",
+   "zone": "2+3",
+   "lat": 51.57074,
+   "lon": -0.09612,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "910GMANRPK",
+   "name": "Manor Park",
+   "fullName": "Manor Park Rail Station",
+   "zone": "3+4",
+   "lat": 51.55248,
+   "lon": 0.04634,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUMSH",
+   "name": "Mansion House",
+   "fullName": "Mansion House Underground Station",
+   "zone": "1",
+   "lat": 51.51212,
+   "lon": -0.09401,
+   "lines": [
+    "circle",
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUMBA",
+   "name": "Marble Arch",
+   "fullName": "Marble Arch Underground Station",
+   "zone": "1",
+   "lat": 51.51342,
+   "lon": -0.15895,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GMRYLAND",
+   "name": "Maryland",
+   "fullName": "Maryland Rail Station",
+   "zone": "3",
+   "lat": 51.54608,
+   "lon": 0.00581,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUMYB",
+   "name": "Marylebone",
+   "fullName": "Marylebone Underground Station",
+   "zone": "1",
+   "lat": 51.52232,
+   "lon": -0.16321,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "940GZZLUMED",
+   "name": "Mile End",
+   "fullName": "Mile End Underground Station",
+   "zone": "2",
+   "lat": 51.52512,
+   "lon": -0.03364,
+   "lines": [
+    "central",
+    "district",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "940GZZLUMHL",
+   "name": "Mill Hill East",
+   "fullName": "Mill Hill East Underground Station",
+   "zone": "4",
+   "lat": 51.60823,
+   "lon": -0.20999,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUMMT",
+   "name": "Monument",
+   "fullName": "Monument Underground Station",
+   "zone": "1",
+   "lat": 51.5107,
+   "lon": -0.08597,
+   "lines": [
+    "circle",
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUMPK",
+   "name": "Moor Park",
+   "fullName": "Moor Park Underground Station",
+   "zone": "6+7",
+   "lat": 51.62985,
+   "lon": -0.43245,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLUMGT",
+   "name": "Moorgate",
+   "fullName": "Moorgate Underground Station",
+   "zone": "1",
+   "lat": 51.51818,
+   "lon": -0.08832,
+   "lines": [
+    "circle",
+    "hammersmith-city",
+    "metropolitan",
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUMDN",
+   "name": "Morden",
+   "fullName": "Morden Underground Station",
+   "zone": "4",
+   "lat": 51.40214,
+   "lon": -0.19484,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUMTC",
+   "name": "Mornington Crescent",
+   "fullName": "Mornington Crescent Underground Station",
+   "zone": "2",
+   "lat": 51.53468,
+   "lon": -0.13879,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZDLMUD",
+   "name": "Mudchute",
+   "fullName": "Mudchute DLR Station",
+   "zone": "2",
+   "lat": 51.4907,
+   "lon": -0.01474,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUNDN",
+   "name": "Neasden",
+   "fullName": "Neasden Underground Station",
+   "zone": "3",
+   "lat": 51.55399,
+   "lon": -0.24984,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "910GNWCRELL",
+   "name": "New Cross ELL",
+   "fullName": "New Cross ELL Rail Station",
+   "zone": "2",
+   "lat": 51.47634,
+   "lon": -0.03244,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "910GNEWXGTE",
+   "name": "New Cross Gate",
+   "fullName": "New Cross Gate Rail Station",
+   "zone": "2",
+   "lat": 51.47513,
+   "lon": -0.0404,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUNBP",
+   "name": "Newbury Park",
+   "fullName": "Newbury Park Underground Station",
+   "zone": "4",
+   "lat": 51.57573,
+   "lon": 0.09,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZNEUGST",
+   "name": "Nine Elms",
+   "fullName": "Nine Elms Underground Station",
+   "zone": "1",
+   "lat": 51.47991,
+   "lon": -0.12848,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUNAN",
+   "name": "North Acton",
+   "fullName": "North Acton Underground Station",
+   "zone": "2+3",
+   "lat": 51.52352,
+   "lon": -0.25976,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUNEN",
+   "name": "North Ealing",
+   "fullName": "North Ealing Underground Station",
+   "zone": "3",
+   "lat": 51.5175,
+   "lon": -0.28887,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUNGW",
+   "name": "North Greenwich",
+   "fullName": "North Greenwich Underground Station",
+   "zone": "2/3",
+   "lat": 51.50047,
+   "lon": 0.00429,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "940GZZLUNHA",
+   "name": "North Harrow",
+   "fullName": "North Harrow Underground Station",
+   "zone": "5",
+   "lat": 51.58487,
+   "lon": -0.36241,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLUNWY",
+   "name": "North Wembley",
+   "fullName": "North Wembley Underground Station",
+   "zone": "4",
+   "lat": 51.56255,
+   "lon": -0.304,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "910GNWEMBLY",
+   "name": "North Wembley",
+   "fullName": "North Wembley Rail Station",
+   "zone": "4",
+   "lat": 51.5626,
+   "lon": -0.30398,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "940GZZLUNFD",
+   "name": "Northfields",
+   "fullName": "Northfields Underground Station",
+   "zone": "3",
+   "lat": 51.49932,
+   "lon": -0.31472,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUNHT",
+   "name": "Northolt",
+   "fullName": "Northolt Underground Station",
+   "zone": "5",
+   "lat": 51.54824,
+   "lon": -0.3687,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUNKP",
+   "name": "Northwick Park",
+   "fullName": "Northwick Park Underground Station",
+   "zone": "4",
+   "lat": 51.57848,
+   "lon": -0.31806,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLUNOW",
+   "name": "Northwood",
+   "fullName": "Northwood Underground Station",
+   "zone": "6",
+   "lat": 51.61105,
+   "lon": -0.42383,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLUNWH",
+   "name": "Northwood Hills",
+   "fullName": "Northwood Hills Underground Station",
+   "zone": "6",
+   "lat": 51.60057,
+   "lon": -0.40946,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "910GNORWDJ",
+   "name": "Norwood Junction",
+   "fullName": "Norwood Junction Rail Station",
+   "zone": "4",
+   "lat": 51.39702,
+   "lon": -0.07522,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUNHG",
+   "name": "Notting Hill Gate",
+   "fullName": "Notting Hill Gate Underground Station",
+   "zone": "1+2",
+   "lat": 51.50913,
+   "lon": -0.1961,
+   "lines": [
+    "central",
+    "circle",
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUOAK",
+   "name": "Oakwood",
+   "fullName": "Oakwood Underground Station",
+   "zone": "5",
+   "lat": 51.64773,
+   "lon": -0.13218,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUODS",
+   "name": "Old Street",
+   "fullName": "Old Street Underground Station",
+   "zone": "1",
+   "lat": 51.52586,
+   "lon": -0.08777,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUOSY",
+   "name": "Osterley",
+   "fullName": "Osterley Underground Station",
+   "zone": "4",
+   "lat": 51.48127,
+   "lon": -0.35222,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUOVL",
+   "name": "Oval",
+   "fullName": "Oval Underground Station",
+   "zone": "2",
+   "lat": 51.48185,
+   "lon": -0.11244,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUOXC",
+   "name": "Oxford Circus",
+   "fullName": "Oxford Circus Underground Station",
+   "zone": "1",
+   "lat": 51.51522,
+   "lon": -0.1419,
+   "lines": [
+    "bakerloo",
+    "central",
+    "victoria"
+   ]
+  },
+  {
+   "id": "940GZZLUPAC",
+   "name": "Paddington",
+   "fullName": "Paddington Underground Station",
+   "zone": "1",
+   "lat": 51.51658,
+   "lon": -0.17569,
+   "lines": [
+    "bakerloo",
+    "circle",
+    "district"
+   ]
+  },
+  {
+   "id": "910GPADTLL",
+   "name": "Paddington",
+   "fullName": "Paddington",
+   "zone": "1",
+   "lat": 51.51645,
+   "lon": -0.17711,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUPAH",
+   "name": "Paddington (H&C Line)-Underground",
+   "fullName": "Paddington (H&C Line)-Underground",
+   "zone": "1",
+   "lat": 51.51819,
+   "lon": -0.17831,
+   "lines": [
+    "circle",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "940GZZLUPKR",
+   "name": "Park Royal",
+   "fullName": "Park Royal Underground Station",
+   "zone": "3",
+   "lat": 51.52712,
+   "lon": -0.28434,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUPSG",
+   "name": "Parsons Green",
+   "fullName": "Parsons Green Underground Station",
+   "zone": "2",
+   "lat": 51.47528,
+   "lon": -0.20117,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "910GPCKHMRY",
+   "name": "Peckham Rye",
+   "fullName": "Peckham Rye Rail Station",
+   "zone": "2",
+   "lat": 51.47003,
+   "lon": -0.06941,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "910GPENEW",
+   "name": "Penge West",
+   "fullName": "Penge West Rail Station",
+   "zone": "4",
+   "lat": 51.41756,
+   "lon": -0.06084,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUPVL",
+   "name": "Perivale",
+   "fullName": "Perivale Underground Station",
+   "zone": "4",
+   "lat": 51.53672,
+   "lon": -0.32345,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUPCC",
+   "name": "Piccadilly Circus",
+   "fullName": "Piccadilly Circus Underground Station",
+   "zone": "1",
+   "lat": 51.51005,
+   "lon": -0.1338,
+   "lines": [
+    "bakerloo",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUPCO",
+   "name": "Pimlico",
+   "fullName": "Pimlico Underground Station",
+   "zone": "1",
+   "lat": 51.4891,
+   "lon": -0.13376,
+   "lines": [
+    "victoria"
+   ]
+  },
+  {
+   "id": "940GZZLUPNR",
+   "name": "Pinner",
+   "fullName": "Pinner Underground Station",
+   "zone": "5",
+   "lat": 51.5929,
+   "lon": -0.38116,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLUPLW",
+   "name": "Plaistow",
+   "fullName": "Plaistow Underground Station",
+   "zone": "3",
+   "lat": 51.53134,
+   "lon": 0.01745,
+   "lines": [
+    "district",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "940GZZDLPDK",
+   "name": "Pontoon Dock",
+   "fullName": "Pontoon Dock DLR Station",
+   "zone": "3",
+   "lat": 51.50221,
+   "lon": 0.03211,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZDLPOP",
+   "name": "Poplar",
+   "fullName": "Poplar DLR Station",
+   "zone": "2",
+   "lat": 51.50774,
+   "lon": -0.01738,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUPRD",
+   "name": "Preston Road",
+   "fullName": "Preston Road Underground Station",
+   "zone": "4",
+   "lat": 51.57197,
+   "lon": -0.29511,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZDLPRE",
+   "name": "Prince Regent",
+   "fullName": "Prince Regent DLR Station",
+   "zone": "3",
+   "lat": 51.50926,
+   "lon": 0.03416,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZDLPUD",
+   "name": "Pudding Mill Lane",
+   "fullName": "Pudding Mill Lane DLR Station",
+   "zone": "2/3",
+   "lat": 51.5343,
+   "lon": -0.01276,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUPYB",
+   "name": "Putney Bridge",
+   "fullName": "Putney Bridge Underground Station",
+   "zone": "2",
+   "lat": 51.46826,
+   "lon": -0.20873,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUQPS",
+   "name": "Queen's Park",
+   "fullName": "Queen's Park Underground Station",
+   "zone": "2",
+   "lat": 51.53416,
+   "lon": -0.20457,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "910GQPRK",
+   "name": "Queens Park (London)",
+   "fullName": "Queens Park (London) Rail Station",
+   "zone": "2",
+   "lat": 51.53397,
+   "lon": -0.20499,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "910GPCKHMQD",
+   "name": "Queens Road Peckham",
+   "fullName": "Queens Road Peckham Rail Station",
+   "zone": "2",
+   "lat": 51.47357,
+   "lon": -0.05731,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUQBY",
+   "name": "Queensbury",
+   "fullName": "Queensbury Underground Station",
+   "zone": "4",
+   "lat": 51.59419,
+   "lon": -0.28622,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "940GZZLUQWY",
+   "name": "Queensway",
+   "fullName": "Queensway Underground Station",
+   "zone": "1",
+   "lat": 51.51031,
+   "lon": -0.18715,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLURVP",
+   "name": "Ravenscourt Park",
+   "fullName": "Ravenscourt Park Underground Station",
+   "zone": "2",
+   "lat": 51.49412,
+   "lon": -0.23588,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLURYL",
+   "name": "Rayners Lane",
+   "fullName": "Rayners Lane Underground Station",
+   "zone": "5",
+   "lat": 51.57515,
+   "lon": -0.37113,
+   "lines": [
+    "metropolitan",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "910GRDNGSTN",
+   "name": "Reading",
+   "fullName": "Reading Rail Station",
+   "zone": null,
+   "lat": 51.45879,
+   "lon": -0.97186,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "910GRCTRYRD",
+   "name": "Rectory Road",
+   "fullName": "Rectory Road Rail Station",
+   "zone": "2",
+   "lat": 51.5585,
+   "lon": -0.06827,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLURBG",
+   "name": "Redbridge",
+   "fullName": "Redbridge Underground Station",
+   "zone": "4",
+   "lat": 51.57624,
+   "lon": 0.04536,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLURGP",
+   "name": "Regent's Park",
+   "fullName": "Regent's Park Underground Station",
+   "zone": "1",
+   "lat": 51.52334,
+   "lon": -0.14644,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "940GZZLURMD",
+   "name": "Richmond",
+   "fullName": "Richmond Underground Station",
+   "zone": "4",
+   "lat": 51.46324,
+   "lon": -0.30134,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "910GRICHMND",
+   "name": "Richmond (London)",
+   "fullName": "Richmond (London) Rail Station",
+   "zone": "4",
+   "lat": 51.46306,
+   "lon": -0.30156,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZLURKW",
+   "name": "Rickmansworth",
+   "fullName": "Rickmansworth Underground Station",
+   "zone": "7",
+   "lat": 51.64021,
+   "lon": -0.4737,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLURVY",
+   "name": "Roding Valley",
+   "fullName": "Roding Valley Underground Station",
+   "zone": "4",
+   "lat": 51.6172,
+   "lon": 0.04365,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GROMFORD",
+   "name": "Romford",
+   "fullName": "Romford Rail Station",
+   "zone": "6",
+   "lat": 51.57483,
+   "lon": 0.18324,
+   "lines": [
+    "elizabeth",
+    "liberty"
+   ]
+  },
+  {
+   "id": "910GRTHERHI",
+   "name": "Rotherhithe",
+   "fullName": "Rotherhithe Rail Station",
+   "zone": "2",
+   "lat": 51.50082,
+   "lon": -0.05205,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZDLRAL",
+   "name": "Royal Albert",
+   "fullName": "Royal Albert DLR Station",
+   "zone": "3",
+   "lat": 51.50836,
+   "lon": 0.04593,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLURYO",
+   "name": "Royal Oak",
+   "fullName": "Royal Oak Underground Station",
+   "zone": "2",
+   "lat": 51.51911,
+   "lon": -0.18875,
+   "lines": [
+    "circle",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "940GZZDLRVC",
+   "name": "Royal Victoria",
+   "fullName": "Royal Victoria DLR Station",
+   "zone": "3",
+   "lat": 51.50934,
+   "lon": 0.0185,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLURSP",
+   "name": "Ruislip",
+   "fullName": "Ruislip Underground Station",
+   "zone": "6",
+   "lat": 51.57135,
+   "lon": -0.4219,
+   "lines": [
+    "metropolitan",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLURSG",
+   "name": "Ruislip Gardens",
+   "fullName": "Ruislip Gardens Underground Station",
+   "zone": "5",
+   "lat": 51.56074,
+   "lon": -0.41071,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLURSM",
+   "name": "Ruislip Manor",
+   "fullName": "Ruislip Manor Underground Station",
+   "zone": "6",
+   "lat": 51.5732,
+   "lon": -0.41297,
+   "lines": [
+    "metropolitan",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLURSQ",
+   "name": "Russell Square",
+   "fullName": "Russell Square Underground Station",
+   "zone": "1",
+   "lat": 51.52307,
+   "lon": -0.12429,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "910GSVNKNGS",
+   "name": "Seven Kings",
+   "fullName": "Seven Kings Rail Station",
+   "zone": "4",
+   "lat": 51.56403,
+   "lon": 0.0971,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUSVS",
+   "name": "Seven Sisters",
+   "fullName": "Seven Sisters Underground Station",
+   "zone": "3",
+   "lat": 51.58333,
+   "lon": -0.07258,
+   "lines": [
+    "victoria"
+   ]
+  },
+  {
+   "id": "910GSEVNSIS",
+   "name": "Seven Sisters",
+   "fullName": "Seven Sisters Rail Station",
+   "zone": "3",
+   "lat": 51.58227,
+   "lon": -0.07527,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZDLSHA",
+   "name": "Shadwell",
+   "fullName": "Shadwell DLR Station",
+   "zone": "2",
+   "lat": 51.51169,
+   "lon": -0.05664,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "910GSHADWEL",
+   "name": "Shadwell",
+   "fullName": "Shadwell Rail Station",
+   "zone": "2",
+   "lat": 51.51128,
+   "lon": -0.05693,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "910GSHENFLD",
+   "name": "Shenfield",
+   "fullName": "Shenfield Rail Station",
+   "zone": null,
+   "lat": 51.63088,
+   "lon": 0.32985,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUSBC",
+   "name": "Shepherd's Bush (Central)",
+   "fullName": "Shepherd's Bush (Central) Underground Station",
+   "zone": "2",
+   "lat": 51.50438,
+   "lon": -0.21881,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUSBM",
+   "name": "Shepherd's Bush Market",
+   "fullName": "Shepherd's Bush Market Underground Station",
+   "zone": "2",
+   "lat": 51.50558,
+   "lon": -0.22637,
+   "lines": [
+    "circle",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "910GSHPDSB",
+   "name": "Shepherds Bush",
+   "fullName": "Shepherds Bush Rail Station",
+   "zone": "2",
+   "lat": 51.50529,
+   "lon": -0.21765,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "910GSHRDHST",
+   "name": "Shoreditch High Street",
+   "fullName": "Shoreditch High Street Rail Station",
+   "zone": "1",
+   "lat": 51.52338,
+   "lon": -0.07525,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "910GSIVRST",
+   "name": "Silver Street",
+   "fullName": "Silver Street Rail Station",
+   "zone": "4",
+   "lat": 51.61469,
+   "lon": -0.06724,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUSSQ",
+   "name": "Sloane Square",
+   "fullName": "Sloane Square Underground Station",
+   "zone": "1",
+   "lat": 51.49227,
+   "lon": -0.15638,
+   "lines": [
+    "circle",
+    "district"
+   ]
+  },
+  {
+   "id": "910GSLOUGH",
+   "name": "Slough",
+   "fullName": "Slough Rail Station",
+   "zone": null,
+   "lat": 51.51188,
+   "lon": -0.59151,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUSNB",
+   "name": "Snaresbrook",
+   "fullName": "Snaresbrook Underground Station",
+   "zone": "4",
+   "lat": 51.58068,
+   "lon": 0.02144,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GSACTON",
+   "name": "South Acton",
+   "fullName": "South Acton Rail Station",
+   "zone": "3",
+   "lat": 51.4997,
+   "lon": -0.27016,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZLUSEA",
+   "name": "South Ealing",
+   "fullName": "South Ealing Underground Station",
+   "zone": "3",
+   "lat": 51.501,
+   "lon": -0.30742,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "910GSHMPSTD",
+   "name": "South Hampstead",
+   "fullName": "South Hampstead Rail Station",
+   "zone": "2",
+   "lat": 51.54143,
+   "lon": -0.17888,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "940GZZLUSHH",
+   "name": "South Harrow",
+   "fullName": "South Harrow Underground Station",
+   "zone": "5",
+   "lat": 51.56489,
+   "lon": -0.35249,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUSKS",
+   "name": "South Kensington",
+   "fullName": "South Kensington Underground Station",
+   "zone": "1",
+   "lat": 51.49409,
+   "lon": -0.17414,
+   "lines": [
+    "circle",
+    "district",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUSKT",
+   "name": "South Kenton",
+   "fullName": "South Kenton Underground Station",
+   "zone": "4",
+   "lat": 51.57023,
+   "lon": -0.30843,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "910GSKENTON",
+   "name": "South Kenton",
+   "fullName": "South Kenton Rail Station",
+   "zone": "4",
+   "lat": 51.57021,
+   "lon": -0.30846,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "940GZZDLSOQ",
+   "name": "South Quay",
+   "fullName": "South Quay DLR Station",
+   "zone": "2",
+   "lat": 51.50005,
+   "lon": -0.01597,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUSRP",
+   "name": "South Ruislip",
+   "fullName": "South Ruislip Underground Station",
+   "zone": "5",
+   "lat": 51.55685,
+   "lon": -0.39892,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GSTOTNHM",
+   "name": "South Tottenham",
+   "fullName": "South Tottenham Rail Station",
+   "zone": "3",
+   "lat": 51.58037,
+   "lon": -0.0721,
+   "lines": [
+    "suffragette"
+   ]
+  },
+  {
+   "id": "940GZZLUSWN",
+   "name": "South Wimbledon",
+   "fullName": "South Wimbledon Underground Station",
+   "zone": "3+4",
+   "lat": 51.41531,
+   "lon": -0.19201,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUSWF",
+   "name": "South Woodford",
+   "fullName": "South Woodford Underground Station",
+   "zone": "4",
+   "lat": 51.59191,
+   "lon": 0.02734,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GSTHALL",
+   "name": "Southall",
+   "fullName": "Southall Rail Station",
+   "zone": "4",
+   "lat": 51.50596,
+   "lon": -0.37861,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "910GSBURY",
+   "name": "Southbury",
+   "fullName": "Southbury Rail Station",
+   "zone": "5",
+   "lat": 51.6487,
+   "lon": -0.05244,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUSFS",
+   "name": "Southfields",
+   "fullName": "Southfields Underground Station",
+   "zone": "3",
+   "lat": 51.44507,
+   "lon": -0.2066,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUSGT",
+   "name": "Southgate",
+   "fullName": "Southgate Underground Station",
+   "zone": "4",
+   "lat": 51.63231,
+   "lon": -0.12782,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUSWK",
+   "name": "Southwark",
+   "fullName": "Southwark Underground Station",
+   "zone": "1",
+   "lat": 51.50427,
+   "lon": -0.10533,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "910GSTJMSST",
+   "name": "St James Street (London)",
+   "fullName": "St James Street (London) Rail Station",
+   "zone": "3",
+   "lat": 51.58098,
+   "lon": -0.03292,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUSJP",
+   "name": "St. James's Park",
+   "fullName": "St. James's Park Underground Station",
+   "zone": "1",
+   "lat": 51.49954,
+   "lon": -0.13361,
+   "lines": [
+    "circle",
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUSJW",
+   "name": "St. John's Wood",
+   "fullName": "St. John's Wood Underground Station",
+   "zone": "2",
+   "lat": 51.53452,
+   "lon": -0.17395,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "940GZZLUSPU",
+   "name": "St. Paul's",
+   "fullName": "St. Paul's Underground Station",
+   "zone": "1",
+   "lat": 51.51494,
+   "lon": -0.09757,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUSFB",
+   "name": "Stamford Brook",
+   "fullName": "Stamford Brook Underground Station",
+   "zone": "2",
+   "lat": 51.49492,
+   "lon": -0.2457,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "910GSTMFDHL",
+   "name": "Stamford Hill",
+   "fullName": "Stamford Hill Rail Station",
+   "zone": "3",
+   "lat": 51.57447,
+   "lon": -0.07668,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUSTM",
+   "name": "Stanmore",
+   "fullName": "Stanmore Underground Station",
+   "zone": "5",
+   "lat": 51.61984,
+   "lon": -0.30327,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "940GZZDLSTL",
+   "name": "Star Lane",
+   "fullName": "Star Lane DLR Station",
+   "zone": "2/3",
+   "lat": 51.52079,
+   "lon": 0.00416,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUSGN",
+   "name": "Stepney Green",
+   "fullName": "Stepney Green Underground Station",
+   "zone": "2",
+   "lat": 51.52186,
+   "lon": -0.0466,
+   "lines": [
+    "district",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "940GZZLUSKW",
+   "name": "Stockwell",
+   "fullName": "Stockwell Underground Station",
+   "zone": "2",
+   "lat": 51.47218,
+   "lon": -0.12264,
+   "lines": [
+    "northern",
+    "victoria"
+   ]
+  },
+  {
+   "id": "910GSTKNWNG",
+   "name": "Stoke Newington",
+   "fullName": "Stoke Newington Rail Station",
+   "zone": "2",
+   "lat": 51.56523,
+   "lon": -0.07289,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUSGP",
+   "name": "Stonebridge Park",
+   "fullName": "Stonebridge Park Underground Station",
+   "zone": "3",
+   "lat": 51.54396,
+   "lon": -0.27589,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "910GSTNBGPK",
+   "name": "Stonebridge Park",
+   "fullName": "Stonebridge Park Rail Station",
+   "zone": "3",
+   "lat": 51.54411,
+   "lon": -0.27583,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "940GZZLUSTD",
+   "name": "Stratford",
+   "fullName": "Stratford Underground Station",
+   "zone": "2/3",
+   "lat": 51.54181,
+   "lon": -0.00346,
+   "lines": [
+    "central",
+    "jubilee"
+   ]
+  },
+  {
+   "id": "940GZZDLSTD",
+   "name": "Stratford",
+   "fullName": "Stratford DLR Station",
+   "zone": "2/3",
+   "lat": 51.54176,
+   "lon": -0.00329,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "910GSTFD",
+   "name": "Stratford (London)",
+   "fullName": "Stratford (London) Rail Station",
+   "zone": "2/3",
+   "lat": 51.54189,
+   "lon": -0.0034,
+   "lines": [
+    "elizabeth",
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZDLSHS",
+   "name": "Stratford High Street",
+   "fullName": "Stratford High Street DLR Station",
+   "zone": "2/3",
+   "lat": 51.5382,
+   "lon": -0.00108,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZDLSIT",
+   "name": "Stratford International",
+   "fullName": "Stratford International DLR Station",
+   "zone": "2/3",
+   "lat": 51.54527,
+   "lon": -0.00964,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUSUH",
+   "name": "Sudbury Hill",
+   "fullName": "Sudbury Hill Underground Station",
+   "zone": "4",
+   "lat": 51.55695,
+   "lon": -0.33643,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUSUT",
+   "name": "Sudbury Town",
+   "fullName": "Sudbury Town Underground Station",
+   "zone": "4",
+   "lat": 51.55082,
+   "lon": -0.31574,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "910GSURREYQ",
+   "name": "Surrey Quays",
+   "fullName": "Surrey Quays Rail Station",
+   "zone": "2",
+   "lat": 51.4932,
+   "lon": -0.04752,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUSWC",
+   "name": "Swiss Cottage",
+   "fullName": "Swiss Cottage Underground Station",
+   "zone": "2",
+   "lat": 51.54368,
+   "lon": -0.17489,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "910GSYDENHM",
+   "name": "Sydenham",
+   "fullName": "Sydenham Rail Station",
+   "zone": "3",
+   "lat": 51.42725,
+   "lon": -0.05424,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "910GTAPLOW",
+   "name": "Taplow",
+   "fullName": "Taplow Rail Station",
+   "zone": null,
+   "lat": 51.52356,
+   "lon": -0.68137,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUTMP",
+   "name": "Temple",
+   "fullName": "Temple Underground Station",
+   "zone": "1",
+   "lat": 51.51101,
+   "lon": -0.11426,
+   "lines": [
+    "circle",
+    "district"
+   ]
+  },
+  {
+   "id": "910GTHBLDSG",
+   "name": "Theobalds Grove",
+   "fullName": "Theobalds Grove Rail Station",
+   "zone": "7",
+   "lat": 51.69246,
+   "lon": -0.03483,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUTHB",
+   "name": "Theydon Bois",
+   "fullName": "Theydon Bois Underground Station",
+   "zone": "6",
+   "lat": 51.67176,
+   "lon": 0.10308,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUTBC",
+   "name": "Tooting Bec",
+   "fullName": "Tooting Bec Underground Station",
+   "zone": "3",
+   "lat": 51.43568,
+   "lon": -0.15974,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUTBY",
+   "name": "Tooting Broadway",
+   "fullName": "Tooting Broadway Underground Station",
+   "zone": "3",
+   "lat": 51.42763,
+   "lon": -0.16837,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUTCR",
+   "name": "Tottenham Court Road",
+   "fullName": "Tottenham Court Road Underground Station",
+   "zone": "1",
+   "lat": 51.51643,
+   "lon": -0.13041,
+   "lines": [
+    "central",
+    "northern"
+   ]
+  },
+  {
+   "id": "910GTOTCTRD",
+   "name": "Tottenham Court Road",
+   "fullName": "Tottenham Court Road",
+   "zone": "1",
+   "lat": 51.5157,
+   "lon": -0.13044,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUTMH",
+   "name": "Tottenham Hale",
+   "fullName": "Tottenham Hale Underground Station",
+   "zone": "3",
+   "lat": 51.58811,
+   "lon": -0.06024,
+   "lines": [
+    "victoria"
+   ]
+  },
+  {
+   "id": "940GZZLUTAW",
+   "name": "Totteridge & Whetstone",
+   "fullName": "Totteridge & Whetstone Underground Station",
+   "zone": "4",
+   "lat": 51.6306,
+   "lon": -0.17921,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZDLTWG",
+   "name": "Tower Gateway",
+   "fullName": "Tower Gateway DLR Station",
+   "zone": "1",
+   "lat": 51.51062,
+   "lon": -0.07482,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUTWH",
+   "name": "Tower Hill",
+   "fullName": "Tower Hill Underground Station",
+   "zone": "1",
+   "lat": 51.50997,
+   "lon": -0.07655,
+   "lines": [
+    "circle",
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUTFP",
+   "name": "Tufnell Park",
+   "fullName": "Tufnell Park Underground Station",
+   "zone": "2",
+   "lat": 51.55682,
+   "lon": -0.13843,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "910GTURKYST",
+   "name": "Turkey Street",
+   "fullName": "Turkey Street Rail Station",
+   "zone": "6",
+   "lat": 51.67263,
+   "lon": -0.04722,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUTNG",
+   "name": "Turnham Green",
+   "fullName": "Turnham Green Underground Station",
+   "zone": "2+3",
+   "lat": 51.49515,
+   "lon": -0.25455,
+   "lines": [
+    "district",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUTPN",
+   "name": "Turnpike Lane",
+   "fullName": "Turnpike Lane Underground Station",
+   "zone": "3",
+   "lat": 51.59027,
+   "lon": -0.10295,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "910GTWYFORD",
+   "name": "Twyford",
+   "fullName": "Twyford Rail Station",
+   "zone": null,
+   "lat": 51.47553,
+   "lon": -0.86329,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUUPM",
+   "name": "Upminster",
+   "fullName": "Upminster Underground Station",
+   "zone": "6",
+   "lat": 51.55906,
+   "lon": 0.25088,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "910GUPMNSTR",
+   "name": "Upminster",
+   "fullName": "Upminster Rail Station",
+   "zone": "6",
+   "lat": 51.55902,
+   "lon": 0.25088,
+   "lines": [
+    "liberty"
+   ]
+  },
+  {
+   "id": "940GZZLUUPB",
+   "name": "Upminster Bridge",
+   "fullName": "Upminster Bridge Underground Station",
+   "zone": "6",
+   "lat": 51.55856,
+   "lon": 0.23581,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUUPY",
+   "name": "Upney",
+   "fullName": "Upney Underground Station",
+   "zone": "4",
+   "lat": 51.53837,
+   "lon": 0.10153,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "910GUPRHLWY",
+   "name": "Upper Holloway",
+   "fullName": "Upper Holloway Rail Station",
+   "zone": "2",
+   "lat": 51.56363,
+   "lon": -0.12951,
+   "lines": [
+    "suffragette"
+   ]
+  },
+  {
+   "id": "940GZZLUUPK",
+   "name": "Upton Park",
+   "fullName": "Upton Park Underground Station",
+   "zone": "3",
+   "lat": 51.53534,
+   "lon": 0.03526,
+   "lines": [
+    "district",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "940GZZLUUXB",
+   "name": "Uxbridge",
+   "fullName": "Uxbridge Underground Station",
+   "zone": "6",
+   "lat": 51.54657,
+   "lon": -0.47795,
+   "lines": [
+    "metropolitan",
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUVXL",
+   "name": "Vauxhall",
+   "fullName": "Vauxhall Underground Station",
+   "zone": "1+2",
+   "lat": 51.48574,
+   "lon": -0.1242,
+   "lines": [
+    "victoria"
+   ]
+  },
+  {
+   "id": "940GZZLUVIC",
+   "name": "Victoria",
+   "fullName": "Victoria Underground Station",
+   "zone": "1",
+   "lat": 51.49636,
+   "lon": -0.1431,
+   "lines": [
+    "circle",
+    "district",
+    "victoria"
+   ]
+  },
+  {
+   "id": "940GZZLUWWL",
+   "name": "Walthamstow Central",
+   "fullName": "Walthamstow Central Underground Station",
+   "zone": "3",
+   "lat": 51.58297,
+   "lon": -0.01988,
+   "lines": [
+    "victoria"
+   ]
+  },
+  {
+   "id": "910GWLTWCEN",
+   "name": "Walthamstow Central",
+   "fullName": "Walthamstow Central Rail Station",
+   "zone": "3",
+   "lat": 51.58292,
+   "lon": -0.01981,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "910GWLTHQRD",
+   "name": "Walthamstow Queens Road",
+   "fullName": "Walthamstow Queens Road Rail Station",
+   "zone": "3",
+   "lat": 51.5815,
+   "lon": -0.02385,
+   "lines": [
+    "suffragette"
+   ]
+  },
+  {
+   "id": "910GWNDSWRD",
+   "name": "Wandsworth Road",
+   "fullName": "Wandsworth Road Rail Station",
+   "zone": "2",
+   "lat": 51.47022,
+   "lon": -0.13852,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUWSD",
+   "name": "Wanstead",
+   "fullName": "Wanstead Underground Station",
+   "zone": "4",
+   "lat": 51.5755,
+   "lon": 0.02853,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GWNSTDPK",
+   "name": "Wanstead Park",
+   "fullName": "Wanstead Park Rail Station",
+   "zone": "3",
+   "lat": 51.55169,
+   "lon": 0.02621,
+   "lines": [
+    "suffragette"
+   ]
+  },
+  {
+   "id": "910GWAPPING",
+   "name": "Wapping",
+   "fullName": "Wapping Rail Station",
+   "zone": "2",
+   "lat": 51.50439,
+   "lon": -0.05593,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUWRR",
+   "name": "Warren Street",
+   "fullName": "Warren Street Underground Station",
+   "zone": "1",
+   "lat": 51.52495,
+   "lon": -0.13832,
+   "lines": [
+    "northern",
+    "victoria"
+   ]
+  },
+  {
+   "id": "940GZZLUWKA",
+   "name": "Warwick Avenue",
+   "fullName": "Warwick Avenue Underground Station",
+   "zone": "2",
+   "lat": 51.52326,
+   "lon": -0.18378,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "940GZZLUWLO",
+   "name": "Waterloo",
+   "fullName": "Waterloo Underground Station",
+   "zone": "1",
+   "lat": 51.5033,
+   "lon": -0.11478,
+   "lines": [
+    "bakerloo",
+    "jubilee",
+    "northern",
+    "waterloo-city"
+   ]
+  },
+  {
+   "id": "940GZZLUWAF",
+   "name": "Watford",
+   "fullName": "Watford Underground Station",
+   "zone": "7",
+   "lat": 51.65745,
+   "lon": -0.41738,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "910GWATFDHS",
+   "name": "Watford High Street",
+   "fullName": "Watford High Street Rail Station",
+   "zone": "8",
+   "lat": 51.65266,
+   "lon": -0.39171,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "910GWATFJDC",
+   "name": "Watford Junction",
+   "fullName": "Watford Junction Rail Station",
+   "zone": null,
+   "lat": 51.66353,
+   "lon": -0.39652,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "940GZZLUWYC",
+   "name": "Wembley Central",
+   "fullName": "Wembley Central Underground Station",
+   "zone": "4",
+   "lat": 51.5523,
+   "lon": -0.29685,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "910GWMBY",
+   "name": "Wembley Central",
+   "fullName": "Wembley Central Rail Station",
+   "zone": "4",
+   "lat": 51.55233,
+   "lon": -0.29643,
+   "lines": [
+    "lioness"
+   ]
+  },
+  {
+   "id": "940GZZLUWYP",
+   "name": "Wembley Park",
+   "fullName": "Wembley Park Underground Station",
+   "zone": "4",
+   "lat": 51.5632,
+   "lon": -0.27926,
+   "lines": [
+    "jubilee",
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLUWTA",
+   "name": "West Acton",
+   "fullName": "West Acton Underground Station",
+   "zone": "3",
+   "lat": 51.518,
+   "lon": -0.28098,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZLUWBN",
+   "name": "West Brompton",
+   "fullName": "West Brompton Underground Station",
+   "zone": "2",
+   "lat": 51.48727,
+   "lon": -0.1956,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "910GWBRMPTN",
+   "name": "West Brompton",
+   "fullName": "West Brompton Rail Station",
+   "zone": "2",
+   "lat": 51.48706,
+   "lon": -0.19559,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "910GWCROYDN",
+   "name": "West Croydon",
+   "fullName": "West Croydon Rail Station",
+   "zone": "5",
+   "lat": 51.37843,
+   "lon": -0.10258,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "910GWDRYTON",
+   "name": "West Drayton",
+   "fullName": "West Drayton Rail Station",
+   "zone": "6",
+   "lat": 51.51006,
+   "lon": -0.47223,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "910GWEALING",
+   "name": "West Ealing",
+   "fullName": "West Ealing Rail Station",
+   "zone": "3",
+   "lat": 51.51351,
+   "lon": -0.32013,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZLUWFN",
+   "name": "West Finchley",
+   "fullName": "West Finchley Underground Station",
+   "zone": "4",
+   "lat": 51.60943,
+   "lon": -0.18836,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "940GZZLUWHM",
+   "name": "West Ham",
+   "fullName": "West Ham Underground Station",
+   "zone": "2/3",
+   "lat": 51.52814,
+   "lon": 0.00505,
+   "lines": [
+    "district",
+    "hammersmith-city",
+    "jubilee"
+   ]
+  },
+  {
+   "id": "940GZZDLWHM",
+   "name": "West Ham",
+   "fullName": "West Ham DLR Station",
+   "zone": "2/3",
+   "lat": 51.52789,
+   "lon": 0.00448,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUWHP",
+   "name": "West Hampstead",
+   "fullName": "West Hampstead Underground Station",
+   "zone": "2",
+   "lat": 51.54664,
+   "lon": -0.19106,
+   "lines": [
+    "jubilee"
+   ]
+  },
+  {
+   "id": "910GWHMDSTD",
+   "name": "West Hampstead",
+   "fullName": "West Hampstead Rail Station",
+   "zone": "2",
+   "lat": 51.54747,
+   "lon": -0.19118,
+   "lines": [
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZLUWHW",
+   "name": "West Harrow",
+   "fullName": "West Harrow Underground Station",
+   "zone": "5",
+   "lat": 51.57971,
+   "lon": -0.3534,
+   "lines": [
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZDLWIQ",
+   "name": "West India Quay",
+   "fullName": "West India Quay DLR Station",
+   "zone": "2",
+   "lat": 51.50703,
+   "lon": -0.02031,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUWKN",
+   "name": "West Kensington",
+   "fullName": "West Kensington Underground Station",
+   "zone": "2",
+   "lat": 51.49046,
+   "lon": -0.20664,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUWRP",
+   "name": "West Ruislip",
+   "fullName": "West Ruislip Underground Station",
+   "zone": "6",
+   "lat": 51.56969,
+   "lon": -0.43789,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "940GZZDLWSV",
+   "name": "West Silvertown",
+   "fullName": "West Silvertown DLR Station",
+   "zone": "3",
+   "lat": 51.50284,
+   "lon": 0.02246,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUWSP",
+   "name": "Westbourne Park",
+   "fullName": "Westbourne Park Underground Station",
+   "zone": "2",
+   "lat": 51.52111,
+   "lon": -0.20106,
+   "lines": [
+    "circle",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "940GZZDLWFE",
+   "name": "Westferry",
+   "fullName": "Westferry DLR Station",
+   "zone": "2",
+   "lat": 51.50943,
+   "lon": -0.02675,
+   "lines": [
+    "dlr"
+   ]
+  },
+  {
+   "id": "940GZZLUWSM",
+   "name": "Westminster",
+   "fullName": "Westminster Underground Station",
+   "zone": "1",
+   "lat": 51.50132,
+   "lon": -0.12486,
+   "lines": [
+    "circle",
+    "district",
+    "jubilee"
+   ]
+  },
+  {
+   "id": "940GZZLUWCY",
+   "name": "White City",
+   "fullName": "White City Underground Station",
+   "zone": "2",
+   "lat": 51.51196,
+   "lon": -0.2243,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GWHHRTLA",
+   "name": "White Hart Lane",
+   "fullName": "White Hart Lane Rail Station",
+   "zone": "3",
+   "lat": 51.60504,
+   "lon": -0.07091,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUWPL",
+   "name": "Whitechapel",
+   "fullName": "Whitechapel Underground Station",
+   "zone": "2",
+   "lat": 51.51952,
+   "lon": -0.05997,
+   "lines": [
+    "district",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "910GWCHAPXR",
+   "name": "Whitechapel",
+   "fullName": "Whitechapel",
+   "zone": "2",
+   "lat": 51.51963,
+   "lon": -0.05984,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "910GWCHAPEL",
+   "name": "Whitechapel",
+   "fullName": "Whitechapel Rail Station",
+   "zone": "2",
+   "lat": 51.51947,
+   "lon": -0.05976,
+   "lines": [
+    "windrush"
+   ]
+  },
+  {
+   "id": "940GZZLUWIG",
+   "name": "Willesden Green",
+   "fullName": "Willesden Green Underground Station",
+   "zone": "2+3",
+   "lat": 51.54915,
+   "lon": -0.22154,
+   "lines": [
+    "jubilee",
+    "metropolitan"
+   ]
+  },
+  {
+   "id": "940GZZLUWJN",
+   "name": "Willesden Junction",
+   "fullName": "Willesden Junction Underground Station",
+   "zone": "2+3",
+   "lat": 51.53226,
+   "lon": -0.24428,
+   "lines": [
+    "bakerloo"
+   ]
+  },
+  {
+   "id": "910GWLSDJHL",
+   "name": "Willesden Junction",
+   "fullName": "Willesden Junction Rail Station",
+   "zone": "2+3",
+   "lat": 51.5325,
+   "lon": -0.24455,
+   "lines": [
+    "lioness",
+    "mildmay"
+   ]
+  },
+  {
+   "id": "940GZZLUWIM",
+   "name": "Wimbledon",
+   "fullName": "Wimbledon Underground Station",
+   "zone": "3",
+   "lat": 51.42121,
+   "lon": -0.20657,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUWIP",
+   "name": "Wimbledon Park",
+   "fullName": "Wimbledon Park Underground Station",
+   "zone": "3",
+   "lat": 51.43457,
+   "lon": -0.19972,
+   "lines": [
+    "district"
+   ]
+  },
+  {
+   "id": "940GZZLUWOG",
+   "name": "Wood Green",
+   "fullName": "Wood Green Underground Station",
+   "zone": "3",
+   "lat": 51.59748,
+   "lon": -0.10989,
+   "lines": [
+    "piccadilly"
+   ]
+  },
+  {
+   "id": "940GZZLUWLA",
+   "name": "Wood Lane",
+   "fullName": "Wood Lane Underground Station",
+   "zone": "2",
+   "lat": 51.50967,
+   "lon": -0.22453,
+   "lines": [
+    "circle",
+    "hammersmith-city"
+   ]
+  },
+  {
+   "id": "910GWDST",
+   "name": "Wood Street",
+   "fullName": "Wood Street Rail Station",
+   "zone": "4",
+   "lat": 51.58658,
+   "lon": -0.00241,
+   "lines": [
+    "weaver"
+   ]
+  },
+  {
+   "id": "940GZZLUWOF",
+   "name": "Woodford",
+   "fullName": "Woodford Underground Station",
+   "zone": "4",
+   "lat": 51.6069,
+   "lon": 0.03397,
+   "lines": [
+    "central"
+   ]
+  },
+  {
+   "id": "910GWDGRNPK",
+   "name": "Woodgrange Park",
+   "fullName": "Woodgrange Park Rail Station",
+   "zone": "3+4",
+   "lat": 51.54926,
+   "lon": 0.04442,
+   "lines": [
+    "suffragette"
+   ]
+  },
+  {
+   "id": "940GZZLUWOP",
+   "name": "Woodside Park",
+   "fullName": "Woodside Park Underground Station",
+   "zone": "4",
+   "lat": 51.61801,
+   "lon": -0.18542,
+   "lines": [
+    "northern"
+   ]
+  },
+  {
+   "id": "910GWOLWXR",
+   "name": "Woolwich",
+   "fullName": "Woolwich",
+   "zone": "4",
+   "lat": 51.49217,
+   "lon": 0.07059,
+   "lines": [
+    "elizabeth"
+   ]
+  },
+  {
+   "id": "940GZZDLWLA",
+   "name": "Woolwich Arsenal",
+   "fullName": "Woolwich Arsenal DLR Station",
+   "zone": "4",
+   "lat": 51.49001,
+   "lon": 0.06913,
+   "lines": [
+    "dlr"
+   ]
+  }
+ ]
+}
