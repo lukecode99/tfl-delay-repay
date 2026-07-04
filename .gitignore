@@ -3,3 +3,4 @@ disruptions.db-*
 .consecutive-failures
 node_modules/
 .env
+credentials.md
