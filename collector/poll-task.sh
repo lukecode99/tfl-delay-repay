@@ -3,6 +3,8 @@
 # after 3 consecutive failures (transient network blips self-heal at 5-min cadence).
 DIR=/workspace/ig-bot/projects/tfl-delay-repay/collector
 FAILFILE=$DIR/.consecutive-failures
+# API key (registered portal account) lives in the untracked .env
+[ -f "$DIR/../.env" ] && . "$DIR/../.env" && export TFL_APP_KEY
 out=$(cd "$DIR" && node collector.mjs 2>&1)
 if [ $? -eq 0 ]; then
   rm -f "$FAILFILE"
