@@ -1,11 +1,11 @@
 {
- "generatedAt": "2026-07-04T20:31:04.494Z",
- "sinceISO": "2026-03-06T20:31:04.475Z",
+ "generatedAt": "2026-07-04T20:40:41.390Z",
+ "sinceISO": "2026-03-06T20:40:41.374Z",
  "coverage": [
   {
    "from": "2026-07-04T11:17:52.976Z",
-   "to": "2026-07-04T20:30:00.397Z",
-   "polls": 113
+   "to": "2026-07-04T20:40:00.550Z",
+   "polls": 115
   }
  ],
  "spans": [
@@ -40,7 +40,7 @@
    "line": "hammersmith-city",
    "lineName": "Hammersmith & City",
    "from": "2026-07-04T11:17:52.976Z",
-   "to": "2026-07-04T20:30:00.397Z",
+   "to": "2026-07-04T20:40:00.550Z",
    "severity": 4,
    "description": "Planned Closure",
    "reason": "HAMMERSMITH & CITY LINE: Saturday 4 and Sunday 5 July, no service on the entire line. There will also be no c2c services at Fenchurch Street and West Ham. A reduced c2c service operates to/from Liverpool Street via Stratford. Replacement buses operate."
@@ -76,7 +76,7 @@
    "line": "waterloo-city",
    "lineName": "Waterloo & City",
    "from": "2026-07-04T11:17:52.976Z",
-   "to": "2026-07-04T20:30:00.397Z",
+   "to": "2026-07-04T20:40:00.550Z",
    "severity": 4,
    "description": "Planned Closure",
    "reason": "Waterloo & City line: service operates 06:00 until 00:30, Monday to Friday only. There is no service on Saturdays, Sundays and on bank/public holidays."
@@ -634,7 +634,7 @@
    "line": "district",
    "lineName": "District",
    "from": "2026-07-04T16:55:00.281Z",
-   "to": "2026-07-04T20:30:00.397Z",
+   "to": "2026-07-04T20:40:00.550Z",
    "severity": 5,
    "description": "Part Closure",
    "reason": "DISTRICT LINE: Saturday 4 and Sunday 5 July, no service between Tower Hill and Upminster. There will also be no c2c services at Fenchurch Street and West Ham. A reduced c2c service operates to/from Liverpool Street via Stratford. Replacement buses operate."
@@ -1012,7 +1012,7 @@
    "line": "victoria",
    "lineName": "Victoria",
    "from": "2026-07-04T18:45:00.356Z",
-   "to": "2026-07-04T20:30:00.397Z",
+   "to": "2026-07-04T20:40:00.550Z",
    "severity": 9,
    "description": "Minor Delays",
    "reason": "Victoria Line: Minor delays due to train cancellations. "
@@ -1345,7 +1345,7 @@
    "line": "dlr",
    "lineName": "DLR",
    "from": "2026-07-04T19:20:00.343Z",
-   "to": "2026-07-04T20:30:00.397Z",
+   "to": "2026-07-04T20:40:00.550Z",
    "severity": 5,
    "description": "Part Closure",
    "reason": "DOCKLANDS LIGHT RAILWAY: Saturday 4 and Sunday 5 July, no service between Prince Regent and Beckton. Please use local London Buses services."
@@ -1426,7 +1426,7 @@
    "line": "piccadilly",
    "lineName": "Piccadilly",
    "from": "2026-07-04T19:25:00.162Z",
-   "to": "2026-07-04T20:30:00.397Z",
+   "to": "2026-07-04T20:40:00.550Z",
    "severity": 6,
    "description": "Severe Delays",
    "reason": "Piccadilly Line: Severe delays between Acton Town and Uxbridge / Heathrow due to an earlier customer incident at Hyde Park Corner. London Underground tickets will be accepted on London buses, Elizabeth line and South Western Railway. GOOD SERVICE on the rest of the line. "
@@ -1498,7 +1498,7 @@
    "line": "jubilee",
    "lineName": "Jubilee",
    "from": "2026-07-04T19:45:00.116Z",
-   "to": "2026-07-04T20:30:00.397Z",
+   "to": "2026-07-04T20:40:00.550Z",
    "severity": 6,
    "description": "Severe Delays",
    "reason": "Jubilee Line: Severe delays due to an earlier police incident at West Ham. London Underground tickets will be accepted on London buses, Mildmay line, Elizabeth Line, Southeastern, Thameslink and C2C. "
@@ -1561,7 +1561,7 @@
    "line": "bakerloo",
    "lineName": "Bakerloo",
    "from": "2026-07-04T20:00:00.273Z",
-   "to": "2026-07-04T20:30:00.397Z",
+   "to": "2026-07-04T20:40:00.550Z",
    "severity": 9,
    "description": "Minor Delays",
    "reason": "Bakerloo Line: Minor delays between Elephant & Castle and Queen's Park Northbound only due to an earlier customer incident at Baker Street. GOOD service on the rest of the line. "
@@ -1588,7 +1588,7 @@
    "line": "metropolitan",
    "lineName": "Metropolitan",
    "from": "2026-07-04T20:05:00.289Z",
-   "to": "2026-07-04T20:30:00.397Z",
+   "to": "2026-07-04T20:40:00.550Z",
    "severity": 9,
    "description": "Minor Delays",
    "reason": "Metropolitan Line: Minor delays between Harrow-on-the-Hill and Baker Street due to a track fault at Wembley Park. MINOR DELAYS between Watford and Moor Park due to train cancellations. The next southbound departure will be at 21:08. GOOD SERVICE on the rest of the line. "
@@ -1697,6 +1697,42 @@
    "lineName": "Mildmay",
    "from": "2026-07-04T20:30:00.397Z",
    "to": "2026-07-04T20:30:00.397Z",
+   "severity": 7,
+   "description": "Reduced Service",
+   "reason": "MILDMAY LINE: From 1930 Saturday 4 until 1200 Sunday 5 July, a reduced service operates between Clapham Junction and Shepherds Bush."
+  },
+  {
+   "line": "mildmay",
+   "lineName": "Mildmay",
+   "from": "2026-07-04T20:35:00.254Z",
+   "to": "2026-07-04T20:35:00.254Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "MILDMAY LINE: From 1930 Saturday 4 until 1200 Sunday 5 July, no service between Shepherds Bush and Willesden Junction. There will also be no SOUTHERN service between Shepherds Bush and Watford Junction at these times. Please use local London Buses and London Underground connections."
+  },
+  {
+   "line": "mildmay",
+   "lineName": "Mildmay",
+   "from": "2026-07-04T20:35:00.254Z",
+   "to": "2026-07-04T20:35:00.254Z",
+   "severity": 7,
+   "description": "Reduced Service",
+   "reason": "MILDMAY LINE: From 1930 Saturday 4 until 1200 Sunday 5 July, a reduced service operates between Clapham Junction and Shepherds Bush."
+  },
+  {
+   "line": "mildmay",
+   "lineName": "Mildmay",
+   "from": "2026-07-04T20:40:00.550Z",
+   "to": "2026-07-04T20:40:00.550Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "MILDMAY LINE: From 1930 Saturday 4 until 1200 Sunday 5 July, no service between Shepherds Bush and Willesden Junction. There will also be no SOUTHERN service between Shepherds Bush and Watford Junction at these times. Please use local London Buses and London Underground connections."
+  },
+  {
+   "line": "mildmay",
+   "lineName": "Mildmay",
+   "from": "2026-07-04T20:40:00.550Z",
+   "to": "2026-07-04T20:40:00.550Z",
    "severity": 7,
    "description": "Reduced Service",
    "reason": "MILDMAY LINE: From 1930 Saturday 4 until 1200 Sunday 5 July, a reduced service operates between Clapham Junction and Shepherds Bush."

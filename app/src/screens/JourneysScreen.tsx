@@ -1,7 +1,9 @@
-// TfL-5: journey list grouped by day, eligible journeys badged with the
-// estimated refund.
+// TfL-5/7: journey list grouped by day, eligible journeys badged with the
+// estimated refund, lifetime claim totals up top.
 import React from 'react';
 import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import type { ClaimRecord } from '../claims/db';
+import { claimTotals } from '../claims/stats';
 import type { Assessment } from '../eligibility/engine';
 import type { AssessmentMap } from '../eligibility/use-assessments';
 import { formatGBP, groupByDay } from '../format';
@@ -12,14 +14,22 @@ import { colors, spacing } from '../theme';
 interface Props {
   journeys: StoredJourney[];
   assessments: AssessmentMap;
-  claimedIds: Set<number>;
+  claims: Map<number, ClaimRecord>;
   lastImport: ImportOutcome | null;
   onImportPress: () => void;
   onSelect: (journey: StoredJourney) => void;
 }
 
-function Badge({ assessment, claimed }: { assessment: Assessment | undefined; claimed: boolean }) {
-  if (claimed) return <Text style={styles.badgeClaimed}>✓ claimed</Text>;
+function Badge({ assessment, claim }: { assessment: Assessment | undefined; claim: ClaimRecord | undefined }) {
+  if (claim?.status === 'paid') {
+    return (
+      <Text style={styles.badgeClaimed}>
+        ✓ paid{claim.paidAmount != null ? ` ${formatGBP(claim.paidAmount)}` : ''}
+      </Text>
+    );
+  }
+  if (claim?.status === 'rejected') return <Text style={styles.badgeRejected}>✗ rejected</Text>;
+  if (claim) return <Text style={styles.badgeClaimed}>✓ claimed</Text>;
   if (!assessment) return <Text style={styles.badgePending}>…</Text>;
   if (assessment.status === 'eligible') {
     const value = assessment.refundValue != null ? `≈${formatGBP(assessment.refundValue)}` : 'refund';
@@ -34,9 +44,10 @@ function Badge({ assessment, claimed }: { assessment: Assessment | undefined; cl
   return null; // not eligible / not assessable — keep rows quiet
 }
 
-export default function JourneysScreen({ journeys, assessments, claimedIds, lastImport, onImportPress, onSelect }: Props) {
+export default function JourneysScreen({ journeys, assessments, claims, lastImport, onImportPress, onSelect }: Props) {
   const sections = groupByDay(journeys);
   const eligibleCount = journeys.filter(j => assessments.get(j.id)?.status === 'eligible').length;
+  const totals = claimTotals([...claims.values()]);
 
   return (
     <View style={styles.container}>
@@ -45,6 +56,12 @@ export default function JourneysScreen({ journeys, assessments, claimedIds, last
         {journeys.length} journeys
         {eligibleCount > 0 ? ` · ${eligibleCount} likely eligible` : ''}
       </Text>
+      {totals.claimedCount > 0 && (
+        <Text style={styles.totals}>
+          Claimed {formatGBP(totals.claimedValue)} · received {formatGBP(totals.paidValue)}
+          {totals.openCount > 0 ? ` · ${totals.openCount} awaiting TfL` : ''}
+        </Text>
+      )}
 
       <Pressable style={styles.importButton} onPress={onImportPress}>
         <Text style={styles.importButtonText}>Import journey statement (CSV)</Text>
@@ -77,7 +94,7 @@ export default function JourneysScreen({ journeys, assessments, claimedIds, last
                 {item.charge != null ? `  ·  ${formatGBP(item.charge)}` : ''}
               </Text>
             </View>
-            <Badge assessment={assessments.get(item.id)} claimed={claimedIds.has(item.id)} />
+            <Badge assessment={assessments.get(item.id)} claim={claims.get(item.id)} />
             <Text style={styles.chevron}>›</Text>
           </Pressable>
         )}
@@ -90,6 +107,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   title: { color: colors.text, fontSize: 28, fontWeight: '700', marginBottom: spacing.xs },
   subtitle: { color: colors.textDim, fontSize: 14, marginBottom: spacing.m },
+  totals: { color: colors.good, fontSize: 14, fontWeight: '700', marginTop: -spacing.s, marginBottom: spacing.m },
   importButton: {
     backgroundColor: colors.accentBright,
     borderRadius: 12,
@@ -124,6 +142,7 @@ const styles = StyleSheet.create({
   meta: { color: colors.textDim, fontSize: 12, marginTop: 2 },
   badgePending: { color: colors.textDim, fontSize: 15, marginRight: spacing.s },
   badgeClaimed: { color: colors.good, fontSize: 13, fontWeight: '700', marginRight: spacing.s },
+  badgeRejected: { color: colors.bad, fontSize: 13, fontWeight: '700', marginRight: spacing.s },
   badgeWarn: { color: colors.warn, fontSize: 15, marginRight: spacing.s },
   badgeEligible: {
     backgroundColor: colors.good,

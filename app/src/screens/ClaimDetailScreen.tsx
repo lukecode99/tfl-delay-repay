@@ -1,8 +1,8 @@
 // TfL-5: claim detail — the evidence behind a verdict: expected vs actual
 // duration, disruption from the ledger, refund value, days left to claim.
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { getClaim, unmarkClaimed } from '../claims/db';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { getClaim, reopenClaim, setClaimOutcome, unmarkClaimed } from '../claims/db';
 import { claimDeadline } from '../eligibility/deadline';
 import type { Assessment } from '../eligibility/engine';
 import { formatDay, formatGBP } from '../format';
@@ -139,10 +139,68 @@ export default function ClaimDetailScreen({ journey, assessment: a, onBack, onFi
       {claim ? (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Claim filed</Text>
-          <Text style={styles.claimedText}>✓ Marked claimed on {formatDay(claim.claimedAt.slice(0, 10))}</Text>
-          <Pressable onPress={() => { unmarkClaimed(journey.id); setClaim(null); }} hitSlop={8}>
-            <Text style={styles.unmark}>Not right? Unmark</Text>
-          </Pressable>
+          {claim.status === 'paid' ? (
+            <>
+              <Text style={styles.claimedText}>
+                ✓ Paid{claim.paidAmount != null ? ` ${formatGBP(claim.paidAmount)}` : ''}
+                {claim.resolvedAt ? ` · ${formatDay(claim.resolvedAt.slice(0, 10))}` : ''}
+              </Text>
+              <Pressable onPress={() => { reopenClaim(journey.id); setClaim(getClaim(journey.id)); }} hitSlop={8}>
+                <Text style={styles.unmark}>Not right? Reopen</Text>
+              </Pressable>
+            </>
+          ) : claim.status === 'rejected' ? (
+            <>
+              <Text style={styles.rejectedText}>
+                ✗ Rejected by TfL{claim.resolvedAt ? ` · ${formatDay(claim.resolvedAt.slice(0, 10))}` : ''}
+              </Text>
+              <Pressable onPress={() => { reopenClaim(journey.id); setClaim(getClaim(journey.id)); }} hitSlop={8}>
+                <Text style={styles.unmark}>Not right? Reopen</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.claimedText}>✓ Marked claimed on {formatDay(claim.claimedAt.slice(0, 10))}</Text>
+              <Text style={styles.dimText}>When TfL responds, record the outcome:</Text>
+              <View style={styles.outcomeRow}>
+                <Pressable
+                  style={[styles.outcomeButton, styles.outcomePaid]}
+                  onPress={() => {
+                    const fallback = claim.expectedValue ?? a?.refundValue ?? null;
+                    Alert.prompt(
+                      'Amount received',
+                      'What did TfL refund? (£)',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Save',
+                          onPress: (value?: string) => {
+                            const n = Number(value?.replace(/[£,\s]/g, ''));
+                            setClaimOutcome(journey.id, 'paid', Number.isFinite(n) && n >= 0 ? n : fallback);
+                            setClaim(getClaim(journey.id));
+                          },
+                        },
+                      ],
+                      'plain-text',
+                      fallback != null ? fallback.toFixed(2) : '',
+                      'decimal-pad',
+                    );
+                  }}
+                >
+                  <Text style={styles.outcomePaidText}>Paid ✓</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.outcomeButton, styles.outcomeRejected]}
+                  onPress={() => { setClaimOutcome(journey.id, 'rejected'); setClaim(getClaim(journey.id)); }}
+                >
+                  <Text style={styles.outcomeRejectedText}>Rejected ✗</Text>
+                </Pressable>
+              </View>
+              <Pressable onPress={() => { unmarkClaimed(journey.id); setClaim(null); }} hitSlop={8}>
+                <Text style={styles.unmark}>Not right? Unmark</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       ) : eligible && daysLeft >= 0 ? (
         <>
@@ -203,6 +261,18 @@ const styles = StyleSheet.create({
   },
   fileButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   claimedText: { color: colors.good, fontSize: 15, fontWeight: '700', marginBottom: spacing.s },
+  rejectedText: { color: colors.bad, fontSize: 15, fontWeight: '700', marginBottom: spacing.s },
+  outcomeRow: { flexDirection: 'row', marginTop: spacing.s, marginBottom: spacing.s },
+  outcomeButton: {
+    borderRadius: 8,
+    paddingHorizontal: spacing.m,
+    paddingVertical: spacing.s,
+    marginRight: spacing.s,
+  },
+  outcomePaid: { backgroundColor: colors.good },
+  outcomePaidText: { color: '#04220F', fontSize: 14, fontWeight: '800' },
+  outcomeRejected: { borderColor: colors.bad, borderWidth: 1 },
+  outcomeRejectedText: { color: colors.bad, fontSize: 14, fontWeight: '800' },
   unmark: { color: colors.textDim, fontSize: 13, textDecorationLine: 'underline' },
   footer: { color: colors.textDim, fontSize: 12, lineHeight: 18, marginTop: spacing.s },
 });

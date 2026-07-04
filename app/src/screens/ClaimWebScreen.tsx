@@ -56,7 +56,7 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
           <Text style={styles.back}>‹ Back</Text>
         </Pressable>
         <Text style={styles.topTitle} numberOfLines={1}>File claim on tfl.gov.uk</Text>
-        <Pressable style={styles.claimedButton} onPress={() => { markClaimed(journey.id); onDone(true); }}>
+        <Pressable style={styles.claimedButton} onPress={() => { markClaimed(journey.id, assessment?.refundValue ?? null); onDone(true); }}>
           <Text style={styles.claimedButtonText}>Mark claimed</Text>
         </Pressable>
       </View>

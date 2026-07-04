@@ -2,6 +2,8 @@
 //   node --experimental-strip-types src/claims/test-claims.ts
 import assert from 'node:assert/strict';
 import { buildFillScript, buildPrefill, CLAIM_START_URL, ukDate } from './prefill.ts';
+import { planReminders, REMINDER_OFFSETS } from './reminders.ts';
+import { claimTotals } from './stats.ts';
 import type { ParsedJourney } from '../journeys/parse';
 import type { Assessment } from '../eligibility/engine';
 
@@ -54,5 +56,43 @@ ok(ukDate('2026-06-10') === '10/06/2026', 'prefill: ISO date → UK date');
   ok(true, 'script: values are JSON-escaped — hostile station names stay data');
 }
 ok(CLAIM_START_URL.startsWith('https://tfl.gov.uk/'), 'claim flow starts on tfl.gov.uk');
+
+// --- TfL-7: reminder planning ---
+// Journey 2026-06-10 → 28-day deadline 2026-07-08 (caller computes this via claimDeadline).
+const rj = (over: object) => ({
+  journeyId: 1, date: '2026-06-10', origin: 'Finchley Road', destination: 'Bank',
+  eligible: true, claimed: false, refundValue: 3.1, deadline: '2026-07-08', daysLeft: 23, ...over,
+});
+{
+  // Reminders 2026-07-03 (T−5) and 2026-07-07 (T−1).
+  const plan = planReminders([rj({})], '2026-06-15');
+  ok(plan.length === 2 && plan[0].fireDate === '2026-07-03' && plan[1].fireDate === '2026-07-07',
+    'reminders: T−5 and T−1 before the 28-day deadline');
+  ok(plan[0].id === 'claim-1-t5' && plan[1].id === 'claim-1-t1', 'reminders: stable per-journey identifiers');
+  ok(plan[1].body.includes('Finchley Road → Bank') && plan[1].body.includes('1 day left')
+    && plan[1].body.includes('£3.10'), 'reminders: body names the route, days left and value');
+}
+{
+  const plan = planReminders([rj({})], '2026-07-05'); // T−5 date already past
+  ok(plan.length === 1 && plan[0].fireDate === '2026-07-07', 'reminders: past fire dates dropped');
+  ok(planReminders([rj({})], '2026-07-07').length === 1, 'reminders: same-day fire date kept');
+}
+ok(planReminders([rj({ claimed: true }), rj({ eligible: false }), rj({ daysLeft: -3, deadline: '2026-01-29' })], '2026-06-15').length === 0,
+  'reminders: claimed, ineligible and expired journeys get none');
+ok(REMINDER_OFFSETS.join(',') === '5,1', 'reminders: offsets per card are T−5 and T−1');
+
+// --- TfL-7: lifetime totals ---
+{
+  const t = claimTotals([
+    { status: 'claimed', expectedValue: 3.1, paidAmount: null },
+    { status: 'paid', expectedValue: 2.9, paidAmount: 2.9 },
+    { status: 'paid', expectedValue: 5.0, paidAmount: null }, // paid, amount not recorded
+    { status: 'rejected', expectedValue: 4.0, paidAmount: null },
+  ]);
+  ok(t.claimedCount === 4 && Math.abs(t.claimedValue - 15.0) < 1e-9, 'totals: claimed £ sums expected values');
+  ok(t.paidCount === 2 && Math.abs(t.paidValue - 7.9) < 1e-9, 'totals: received £ uses paid amount, falls back to expected');
+  ok(t.rejectedCount === 1 && t.openCount === 1, 'totals: rejected and awaiting counts');
+}
+ok(claimTotals([]).claimedCount === 0 && claimTotals([]).paidValue === 0, 'totals: empty ledger is all zeros');
 
 console.log(`\nAll ${passed} assertions passed.`);

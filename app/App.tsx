@@ -2,7 +2,10 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { listClaims } from './src/claims/db';
+import { ClaimRecord, listClaims } from './src/claims/db';
+import { syncClaimReminders } from './src/claims/notify';
+import { planReminders } from './src/claims/reminders';
+import { claimDeadline } from './src/eligibility/deadline';
 import { useAssessments } from './src/eligibility/use-assessments';
 import { listJourneys, StoredJourney } from './src/journeys/db';
 import { ImportOutcome, importFromUrl, importViaPicker } from './src/journeys/import';
@@ -18,15 +21,37 @@ export default function App() {
   const [journeys, setJourneys] = useState<StoredJourney[]>([]);
   const [selected, setSelected] = useState<StoredJourney | null>(null);
   const [filing, setFiling] = useState(false);
-  const [claimedIds, setClaimedIds] = useState<Set<number>>(new Set());
+  const [claims, setClaims] = useState<Map<number, ClaimRecord>>(new Map());
   const [lastImport, setLastImport] = useState<ImportOutcome | null>(null);
   const assessments = useAssessments(journeys);
 
   const refresh = useCallback(() => {
     setJourneys(listJourneys(200));
-    setClaimedIds(new Set(listClaims().map(c => c.journeyId)));
+    setClaims(new Map(listClaims().map(c => [c.journeyId, c])));
   }, []);
   useEffect(refresh, [refresh]);
+
+  // Claim-deadline reminders (TfL-7): T−5 and T−1 local notifications for
+  // eligible unclaimed journeys. Debounced — assessments trickle in one
+  // journey at a time, and each sync reconciles the whole schedule anyway.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const plan = planReminders(journeys.map(j => ({
+        journeyId: j.id,
+        date: j.date,
+        origin: j.origin,
+        destination: j.destination,
+        eligible: assessments.get(j.id)?.status === 'eligible',
+        claimed: claims.has(j.id),
+        refundValue: assessments.get(j.id)?.refundValue ?? null,
+        ...claimDeadline(j.date, todayStr),
+      })), todayStr);
+      syncClaimReminders(plan).catch(() => { /* notifications are best-effort */ });
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [journeys, assessments, claims]);
 
   const handleOutcome = useCallback((outcome: ImportOutcome | null) => {
     if (!outcome) return;
@@ -69,7 +94,7 @@ export default function App() {
           <JourneysScreen
             journeys={journeys}
             assessments={assessments}
-            claimedIds={claimedIds}
+            claims={claims}
             lastImport={lastImport}
             onImportPress={onImportPress}
             onSelect={setSelected}
