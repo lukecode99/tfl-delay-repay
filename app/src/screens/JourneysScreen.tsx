@@ -80,8 +80,8 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
         </Pressable>
       </View>
       <Text style={styles.importHint}>
-        Journeys update when you open the app (uses your TfL sign-in from filing a claim). You can
-        also share a TfL CSV statement to this app from Files / Mail.
+        Journeys update when you open the app — you can watch the TfL page as it works, and sign
+        in right there if asked. You can also share a TfL CSV statement to this app from Files / Mail.
       </Text>
       {refreshNote && <Text style={styles.importSummary}>{refreshNote}</Text>}
       {lastImport && (

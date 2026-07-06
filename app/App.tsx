@@ -8,7 +8,7 @@ import { planReminders } from './src/claims/reminders';
 import { claimDeadline } from './src/eligibility/deadline';
 import { useAssessments } from './src/eligibility/use-assessments';
 import { LAST_AUTOFETCH_KEY, shouldAutoFetch } from './src/journeys/autofetch';
-import AutoFetchWebView, { AutoFetchResult } from './src/journeys/AutoFetchWebView';
+import RefreshSheet, { RefreshResult } from './src/journeys/RefreshSheet';
 import { getMeta, listJourneys, setMeta, StoredJourney } from './src/journeys/db';
 import { ImportOutcome, importFromUrl, importViaPicker } from './src/journeys/import';
 import ClaimDetailScreen from './src/screens/ClaimDetailScreen';
@@ -75,9 +75,9 @@ export default function App() {
     importViaPicker().then(handleOutcome).catch(e => Alert.alert('Import failed', String(e)));
   }, [handleOutcome]);
 
-  // TfL-10: auto-fetch journey history through the signed-in TfL session on
-  // app open / foreground / manual refresh, capped at one fetch a day. The
-  // hidden WebView mounts only while a fetch is in flight.
+  // TfL-10/11: fetch journey history through the signed-in TfL session on
+  // app open / foreground / manual refresh — now inside a visible sheet the
+  // user can watch (and sign in on, if the session has expired).
   const [autoFetching, setAutoFetching] = useState(false);
   const [refreshNote, setRefreshNote] = useState<string | null>(null);
 
@@ -99,11 +99,11 @@ export default function App() {
     return () => sub.remove();
   }, [startAutoFetch]);
 
-  const onAutoFetchResult = useCallback((r: AutoFetchResult) => {
+  const onRefreshClose = useCallback((r: RefreshResult) => {
     setAutoFetching(false);
     if (r.kind === 'imported' || r.kind === 'empty') {
-      // Only a completed fetch stamps the rate limit — a signed-out or failed
-      // attempt leaves Refresh usable after the user signs back in.
+      // Only a completed fetch stamps the rate limit — a cancelled or failed
+      // attempt leaves Refresh usable straight away.
       setMeta(LAST_AUTOFETCH_KEY, new Date().toISOString());
       if (r.kind === 'imported') {
         setLastImport(r.outcome);
@@ -114,8 +114,8 @@ export default function App() {
       } else {
         setRefreshNote('No journey history on TfL yet.');
       }
-    } else if (r.kind === 'signed-out') {
-      setRefreshNote('TfL sign-in needed — open a claim, sign in on the TfL page, then tap Refresh.');
+    } else if (r.kind === 'cancelled') {
+      setRefreshNote(null);
     } else {
       setRefreshNote('Couldn’t refresh from TfL — you can still import a CSV.');
     }
@@ -151,7 +151,7 @@ export default function App() {
             refreshNote={refreshNote}
           />
         )}
-        {autoFetching && <AutoFetchWebView onResult={onAutoFetchResult} />}
+        {autoFetching && <RefreshSheet onClose={onRefreshClose} />}
       </SafeAreaView>
     </SafeAreaProvider>
   );
