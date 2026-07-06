@@ -6,7 +6,9 @@
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import {
+  AUTOFETCH_RATE_LIMIT_ENABLED,
   buildHarvestScript,
+  isNewFetchDay,
   JOURNEY_HISTORY_URL,
   pickCardId,
   rowsToCsv,
@@ -29,12 +31,15 @@ function ok(cond: boolean, msg: string) {
   console.log(`  ✓ ${msg}`);
 }
 
-// --- rate limit: one fetch per day ---
-ok(shouldAutoFetch(null, '2026-07-06T08:00:00.000Z'), 'rate limit: first ever fetch allowed');
-ok(!shouldAutoFetch('2026-07-06T07:00:00.000Z', '2026-07-06T22:00:00.000Z'),
-  'rate limit: second fetch the same day blocked');
-ok(shouldAutoFetch('2026-07-05T23:59:00.000Z', '2026-07-06T00:01:00.000Z'),
-  'rate limit: next day allowed again');
+// --- rate limit: day logic (limit itself currently switched off for testing) ---
+ok(isNewFetchDay(null, '2026-07-06T08:00:00.000Z'), 'day logic: first ever fetch is a new day');
+ok(!isNewFetchDay('2026-07-06T07:00:00.000Z', '2026-07-06T22:00:00.000Z'),
+  'day logic: same UTC day is not a new day');
+ok(isNewFetchDay('2026-07-05T23:59:00.000Z', '2026-07-06T00:01:00.000Z'),
+  'day logic: next day is a new day');
+ok(AUTOFETCH_RATE_LIMIT_ENABLED === false, 'rate limit: currently disabled for on-device testing');
+ok(shouldAutoFetch('2026-07-06T07:00:00.000Z', '2026-07-06T22:00:00.000Z'),
+  'rate limit: same-day refetch allowed while the limit is off');
 
 // --- card id: dedupe against previous imports whatever the CSV was called ---
 ok(pickCardId([]) === 'contactless', 'card id: fallback when nothing imported yet');
