@@ -84,6 +84,23 @@ export function migrateLegacyImportRows(d: DbLike): { chargesFixed: number; dupl
   return result;
 }
 
+// App-level key/value scraps (TfL-10: last auto-fetch stamp). Kept in the
+// journeys db so there's one store to open, not a second persistence layer.
+export function ensureMetaSchema(d: DbLike): void {
+  d.execSync('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);');
+}
+
+export function getMetaCore(d: DbLike, key: string): string | null {
+  return d.getFirstSync<{ value: string }>('SELECT value FROM meta WHERE key = ?', key)?.value ?? null;
+}
+
+export function setMetaCore(d: DbLike, key: string, value: string): void {
+  d.runSync(
+    'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    key, value,
+  );
+}
+
 export function insertJourneysCore(d: DbLike, journeys: ParsedJourney[], now: string): ImportSummary {
   const summary: ImportSummary = { inserted: 0, duplicates: 0, incomplete: 0, upgraded: 0 };
   d.withTransactionSync(() => {

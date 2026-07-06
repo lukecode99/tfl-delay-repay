@@ -8,8 +8,11 @@ import * as SQLite from 'expo-sqlite';
 import { ParsedJourney } from './parse';
 import {
   ensureJourneySchema,
+  ensureMetaSchema,
+  getMetaCore,
   insertJourneysCore,
   migrateLegacyImportRows,
+  setMetaCore,
   type ImportSummary,
 } from './store-core';
 
@@ -26,8 +29,23 @@ export function openJourneyDb(): SQLite.SQLiteDatabase {
   if (db) return db;
   db = SQLite.openDatabaseSync('journeys.db');
   ensureJourneySchema(db);
+  ensureMetaSchema(db);
   migrateLegacyImportRows(db); // idempotent TfL-8 cleanup of pre-hotfix rows
   return db;
+}
+
+export function getMeta(key: string): string | null {
+  return getMetaCore(openJourneyDb(), key);
+}
+
+export function setMeta(key: string, value: string): void {
+  setMetaCore(openJourneyDb(), key, value);
+}
+
+/** Card ids of every stored journey (with repeats) — TfL-10 uses the most
+ * frequent as the default card for auto-fetched statements. */
+export function listCards(): string[] {
+  return openJourneyDb().getAllSync<{ card: string }>('SELECT card FROM journeys').map(r => r.card);
 }
 
 export function insertJourneys(journeys: ParsedJourney[]): ImportSummary {

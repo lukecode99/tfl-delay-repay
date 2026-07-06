@@ -1,13 +1,15 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Linking, StyleSheet } from 'react-native';
+import { Alert, AppState, Linking, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ClaimRecord, listClaims } from './src/claims/db';
 import { syncClaimReminders } from './src/claims/notify';
 import { planReminders } from './src/claims/reminders';
 import { claimDeadline } from './src/eligibility/deadline';
 import { useAssessments } from './src/eligibility/use-assessments';
-import { listJourneys, StoredJourney } from './src/journeys/db';
+import { LAST_AUTOFETCH_KEY, shouldAutoFetch } from './src/journeys/autofetch';
+import AutoFetchWebView, { AutoFetchResult } from './src/journeys/AutoFetchWebView';
+import { getMeta, listJourneys, setMeta, StoredJourney } from './src/journeys/db';
 import { ImportOutcome, importFromUrl, importViaPicker } from './src/journeys/import';
 import ClaimDetailScreen from './src/screens/ClaimDetailScreen';
 import ClaimWebScreen from './src/screens/ClaimWebScreen';
@@ -73,6 +75,52 @@ export default function App() {
     importViaPicker().then(handleOutcome).catch(e => Alert.alert('Import failed', String(e)));
   }, [handleOutcome]);
 
+  // TfL-10: auto-fetch journey history through the signed-in TfL session on
+  // app open / foreground / manual refresh, capped at one fetch a day. The
+  // hidden WebView mounts only while a fetch is in flight.
+  const [autoFetching, setAutoFetching] = useState(false);
+  const [refreshNote, setRefreshNote] = useState<string | null>(null);
+
+  const startAutoFetch = useCallback((manual: boolean) => {
+    setAutoFetching(current => {
+      if (current) return current; // one in flight already
+      if (!shouldAutoFetch(getMeta(LAST_AUTOFETCH_KEY), new Date().toISOString())) {
+        if (manual) setRefreshNote('Journeys already updated today — TfL is checked at most once a day.');
+        return current;
+      }
+      setRefreshNote('Checking TfL for new journeys…');
+      return true;
+    });
+  }, []);
+
+  useEffect(() => { startAutoFetch(false); }, [startAutoFetch]);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', s => { if (s === 'active') startAutoFetch(false); });
+    return () => sub.remove();
+  }, [startAutoFetch]);
+
+  const onAutoFetchResult = useCallback((r: AutoFetchResult) => {
+    setAutoFetching(false);
+    if (r.kind === 'imported' || r.kind === 'empty') {
+      // Only a completed fetch stamps the rate limit — a signed-out or failed
+      // attempt leaves Refresh usable after the user signs back in.
+      setMeta(LAST_AUTOFETCH_KEY, new Date().toISOString());
+      if (r.kind === 'imported') {
+        setLastImport(r.outcome);
+        refresh();
+        setRefreshNote(r.outcome.inserted > 0
+          ? `Imported ${r.outcome.inserted} new journey${r.outcome.inserted === 1 ? '' : 's'} from TfL.`
+          : 'Journeys are up to date.');
+      } else {
+        setRefreshNote('No journey history on TfL yet.');
+      }
+    } else if (r.kind === 'signed-out') {
+      setRefreshNote('TfL sign-in needed — open a claim, sign in on the TfL page, then tap Refresh.');
+    } else {
+      setRefreshNote('Couldn’t refresh from TfL — you can still import a CSV.');
+    }
+  }, [refresh]);
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
@@ -98,8 +146,12 @@ export default function App() {
             lastImport={lastImport}
             onImportPress={onImportPress}
             onSelect={setSelected}
+            onRefreshPress={() => startAutoFetch(true)}
+            refreshing={autoFetching}
+            refreshNote={refreshNote}
           />
         )}
+        {autoFetching && <AutoFetchWebView onResult={onAutoFetchResult} />}
       </SafeAreaView>
     </SafeAreaProvider>
   );

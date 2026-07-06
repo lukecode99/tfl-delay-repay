@@ -18,6 +18,10 @@ interface Props {
   lastImport: ImportOutcome | null;
   onImportPress: () => void;
   onSelect: (journey: StoredJourney) => void;
+  // TfL-10: auto-fetch through the signed-in TfL session
+  onRefreshPress: () => void;
+  refreshing: boolean;
+  refreshNote: string | null;
 }
 
 function Badge({ assessment, claim }: { assessment: Assessment | undefined; claim: ClaimRecord | undefined }) {
@@ -44,7 +48,7 @@ function Badge({ assessment, claim }: { assessment: Assessment | undefined; clai
   return null; // not eligible / not assessable — keep rows quiet
 }
 
-export default function JourneysScreen({ journeys, assessments, claims, lastImport, onImportPress, onSelect }: Props) {
+export default function JourneysScreen({ journeys, assessments, claims, lastImport, onImportPress, onSelect, onRefreshPress, refreshing, refreshNote }: Props) {
   const sections = groupByDay(journeys);
   const eligibleCount = journeys.filter(j => assessments.get(j.id)?.status === 'eligible').length;
   const totals = claimTotals([...claims.values()]);
@@ -63,10 +67,23 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
         </Text>
       )}
 
-      <Pressable style={styles.importButton} onPress={onImportPress}>
-        <Text style={styles.importButtonText}>Import journey statement (CSV)</Text>
-      </Pressable>
-      <Text style={styles.importHint}>Or share a TfL CSV statement to this app from Files / Mail.</Text>
+      <View style={styles.buttonRow}>
+        <Pressable style={[styles.importButton, styles.buttonRowItem]} onPress={onImportPress}>
+          <Text style={styles.importButtonText}>Import CSV</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.refreshButton, styles.buttonRowItem, refreshing && styles.refreshButtonBusy]}
+          onPress={onRefreshPress}
+          disabled={refreshing}
+        >
+          <Text style={styles.refreshButtonText}>{refreshing ? 'Checking TfL…' : 'Refresh from TfL'}</Text>
+        </Pressable>
+      </View>
+      <Text style={styles.importHint}>
+        Journeys update when you open the app (uses your TfL sign-in from filing a claim). You can
+        also share a TfL CSV statement to this app from Files / Mail.
+      </Text>
+      {refreshNote && <Text style={styles.importSummary}>{refreshNote}</Text>}
       {lastImport && (
         <Text style={styles.importSummary}>
           {lastImport.fileName}: {lastImport.inserted} new
@@ -109,13 +126,26 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 28, fontWeight: '700', marginBottom: spacing.xs },
   subtitle: { color: colors.textDim, fontSize: 14, marginBottom: spacing.m },
   totals: { color: colors.good, fontSize: 14, fontWeight: '700', marginTop: -spacing.s, marginBottom: spacing.m },
+  buttonRow: { flexDirection: 'row' },
+  buttonRowItem: { flex: 1 },
   importButton: {
     backgroundColor: colors.accentBright,
     borderRadius: 12,
     padding: spacing.m,
     alignItems: 'center',
+    marginRight: spacing.s,
   },
   importButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  refreshButton: {
+    backgroundColor: colors.card,
+    borderColor: colors.accentBright,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: spacing.m,
+    alignItems: 'center',
+  },
+  refreshButtonBusy: { opacity: 0.6 },
+  refreshButtonText: { color: colors.accentBright, fontSize: 16, fontWeight: '700' },
   importHint: { color: colors.textDim, fontSize: 12, marginTop: spacing.xs },
   importSummary: { color: colors.text, fontSize: 13, marginTop: spacing.s },
   list: { flex: 1, marginTop: spacing.m },

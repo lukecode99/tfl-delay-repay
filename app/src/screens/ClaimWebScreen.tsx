@@ -86,8 +86,11 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
         source={{ uri: CLAIM_START_URL }}
         style={styles.web}
         onMessage={onMessage}
-        // Sign-in happens on TfL's pages; nothing is intercepted or stored.
-        sharedCookiesEnabled={false}
+        // TfL-10: shared system cookie store, so the session from signing in
+        // here is reusable by the hidden journey auto-fetch WebView. Sign-in
+        // still happens on TfL's pages; the cookie stays in the WebView store
+        // and the app never reads or persists credentials.
+        sharedCookiesEnabled={true}
         incognito={false}
       />
       <Text style={styles.footer}>
