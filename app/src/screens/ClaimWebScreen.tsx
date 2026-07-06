@@ -42,9 +42,16 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.type === 'prefill') {
-        setFillNote(msg.error
-          ? 'Fill failed — use the copy chips.'
-          : `Filled ${msg.filled}/${msg.total} fields — copy the rest from the chips.`);
+        if (msg.error) { setFillNote('Fill failed — use the copy chips.'); return; }
+        // TfL-9: the script reports per-field outcomes — name exactly what
+        // still needs copying instead of a vague "the rest".
+        const labelByKey = new Map(fields.map(f => [f.key, f.label]));
+        const missing: string[] = (msg.results ?? [])
+          .filter((r: { filled: boolean }) => !r.filled)
+          .map((r: { key: string }) => labelByKey.get(r.key) ?? r.key);
+        setFillNote(missing.length === 0
+          ? `Filled all ${msg.total} fields — check them before you submit.`
+          : `Filled ${msg.filled}/${msg.total} — copy ${missing.join(', ')} from the chips.`);
       }
     } catch { /* not ours */ }
   };
