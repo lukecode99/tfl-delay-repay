@@ -15,7 +15,6 @@ import {
   FlowState,
   INITIAL_FLOW,
   isTerminal,
-  loadAction,
   reduceFlow,
   statusText,
 } from './refresh-flow';
@@ -51,6 +50,11 @@ export default function RefreshSheet({ onClose }: Props) {
     if (next === stateRef.current) return;
     stateRef.current = next;
     setState(next);
+    if (next.phase === 'steering') {
+      // Wrong landing page (dashboard, card list…) or the next card's history:
+      // the machine says where to go, the WebView follows.
+      webRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(next.target)}; true;`);
+    }
     if (next.phase === 'cancelled') close({ kind: 'cancelled' });
     if (next.phase === 'done') {
       const outcome = outcomeRef.current;
@@ -66,36 +70,48 @@ export default function RefreshSheet({ onClose }: Props) {
   }, [close]);
 
   const onLoaded = (url: string) => {
-    const action = loadAction(stateRef.current, url);
     dispatch({ type: 'loaded', url });
-    if (action === 'inject') {
+    // Harvest every landed page — the script reports what the page is
+    // (challenge, login, wrong page, card picker, history) and the machine
+    // reacts. Login/challenge pages are the user's to use, nothing injected.
+    if (stateRef.current.phase === 'harvesting') {
       webRef.current?.injectJavaScript(buildHarvestScript());
-    } else if (action === 'go-history') {
-      webRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(JOURNEY_HISTORY_URL)}; true;`);
     }
   };
+
+  // Several cards can each contribute an import (TfL-12) — merge the tallies
+  // so the closing summary covers the whole refresh.
+  const mergeOutcome = (a: ImportOutcome | null, b: ImportOutcome): ImportOutcome => (a ? {
+    ...b,
+    inserted: a.inserted + b.inserted,
+    upgraded: a.upgraded + b.upgraded,
+    duplicates: a.duplicates + b.duplicates,
+    incomplete: a.incomplete + b.incomplete,
+    parsed: { ...b.parsed, skipped: a.parsed.skipped + b.parsed.skipped },
+  } : b);
 
   const onMessage = (event: any) => {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.type !== 'journey-harvest') return;
+      const cards = Array.isArray(msg.cards) ? msg.cards : undefined;
       if (msg.status === 'csv' || msg.status === 'rows') {
         const wasHarvesting = stateRef.current.phase === 'harvesting';
-        dispatch({ type: 'harvest', status: msg.status });
-        if (!wasHarvesting || outcomeRef.current) return; // duplicate report — already importing
+        dispatch({ type: 'harvest', status: msg.status, cards });
+        if (!wasHarvesting) return; // duplicate report — this page's import already ran
         try {
           const csv = msg.status === 'csv' ? String(msg.text ?? '') : rowsToCsv(msg.rows ?? []);
           // Filename → card id: reuse the id previous imports stored so the
           // dedupe index treats auto-fetched rows as the same statement.
           const outcome = importCsvText(csv, `${pickCardId(listCards())}.csv`);
-          outcomeRef.current = outcome;
+          outcomeRef.current = mergeOutcome(outcomeRef.current, outcome);
           dispatch({ type: 'imported', inserted: outcome.inserted });
         } catch (e) {
           dispatch({ type: 'import-failed', message: String(e) });
         }
         return;
       }
-      dispatch({ type: 'harvest', status: msg.status, message: msg.message ? String(msg.message) : undefined });
+      dispatch({ type: 'harvest', status: msg.status, message: msg.message ? String(msg.message) : undefined, cards });
     } catch { /* not ours */ }
   };
 

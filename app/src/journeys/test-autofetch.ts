@@ -46,6 +46,13 @@ ok(pickCardId([]) === 'contactless', 'card id: fallback when nothing imported ye
 ok(pickCardId(['1688', '1688', '1688']) === '1688', 'card id: reuses the existing card');
 ok(pickCardId(['old', '1688', '1688']) === '1688', 'card id: most frequent card wins');
 ok(pickCardId(['unknown', '', 'unknown']) === 'contactless', 'card id: unknown/blank never reused');
+// TfL-12: Luke's account lists MANY duplicate •5006 entries, expired-flagged.
+ok(pickCardId(['Visa ending in 5006 (Card has expired 10/2020)', 'Visa ending in 5006', 'Visa ending in 5006 (Card has expired 10/2020)']) === 'Visa ending in 5006',
+  'card id: duplicate •5006 variants group together, non-expired variant preferred');
+ok(pickCardId(['9999', 'Visa ending in 5006', 'Visa ending in 5006 (Card has expired 10/2020)']) === 'Visa ending in 5006',
+  'card id: grouped duplicates outweigh a lone other card');
+ok(pickCardId(['Visa ending in 5006 (Card has expired 10/2020)', 'Visa ending in 5006 (Card has expired 10/2020)']) === 'Visa ending in 5006 (Card has expired 10/2020)',
+  'card id: all entries expired-flagged → card still reused, no fallback');
 
 // --- scraped rows → CSV → existing parser ---
 {
@@ -81,16 +88,26 @@ ok(pickCardId(['unknown', '', 'unknown']) === 'contactless', 'card id: unknown/b
 }
 
 // --- harvest script: behaviour against a stub DOM ---
-interface StubAnchor { href: string; text?: string }
-function harvestDoc(over: { password?: boolean; anchors?: StubAnchor[]; tables?: string[][][] } = {}) {
+interface StubAnchor { href: string; text?: string; parentText?: string }
+function harvestDoc(over: {
+  password?: boolean; anchors?: StubAnchor[]; tables?: string[][][];
+  title?: string; bodyText?: string; challenge?: boolean;
+} = {}) {
   return {
-    querySelector: (sel: string) => (sel === 'input[type="password"]' && over.password ? {} : null),
+    title: over.title ?? '',
+    body: over.bodyText != null ? { textContent: over.bodyText } : undefined,
+    querySelector: (sel: string) => {
+      if (sel === 'input[type="password"]') return over.password ? {} : null;
+      if (sel.includes('challenge')) return over.challenge ? {} : null;
+      return null;
+    },
     querySelectorAll: (sel: string) => {
       if (sel === 'a[href]') {
         return (over.anchors ?? []).map(a => ({
           href: a.href,
           textContent: a.text ?? '',
           getAttribute: (n: string) => (n === 'href' ? a.href : null),
+          parentElement: a.parentText != null ? { textContent: a.parentText } : undefined,
         }));
       }
       if (sel === 'table') {
@@ -166,6 +183,63 @@ async function runHarvest(doc: any, winOver: { href?: string; fetch?: any } = {}
   const msgs = await runHarvest(hostile);
   ok(msgs.length === 1 && msgs[0].status === 'error' && String(msgs[0].message).includes('boom'),
     'harvest: hostile DOM reports an error instead of throwing into the page');
+}
+
+// --- harvest script: TfL-12 page identification ---
+{
+  const msgs = await runHarvest(harvestDoc({ title: 'Just a moment…' }));
+  ok(msgs.length === 1 && msgs[0].status === 'challenge', 'harvest: robot-check title → challenge, nothing harvested');
+}
+{
+  const msgs = await runHarvest(harvestDoc({ challenge: true, password: true }));
+  ok(msgs.length === 1 && msgs[0].status === 'challenge',
+    'harvest: challenge widget on the page → challenge even when a form is present');
+}
+{
+  const msgs = await runHarvest(harvestDoc({ bodyText: 'Welcome back, Luke' }), { href: 'https://account.tfl.gov.uk/Dashboard' });
+  ok(msgs.length === 1 && msgs[0].status === 'wrong-page' && String(msgs[0].href).includes('dashboard'),
+    'harvest: signed-in My Account dashboard → wrong-page to steer from, never signed-out or empty');
+}
+{
+  const msgs = await runHarvest(harvestDoc({ anchors: [{ href: '/signout', text: 'Sign out' }] }), { href: 'https://account.tfl.gov.uk/Home' });
+  ok(msgs.length === 1 && msgs[0].status === 'wrong-page', 'harvest: a sign-out link also marks the page as signed-in → wrong-page');
+}
+{
+  const msgs = await runHarvest(harvestDoc(), { href: 'https://account.tfl.gov.uk/TwoFactor' });
+  ok(msgs.length === 1 && msgs[0].status === 'signed-out',
+    'harvest: account page with no signed-in marker (mid-login) → wait as signed-out, no steering, no verdict');
+}
+{
+  const msgs = await runHarvest(harvestDoc(), { href: 'https://contactless.tfl.gov.uk/HomePage' });
+  ok(msgs.length === 1 && msgs[0].status === 'wrong-page' && String(msgs[0].href).includes('homepage'),
+    'harvest: off-history landing page → wrong-page with the URL, NOT empty (TfL-12)');
+}
+{
+  const msgs = await runHarvest(harvestDoc({
+    anchors: [
+      { href: 'https://contactless.tfl.gov.uk/Card/A', text: 'Visa ending in 5006', parentText: 'Visa ending in 5006 Card has expired 10/2020' },
+      { href: 'https://contactless.tfl.gov.uk/Card/B', text: 'Visa ending in 5006', parentText: 'Visa ending in 5006 Card has expired 10/2020' },
+      { href: 'https://contactless.tfl.gov.uk/Card/C', text: 'Visa •••• 5006' },
+      { href: '/help', text: 'Help' },
+    ],
+  }));
+  ok(msgs.length === 1 && msgs[0].status === 'cards' && msgs[0].cards.length === 3,
+    'harvest: history page showing a card picker → cards report, non-card links ignored');
+  ok(msgs[0].cards[0].expired === true && msgs[0].cards[1].expired === true && msgs[0].cards[2].expired === false,
+    'harvest: expired flags read from each entry’s context');
+}
+{
+  const table = [
+    ['Date', 'Time', 'Journey / Action', 'Charge'],
+    ['04/07/2026', '10:32 - 11:18', 'Eastcote to Sudbury Town', '-£2.20'],
+  ];
+  const msgs = await runHarvest(harvestDoc({
+    tables: [table],
+    anchors: [{ href: 'https://contactless.tfl.gov.uk/Card/B', text: 'Visa ending in 4921' }],
+  }));
+  ok(msgs.length === 1 && msgs[0].status === 'rows' && msgs[0].cards.length === 1
+    && String(msgs[0].cards[0].href).includes('/Card/B'),
+    'harvest: journey rows carry the other cards on the account for the sweep');
 }
 
 // --- SC(4): auto-fetched rows dedupe against previously imported ones ---

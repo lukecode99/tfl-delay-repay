@@ -47,16 +47,41 @@ export function isNewFetchDay(lastFetchISO: string | null, nowISO: string): bool
  * what the original CSV file was called.
  */
 export function pickCardId(existingCards: string[], fallback = 'contactless'): string {
-  const counts = new Map<string, number>();
+  // TfL can list the same physical card more than once (Luke's account shows
+  // two "Visa ending in 5006" entries, both expired-flagged), so ids that
+  // mean the same card are grouped before counting: journey rows accrue to
+  // the card, not to whichever variant of its name a statement used.
+  const groups = new Map<string, Map<string, number>>();
   for (const c of existingCards) {
-    if (c && c !== 'unknown') counts.set(c, (counts.get(c) ?? 0) + 1);
+    if (!c || c === 'unknown') continue;
+    const key = cardKey(c);
+    const g = groups.get(key) ?? new Map<string, number>();
+    g.set(c, (g.get(c) ?? 0) + 1);
+    groups.set(key, g);
   }
-  let best: string | null = null;
-  let bestN = 0;
-  for (const [c, n] of counts) {
-    if (n > bestN) { best = c; bestN = n; }
+  let bestGroup: Map<string, number> | null = null;
+  let bestTotal = 0;
+  for (const g of groups.values()) {
+    let total = 0;
+    for (const n of g.values()) total += n;
+    if (total > bestTotal) { bestGroup = g; bestTotal = total; }
   }
-  return best ?? fallback;
+  if (!bestGroup) return fallback;
+  // Within the winning group, prefer a variant without an expired flag, then
+  // the one with the most journey data behind it.
+  let best = fallback;
+  let bestScore = -1;
+  for (const [raw, n] of bestGroup) {
+    const score = (/expired/i.test(raw) ? 0 : 1_000_000) + n;
+    if (score > bestScore) { bestScore = score; best = raw; }
+  }
+  return best;
+}
+
+/** Same-card grouping key: the PAN tail if one is present, else the name. */
+function cardKey(c: string): string {
+  const m = /ending in\s*(\d+)/i.exec(c) ?? /(\d{4,})/.exec(c);
+  return m ? m[1] : c.trim().toLowerCase();
 }
 
 /** Scraped table rows → CSV text for the existing importCsvText pipeline. */
@@ -66,13 +91,26 @@ export function rowsToCsv(rows: string[][]): string {
 }
 
 /**
- * Injected-JS harvest script for the journey-history page. Posts exactly one
- * {type:'journey-harvest', status, ...} message:
- *   status 'signed-out'          — login page detected; session expired
- *   status 'csv',  text          — CSV export fetched with the session cookie
- *   status 'rows', rows          — journey table scraped (no export link)
- *   status 'empty'               — page loaded but no journey data found
+ * Injected-JS harvest script. Runs on whatever page the WebView landed on and
+ * posts exactly one {type:'journey-harvest', status, ...} message:
+ *   status 'challenge'           — robot-check page; wait for the user to solve it
+ *   status 'signed-out'          — login (or mid-login) page; user signs in here
+ *   status 'wrong-page', href    — signed-in but not on journey history; steer
+ *   status 'cards', cards        — history page is a card picker; visit each
+ *   status 'csv',  text, cards   — CSV export fetched with the session cookie
+ *   status 'rows', rows, cards   — journey table scraped (no export link)
+ *   status 'empty'               — CONFIRMED journey-history page with no data
  *   status 'error', message      — harvest failed
+ *
+ * 'cards' entries are {href, label, expired} — Luke's account lists many
+ * duplicate expired-flagged entries for the same PAN, so the flow (not this
+ * script) decides which to visit: unexpired first, all of them if every entry
+ * is expired-flagged. csv/rows also carry any card links found, so the other
+ * cards on the account get their history checked too.
+ *
+ * 'empty' can only be reported from a page whose URL contains '7dayhistory'
+ * (or that carries a journey table) — never from the My Account dashboard or
+ * any other intermediate page (TfL-12).
  *
  * Kept as ES5 source text (not a serialised function): Hermes'
  * Function.prototype.toString returns "[bytecode]". The tests run this exact
@@ -89,42 +127,111 @@ export function buildHarvestScript(): string {
     var textOf = function (el) {
       return String(el && el.textContent != null ? el.textContent : '').replace(/\\s+/g, ' ').trim();
     };
+    var href = '';
+    try { href = String((win.location && win.location.href) || '').toLowerCase(); } catch (e) { }
 
-    // Signed out? The history page redirects to the account sign-in when the
-    // session has expired.
+    // Robot check? Cloudflare-style challenges are served at the requested
+    // URL, so detection has to be DOM-based. Never harvest, never conclude —
+    // the user solves it in the sheet and the page navigates on.
+    var challenged = false;
+    try {
+      var title = String(doc.title || '').toLowerCase();
+      if (/just a moment|attention required|verify you are human|are you a robot|security check/.test(title)) challenged = true;
+      if (doc.querySelector('#challenge-form, #challenge-stage, #challenge-running, iframe[src*="challenges.cloudflare.com"], iframe[src*="hcaptcha.com"], [class*="cf-turnstile"]')) challenged = true;
+    } catch (e) { }
+    if (challenged) { report({ type: 'journey-harvest', status: 'challenge' }); return; }
+
+    // Login page? The user signs in right here. Only actual sign-in pages —
+    // the signed-in My Account dashboard also lives on account.tfl.gov.uk, so
+    // matching the whole host would wrongly park the flow there (TfL-12).
     var signedOut = false;
     try {
       if (doc.querySelector('input[type="password"]')) signedOut = true;
-      var href = String((win.location && win.location.href) || '').toLowerCase();
       if (href.indexOf('signin') !== -1 || href.indexOf('sign-in') !== -1
-        || href.indexOf('login') !== -1 || href.indexOf('account.tfl.gov.uk') !== -1) signedOut = true;
+        || href.indexOf('login') !== -1) signedOut = true;
     } catch (e) { }
     if (signedOut) { report({ type: 'journey-harvest', status: 'signed-out' }); return; }
 
-    var scrape = function () {
+    // Payment cards linked from this page, with any expired flag TfL shows
+    // next to them. The flow decides which to visit.
+    var collectCards = function () {
+      var cards = [];
+      var seen = {};
       try {
-        var tables = doc.querySelectorAll('table');
-        for (var t = 0; t < tables.length; t++) {
-          var trs = tables[t].querySelectorAll('tr');
-          var rows = [];
-          for (var r = 0; r < trs.length; r++) {
-            var cells = trs[r].querySelectorAll('th, td');
-            var row = [];
-            for (var c = 0; c < cells.length; c++) { row.push(textOf(cells[c])); }
-            if (row.length) rows.push(row);
-          }
-          if (!rows.length) continue;
-          // Only the journey-history table — the page has other tables.
-          var head = rows[0].join(' ').toLowerCase();
-          if (head.indexOf('date') !== -1 && head.indexOf('journey') !== -1) {
-            report({ type: 'journey-harvest', status: 'rows', rows: rows });
-            return;
-          }
+        var cas = doc.querySelectorAll('a[href]');
+        for (var k = 0; k < cas.length; k++) {
+          var ca = cas[k];
+          var label = textOf(ca);
+          if (!/(ending in\\s*\\d{2,4})|([•·*]{1,4}\\s*\\d{4})/i.test(label)) continue;
+          var curl = String(ca.href || (ca.getAttribute && ca.getAttribute('href')) || '');
+          if (!curl || seen[curl]) continue;
+          seen[curl] = true;
+          var context = label;
+          try { if (ca.parentElement) context = textOf(ca.parentElement); } catch (e) { }
+          cards.push({ href: curl, label: label, expired: /expired/i.test(context) });
         }
-        report({ type: 'journey-harvest', status: 'empty' });
-      } catch (e) {
-        report({ type: 'journey-harvest', status: 'error', message: String(e) });
+      } catch (e) { }
+      return cards;
+    };
+
+    // Find the journey table, if this page has one.
+    var rows = null;
+    try {
+      var tables = doc.querySelectorAll('table');
+      for (var t = 0; t < tables.length; t++) {
+        var trs = tables[t].querySelectorAll('tr');
+        var cand = [];
+        for (var r = 0; r < trs.length; r++) {
+          var cells = trs[r].querySelectorAll('th, td');
+          var row = [];
+          for (var c = 0; c < cells.length; c++) { row.push(textOf(cells[c])); }
+          if (row.length) cand.push(row);
+        }
+        if (!cand.length) continue;
+        // Only the journey-history table — the page has other tables.
+        var head = cand[0].join(' ').toLowerCase();
+        if (head.indexOf('date') !== -1 && head.indexOf('journey') !== -1) { rows = cand; break; }
       }
+    } catch (e) {
+      report({ type: 'journey-harvest', status: 'error', message: String(e) });
+      return;
+    }
+
+    // Are we actually ON the journey-history page? URL marker, or the journey
+    // table itself as the DOM marker. Anywhere else is a page to steer away
+    // from — post-login/post-challenge TfL likes to land on the dashboard.
+    var onHistory = href.indexOf('7dayhistory') !== -1 || !!rows;
+    if (!onHistory) {
+      var signedIn = false;
+      try {
+        if (doc.body && /welcome back/i.test(textOf(doc.body))) signedIn = true;
+      } catch (e) { }
+      try {
+        var outs = doc.querySelectorAll('a[href]');
+        for (var o = 0; o < outs.length; o++) {
+          var otext = textOf(outs[o]).toLowerCase();
+          var ohref = String((outs[o].getAttribute && outs[o].getAttribute('href')) || outs[o].href || '').toLowerCase();
+          if (otext.indexOf('sign out') !== -1 || otext.indexOf('log out') !== -1
+            || ohref.indexOf('signout') !== -1 || ohref.indexOf('logout') !== -1) { signedIn = true; break; }
+        }
+      } catch (e) { }
+      // On the account host with no sign-out link and no password field:
+      // probably mid-login (2FA, verification) — wait, don't yank the page.
+      if (!signedIn && href.indexOf('account.tfl.gov.uk') !== -1) {
+        report({ type: 'journey-harvest', status: 'signed-out' });
+        return;
+      }
+      report({ type: 'journey-harvest', status: 'wrong-page', href: href });
+      return;
+    }
+
+    // On the history page. Any card switcher here lists the account's other
+    // cards — reported alongside the data so their history gets checked too.
+    var cards = collectCards();
+    var conclude = function () {
+      if (rows) { report({ type: 'journey-harvest', status: 'rows', rows: rows, cards: cards }); return; }
+      if (cards.length) { report({ type: 'journey-harvest', status: 'cards', cards: cards }); return; }
+      report({ type: 'journey-harvest', status: 'empty' });
     };
 
     // Prefer the CSV export link — same data the manual download gives, and
@@ -146,11 +253,11 @@ export function buildHarvestScript(): string {
           if (!res.ok) { throw new Error('HTTP ' + res.status); }
           return res.text();
         })
-        .then(function (t) { report({ type: 'journey-harvest', status: 'csv', text: t }); })
-        .catch(function () { scrape(); });
+        .then(function (t) { report({ type: 'journey-harvest', status: 'csv', text: t, cards: cards }); })
+        .catch(function () { conclude(); });
       return;
     }
-    scrape();
+    conclude();
   } catch (e) {
     report({ type: 'journey-harvest', status: 'error', message: String(e) });
   }
