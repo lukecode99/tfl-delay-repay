@@ -6,8 +6,12 @@
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import {
+  appendCsvHit,
   AUTOFETCH_RATE_LIMIT_ENABLED,
   buildHarvestScript,
+  buildNetProbeScript,
+  CSV_LOG_CAP,
+  isCsvEndpoint,
   isNewFetchDay,
   JOURNEY_HISTORY_URL,
   pickCardId,
@@ -156,6 +160,8 @@ async function runHarvest(doc: any, winOver: { href?: string; fetch?: any } = {}
     'harvest: CSV export link fetched with the session cookie (credentials: include)');
   ok(msgs.length === 1 && msgs[0].status === 'csv' && msgs[0].text === 'Date,Journey\ncsv-data',
     'harvest: CSV text posted back to the app');
+  ok(String(msgs[0].url).includes('csv'),
+    'harvest: CSV report carries the fetched URL for endpoint discovery (TfL-13)');
 }
 {
   const table = [
@@ -240,6 +246,74 @@ async function runHarvest(doc: any, winOver: { href?: string; fetch?: any } = {}
   ok(msgs.length === 1 && msgs[0].status === 'rows' && msgs[0].cards.length === 1
     && String(msgs[0].cards[0].href).includes('/Card/B'),
     'harvest: journey rows carry the other cards on the account for the sweep');
+}
+
+// --- harvest script: TfL-13 Oyster history recognised by its URL marker ---
+{
+  const msgs = await runHarvest(harvestDoc(), { href: 'https://oyster.tfl.gov.uk/oyster/journeyHistory.do' });
+  ok(msgs.length === 1 && msgs[0].status === 'empty',
+    'harvest: Oyster journey-history URL counts as a history page → empty is a real verdict there');
+}
+{
+  const table = [
+    ['Date', 'Time', 'Journey / Action', 'Charge'],
+    ['04/07/2026', '10:32 - 11:18', 'Eastcote to Sudbury Town', '-£2.20'],
+  ];
+  const msgs = await runHarvest(harvestDoc({ tables: [table] }), { href: 'https://oyster.tfl.gov.uk/oyster/journeyHistory.do' });
+  ok(msgs.length === 1 && msgs[0].status === 'rows', 'harvest: Oyster journey table scrapes like the contactless one');
+}
+
+// --- TfL-13: CSV endpoint discovery (capture-only) ---
+ok(isCsvEndpoint('https://contactless.tfl.gov.uk/Statements/Export?format=csv')
+  && isCsvEndpoint('https://contactless.tfl.gov.uk/Download/History')
+  && !isCsvEndpoint('https://contactless.tfl.gov.uk/HomePage/7DayHistory'),
+  'csv probe: export-looking URLs match, ordinary pages do not');
+{
+  let log = appendCsvHit(null, { source: 'nav', url: 'https://x/a.csv', at: '2026-07-06T22:00:00Z' });
+  log = appendCsvHit(log, { source: 'xhr', url: 'https://x/b.csv', at: '2026-07-06T22:01:00Z' });
+  const parsed = JSON.parse(log);
+  ok(parsed.length === 2 && parsed[1].url === 'https://x/b.csv', 'csv probe: hits append to the meta log in order');
+  ok(JSON.parse(appendCsvHit('not-json{', { source: 'nav', url: 'u', at: 't' })).length === 1,
+    'csv probe: a corrupt existing log restarts instead of throwing');
+  let capped = null as string | null;
+  for (let i = 0; i < CSV_LOG_CAP + 5; i++) capped = appendCsvHit(capped, { source: 'nav', url: `u${i}`, at: 't' });
+  const cp = JSON.parse(capped!);
+  ok(cp.length === CSV_LOG_CAP && cp[cp.length - 1].url === `u${CSV_LOG_CAP + 4}`,
+    'csv probe: log capped, newest hits kept');
+}
+{
+  // The exact injected probe string: wraps fetch and XHR, reports matches,
+  // passes every request through, and installs only once.
+  const script = buildNetProbeScript();
+  new Function(script);
+  ok(script.trimEnd().endsWith('true;'), 'net probe: valid JS, ends with true for injectJavaScript');
+  const messages: any[] = [];
+  const fetched: string[] = [];
+  const opened: string[] = [];
+  function XHR() { /* stub */ }
+  XHR.prototype.open = function (_m: string, u: string) { opened.push(u); return 'opened'; };
+  const win: any = {
+    fetch: (u: string) => { fetched.push(String(u)); return 'fetch-result'; },
+    XMLHttpRequest: XHR,
+    ReactNativeWebView: { postMessage: (s: string) => messages.push(JSON.parse(s)) },
+  };
+  win.window = win;
+  new Function('window', script)(win);
+  ok(win.fetch('https://contactless.tfl.gov.uk/Statements/Export?format=csv') === 'fetch-result'
+    && fetched.length === 1,
+    'net probe: wrapped fetch still performs the real request');
+  win.fetch('https://contactless.tfl.gov.uk/HomePage');
+  const xhr: any = new (XHR as any)();
+  ok(xhr.open('GET', 'https://contactless.tfl.gov.uk/journeys/download') === 'opened' && opened.length === 1,
+    'net probe: wrapped XHR open still calls through');
+  xhr.open('GET', 'https://contactless.tfl.gov.uk/HomePage');
+  ok(messages.length === 2
+    && messages[0].type === 'net-probe' && messages[0].kind === 'fetch' && messages[0].url.includes('csv')
+    && messages[1].kind === 'xhr' && messages[1].url === 'GET https://contactless.tfl.gov.uk/journeys/download',
+    'net probe: only export-looking requests reported, with kind and URL');
+  const before = win.fetch;
+  new Function('window', script)(win); // second injection on the same page
+  ok(win.fetch === before, 'net probe: idempotent — re-injection never double-wraps');
 }
 
 // --- SC(4): auto-fetched rows dedupe against previously imported ones ---

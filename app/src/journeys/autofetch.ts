@@ -84,6 +84,40 @@ function cardKey(c: string): string {
   return m ? m[1] : c.trim().toLowerCase();
 }
 
+/**
+ * CSV-endpoint discovery (TfL-13): capture, don't act. Any request that looks
+ * like a journey export gets logged so the exact URL + params TfL uses can be
+ * lifted from a device later — if the endpoint pins down, future refreshes
+ * become one cookie-authenticated fetch instead of page steering.
+ */
+export const CSV_LOG_KEY = 'csvEndpointLog';
+
+/** How many captured endpoint hits the meta log keeps. */
+export const CSV_LOG_CAP = 20;
+
+/** Does this URL smell like a journey-data export? Deliberately broad — the
+ * log is capped and capture-only, so a false positive costs nothing. */
+export function isCsvEndpoint(url: string): boolean {
+  return /csv|export|download|statement/i.test(url);
+}
+
+/** Append a captured hit to the JSON log (stored in the db meta table),
+ * tolerating a missing or corrupt existing value. Pure — caller supplies the
+ * timestamp. */
+export function appendCsvHit(
+  existingJson: string | null,
+  hit: { source: string; url: string; at: string },
+  cap = CSV_LOG_CAP,
+): string {
+  let log: unknown[] = [];
+  try {
+    const parsed = JSON.parse(existingJson ?? '[]');
+    if (Array.isArray(parsed)) log = parsed;
+  } catch { /* corrupt log — start over */ }
+  log.push(hit);
+  return JSON.stringify(log.slice(-cap));
+}
+
 /** Scraped table rows → CSV text for the existing importCsvText pipeline. */
 export function rowsToCsv(rows: string[][]): string {
   const esc = (c: string) => (/[",\n\r]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c);
@@ -97,7 +131,7 @@ export function rowsToCsv(rows: string[][]): string {
  *   status 'signed-out'          — login (or mid-login) page; user signs in here
  *   status 'wrong-page', href    — signed-in but not on journey history; steer
  *   status 'cards', cards        — history page is a card picker; visit each
- *   status 'csv',  text, cards   — CSV export fetched with the session cookie
+ *   status 'csv',  text, cards, url — CSV export fetched with the session cookie
  *   status 'rows', rows, cards   — journey table scraped (no export link)
  *   status 'empty'               — CONFIRMED journey-history page with no data
  *   status 'error', message      — harvest failed
@@ -109,8 +143,9 @@ export function rowsToCsv(rows: string[][]): string {
  * cards on the account get their history checked too.
  *
  * 'empty' can only be reported from a page whose URL contains '7dayhistory'
- * (or that carries a journey table) — never from the My Account dashboard or
- * any other intermediate page (TfL-12).
+ * or 'journeyhistory' (the Oyster site's marker, TfL-13) or that carries a
+ * journey table — never from the My Account dashboard or any other
+ * intermediate page (TfL-12).
  *
  * Kept as ES5 source text (not a serialised function): Hermes'
  * Function.prototype.toString returns "[bytecode]". The tests run this exact
@@ -200,7 +235,7 @@ export function buildHarvestScript(): string {
     // Are we actually ON the journey-history page? URL marker, or the journey
     // table itself as the DOM marker. Anywhere else is a page to steer away
     // from — post-login/post-challenge TfL likes to land on the dashboard.
-    var onHistory = href.indexOf('7dayhistory') !== -1 || !!rows;
+    var onHistory = href.indexOf('7dayhistory') !== -1 || href.indexOf('journeyhistory') !== -1 || !!rows;
     if (!onHistory) {
       var signedIn = false;
       try {
@@ -253,7 +288,7 @@ export function buildHarvestScript(): string {
           if (!res.ok) { throw new Error('HTTP ' + res.status); }
           return res.text();
         })
-        .then(function (t) { report({ type: 'journey-harvest', status: 'csv', text: t, cards: cards }); })
+        .then(function (t) { report({ type: 'journey-harvest', status: 'csv', text: t, cards: cards, url: String(url) }); })
         .catch(function () { conclude(); });
       return;
     }
@@ -261,5 +296,47 @@ export function buildHarvestScript(): string {
   } catch (e) {
     report({ type: 'journey-harvest', status: 'error', message: String(e) });
   }
+})(); true;`;
+}
+
+/**
+ * Injected network probe (TfL-13): wraps fetch and XMLHttpRequest.open so any
+ * export-looking request the page (or the harvest script itself) fires gets
+ * reported as {type:'net-probe', kind, url} — pure observation, requests pass
+ * through untouched. Injected ONLY alongside the harvest script (never on
+ * login/challenge pages), idempotent per page. ES5 source text for the same
+ * Hermes reason as the harvest script; tests run this exact string.
+ */
+export function buildNetProbeScript(): string {
+  return `(function () {
+  var report = function (msg) {
+    if (window.ReactNativeWebView) { window.ReactNativeWebView.postMessage(JSON.stringify(msg)); }
+  };
+  try {
+    var win = window;
+    if (win.__tflNetProbe) { return; }
+    win.__tflNetProbe = true;
+    var interesting = function (u) { return /csv|export|download|statement/i.test(String(u)); };
+    var post = function (kind, u) {
+      try { report({ type: 'net-probe', kind: kind, url: String(u) }); } catch (e) { }
+    };
+    if (win.fetch) {
+      var origFetch = win.fetch;
+      win.fetch = function (input) {
+        try {
+          var u = input && input.url ? input.url : input;
+          if (interesting(u)) { post('fetch', u); }
+        } catch (e) { }
+        return origFetch.apply(win, arguments);
+      };
+    }
+    if (win.XMLHttpRequest && win.XMLHttpRequest.prototype && win.XMLHttpRequest.prototype.open) {
+      var origOpen = win.XMLHttpRequest.prototype.open;
+      win.XMLHttpRequest.prototype.open = function (method, url) {
+        try { if (interesting(url)) { post('xhr', String(method).toUpperCase() + ' ' + String(url)); } } catch (e) { }
+        return origOpen.apply(this, arguments);
+      };
+    }
+  } catch (e) { }
 })(); true;`;
 }

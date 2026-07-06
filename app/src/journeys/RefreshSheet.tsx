@@ -1,20 +1,39 @@
 // TfL-11: the journey refresh, visible. A pageSheet modal shows the real TfL
 // pages while the TfL-10 harvest script works, with a status bar narrating
 // each phase and a Cancel that's safe mid-flow (the import itself is a single
-// transaction, so cancelling never leaves half a statement behind). If the
-// session has expired the login page is simply there to use — after signing
-// in, the flow steers back to the journey history and carries on.
+// transaction, so cancelling never leaves half a statement behind).
+//
+// TfL-13: login and robot-check pages belong entirely to the user — while the
+// flow is paused NOTHING is injected and nothing steers (injection is keyed
+// off the 'harvesting' phase and steering off 'steering'; paused states
+// transition to neither). A Continue button hands control back when they're
+// done, and doubles as an escape hatch from any stalled page. A persisted
+// Contactless / Oyster / Both choice decides which journey-history section(s)
+// the flow visits.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { buildHarvestScript, JOURNEY_HISTORY_URL, pickCardId, rowsToCsv } from './autofetch';
-import { listCards } from './db';
+import {
+  appendCsvHit,
+  buildHarvestScript,
+  buildNetProbeScript,
+  CSV_LOG_KEY,
+  isCsvEndpoint,
+  pickCardId,
+  rowsToCsv,
+} from './autofetch';
+import { getMeta, listCards, setMeta } from './db';
 import { importCsvText, ImportOutcome } from './import';
 import {
+  canHandover,
+  FETCH_MODE_KEY,
+  FetchMode,
   FlowEvent,
   FlowState,
-  INITIAL_FLOW,
+  historyUrlsFor,
+  isPaused,
   isTerminal,
+  makeInitialFlow,
   reduceFlow,
   statusText,
 } from './refresh-flow';
@@ -32,12 +51,30 @@ interface Props {
 
 const DISMISS_DELAY_MS = 1200; // long enough to read the success line
 
+const MODES: { value: FetchMode; label: string }[] = [
+  { value: 'contactless', label: 'Contactless' },
+  { value: 'oyster', label: 'Oyster' },
+  { value: 'both', label: 'Both' },
+];
+
+function persistedMode(): FetchMode | null {
+  const m = getMeta(FETCH_MODE_KEY);
+  return m === 'contactless' || m === 'oyster' || m === 'both' ? m : null;
+}
+
 export default function RefreshSheet({ onClose }: Props) {
   const webRef = useRef<WebView>(null);
-  const stateRef = useRef<FlowState>(INITIAL_FLOW);
+  const stateRef = useRef<FlowState>(makeInitialFlow('contactless'));
   const outcomeRef = useRef<ImportOutcome | null>(null);
   const closedRef = useRef(false);
-  const [state, setState] = useState<FlowState>(INITIAL_FLOW);
+  // null = never chosen: the sheet opens with the chooser and no WebView.
+  const [mode, setMode] = useState<FetchMode | null>(persistedMode);
+  const [state, setState] = useState<FlowState>(() => {
+    const m = persistedMode();
+    const initial = makeInitialFlow(m ?? 'contactless');
+    stateRef.current = initial;
+    return initial;
+  });
 
   const close = useCallback((r: RefreshResult) => {
     if (closedRef.current) return;
@@ -45,13 +82,28 @@ export default function RefreshSheet({ onClose }: Props) {
     onClose(r);
   }, [onClose]);
 
+  // Capture-only CSV endpoint discovery (TfL-13): log to the device console
+  // and the db meta table; never disturb the flow, whatever goes wrong.
+  const recordCsvHit = (source: string, url: string) => {
+    try {
+      console.log(`[tfl-csv-probe] ${source}: ${url}`);
+      setMeta(CSV_LOG_KEY, appendCsvHit(getMeta(CSV_LOG_KEY), { source, url, at: new Date().toISOString() }));
+    } catch { /* capture only */ }
+  };
+
+  // The probe goes in first so the harvest script's own CSV fetch is captured.
+  // Only ever called for the 'harvesting' phase — never on a paused page.
+  const injectHarvest = () => {
+    webRef.current?.injectJavaScript(buildNetProbeScript() + '\n' + buildHarvestScript());
+  };
+
   const dispatch = useCallback((e: FlowEvent) => {
     const next = reduceFlow(stateRef.current, e);
     if (next === stateRef.current) return;
     stateRef.current = next;
     setState(next);
     if (next.phase === 'steering') {
-      // Wrong landing page (dashboard, card list…) or the next card's history:
+      // Wrong landing page (dashboard, card list…) or the next queued page:
       // the machine says where to go, the WebView follows.
       webRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(next.target)}; true;`);
     }
@@ -69,14 +121,29 @@ export default function RefreshSheet({ onClose }: Props) {
     if (!closedRef.current && !isTerminal(stateRef.current)) close({ kind: 'cancelled' });
   }, [close]);
 
+  const chooseMode = (m: FetchMode) => {
+    setMeta(FETCH_MODE_KEY, m);
+    // Fresh start: new mode, new flow, new tallies. The WebView remounts via
+    // key={mode} and loads the mode's first history page.
+    outcomeRef.current = null;
+    stateRef.current = makeInitialFlow(m);
+    setState(stateRef.current);
+    setMode(m);
+  };
+
+  // Continue button (TfL-13): resume from login/challenge, or force a harvest
+  // of whatever page the user navigated to themselves.
+  const onContinue = () => {
+    dispatch({ type: 'handover' });
+    if (stateRef.current.phase === 'harvesting') injectHarvest();
+  };
+
   const onLoaded = (url: string) => {
     dispatch({ type: 'loaded', url });
-    // Harvest every landed page — the script reports what the page is
-    // (challenge, login, wrong page, card picker, history) and the machine
-    // reacts. Login/challenge pages are the user's to use, nothing injected.
-    if (stateRef.current.phase === 'harvesting') {
-      webRef.current?.injectJavaScript(buildHarvestScript());
-    }
+    // Injection is keyed off the phase the machine settles in: paused states
+    // never reach 'harvesting' on a load, so login/challenge pages get no
+    // script at all (TfL-13).
+    if (stateRef.current.phase === 'harvesting') injectHarvest();
   };
 
   // Several cards can each contribute an import (TfL-12) — merge the tallies
@@ -93,9 +160,14 @@ export default function RefreshSheet({ onClose }: Props) {
   const onMessage = (event: any) => {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
+      if (msg.type === 'net-probe') {
+        recordCsvHit(String(msg.kind ?? 'net'), String(msg.url ?? ''));
+        return;
+      }
       if (msg.type !== 'journey-harvest') return;
       const cards = Array.isArray(msg.cards) ? msg.cards : undefined;
       if (msg.status === 'csv' || msg.status === 'rows') {
+        if (msg.status === 'csv' && msg.url) recordCsvHit('harvest', String(msg.url));
         const wasHarvesting = stateRef.current.phase === 'harvesting';
         dispatch({ type: 'harvest', status: msg.status, cards });
         if (!wasHarvesting) return; // duplicate report — this page's import already ran
@@ -131,22 +203,66 @@ export default function RefreshSheet({ onClose }: Props) {
             <Text style={styles.cancelText}>{finished ? 'Close' : 'Cancel'}</Text>
           </Pressable>
         </View>
-        <View style={[styles.statusBar, state.phase === 'error' && styles.statusBarError]}>
-          <Text style={styles.statusText}>{statusText(state)}</Text>
+        <View style={styles.modeRow}>
+          {MODES.map(m => (
+            <Pressable
+              key={m.value}
+              style={[styles.modeChip, mode === m.value && styles.modeChipActive]}
+              onPress={() => mode !== m.value && chooseMode(m.value)}
+            >
+              <Text style={[styles.modeChipText, mode === m.value && styles.modeChipTextActive]}>{m.label}</Text>
+            </Pressable>
+          ))}
         </View>
-        <WebView
-          ref={webRef}
-          source={{ uri: JOURNEY_HISTORY_URL }}
-          style={styles.web}
-          // Session reuse, not session capture: the cookie stays in the shared
-          // system WebView store — the app never reads or persists credentials.
-          sharedCookiesEnabled={true}
-          incognito={false}
-          onLoadEnd={(e: any) => onLoaded(String(e?.nativeEvent?.url ?? ''))}
-          onNavigationStateChange={(nav: { url?: string }) => dispatch({ type: 'nav', url: String(nav?.url ?? '') })}
-          onError={() => dispatch({ type: 'web-error', message: 'page failed to load' })}
-          onMessage={onMessage}
-        />
+        {mode == null ? (
+          <View style={styles.chooser}>
+            <Text style={styles.chooserTitle}>How do you travel?</Text>
+            <Text style={styles.chooserBody}>
+              Pick where your journeys live so the refresh opens the right
+              history — contactless bank cards, an Oyster card, or both. You
+              can change this any time above.
+            </Text>
+          </View>
+        ) : (
+          <>
+            <View style={[styles.statusBar, state.phase === 'error' && styles.statusBarError]}>
+              <Text style={styles.statusText}>{statusText(state)}</Text>
+              {canHandover(state) && (
+                <Pressable
+                  style={[styles.continueButton, isPaused(state) && styles.continueButtonPaused]}
+                  hitSlop={8}
+                  onPress={onContinue}
+                >
+                  <Text style={styles.continueText}>Continue</Text>
+                </Pressable>
+              )}
+            </View>
+            <WebView
+              key={mode}
+              ref={webRef}
+              source={{ uri: historyUrlsFor(mode)[0] }}
+              style={styles.web}
+              // Session reuse, not session capture: the cookie stays in the shared
+              // system WebView store — the app never reads or persists credentials.
+              sharedCookiesEnabled={true}
+              incognito={false}
+              onLoadEnd={(e: any) => onLoaded(String(e?.nativeEvent?.url ?? ''))}
+              onNavigationStateChange={(nav: { url?: string; title?: string }) =>
+                dispatch({
+                  type: 'nav',
+                  url: String(nav?.url ?? ''),
+                  title: typeof nav?.title === 'string' ? nav.title : undefined,
+                })}
+              onShouldStartLoadWithRequest={(req: any) => {
+                const url = String(req?.url ?? '');
+                if (isCsvEndpoint(url)) recordCsvHit('nav', url);
+                return true; // observation only — every request proceeds
+              }}
+              onError={() => dispatch({ type: 'web-error', message: 'page failed to load' })}
+              onMessage={onMessage}
+            />
+          </>
+        )}
       </View>
     </Modal>
   );
@@ -164,7 +280,28 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 16, fontWeight: '700' },
   cancelButton: { paddingVertical: 4, paddingLeft: spacing.m },
   cancelText: { color: colors.accentBright, fontSize: 16, fontWeight: '600' },
+  modeRow: {
+    flexDirection: 'row',
+    gap: spacing.s,
+    paddingHorizontal: spacing.l,
+    paddingBottom: spacing.s,
+  },
+  modeChip: {
+    borderColor: colors.cardBorder,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: spacing.m,
+    paddingVertical: 4,
+  },
+  modeChipActive: { backgroundColor: colors.card, borderColor: colors.accentBright },
+  modeChipText: { color: colors.textDim, fontSize: 13 },
+  modeChipTextActive: { color: colors.text, fontWeight: '600' },
+  chooser: { flex: 1, paddingHorizontal: spacing.l, paddingTop: spacing.l },
+  chooserTitle: { color: colors.text, fontSize: 18, fontWeight: '700', marginBottom: spacing.s },
+  chooserBody: { color: colors.textDim, fontSize: 14, lineHeight: 20 },
   statusBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.card,
     borderColor: colors.cardBorder,
     borderWidth: 1,
@@ -175,6 +312,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.s,
   },
   statusBarError: { borderColor: colors.bad },
-  statusText: { color: colors.text, fontSize: 13 },
+  statusText: { color: colors.text, fontSize: 13, flex: 1 },
+  continueButton: {
+    borderColor: colors.cardBorder,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: spacing.m,
+    paddingVertical: 6,
+    marginLeft: spacing.s,
+  },
+  continueButtonPaused: { borderColor: colors.accentBright },
+  continueText: { color: colors.accentBright, fontSize: 14, fontWeight: '700' },
   web: { flex: 1, backgroundColor: '#fff' },
 });
