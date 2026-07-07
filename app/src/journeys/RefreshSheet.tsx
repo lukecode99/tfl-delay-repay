@@ -11,6 +11,7 @@
 // Contactless / Oyster / Both choice decides which journey-history section(s)
 // the flow visits.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import * as Haptics from 'expo-haptics';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import {
@@ -122,6 +123,7 @@ export default function RefreshSheet({ onClose }: Props) {
     if (next.phase === 'cancelled') close({ kind: 'cancelled' });
     if (next.phase === 'done') {
       const outcome = outcomeRef.current;
+      if (outcome) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => close(outcome ? { kind: 'imported', outcome } : { kind: 'empty' }), DISMISS_DELAY_MS);
     }
     // 'error' stays open — the status bar shows what went wrong and the page
