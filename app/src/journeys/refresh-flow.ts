@@ -311,5 +311,3 @@ export function statusText(s: FlowState): string {
     case 'error': return `Couldn't refresh — ${s.message}`;
   }
 }
-(node:2405) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
-(Use `node --trace-warnings ...` to show where the warning was created)
