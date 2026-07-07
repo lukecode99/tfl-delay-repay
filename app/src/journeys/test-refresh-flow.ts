@@ -56,6 +56,8 @@ ok(!isLoginUrl(JOURNEY_HISTORY_URL) && !isLoginUrl(HOME_URL), 'urls: contactless
 ok(!isLoginUrl(DASHBOARD_URL), 'urls: the signed-in My Account dashboard is NOT a login page (TfL-12)');
 ok(isAccountDashboard(DASHBOARD_URL) && isAccountDashboard('https://account.tfl.gov.uk/MyAccount'),
   'urls: account.tfl.gov.uk non-login pages are the account dashboard (TfL-15)');
+ok(isAccountDashboard('https://contactless.tfl.gov.uk/Dashboard'),
+  'urls: contactless.tfl.gov.uk/Dashboard is also treated as account dashboard (TfL-16)');
 ok(!isAccountDashboard(LOGIN_URL), 'urls: login pages are NOT treated as the account dashboard');
 ok(!isAccountDashboard(JOURNEY_HISTORY_URL) && !isAccountDashboard(HOME_URL),
   'urls: contactless pages are not the account dashboard');

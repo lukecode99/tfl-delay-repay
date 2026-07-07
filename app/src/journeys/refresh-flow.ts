@@ -1,3 +1,4 @@
+sha: 0f4572612c2eb8b617fe35fc52957394ae116b30
 // Visible-refresh flow state machine (TfL-11/12/13). Pure module — node-testable.
 //
 // TfL-10's hidden WebView gave no on-device feedback, so the refresh runs
@@ -150,13 +151,17 @@ export function isLoginUrl(url: string): boolean {
 }
 
 /**
- * The signed-in My Account dashboard on account.tfl.gov.uk — not a login
- * page, but also not a journey history page. TfL redirects here after
- * NewStatements when the session is unestablished (TfL-15); the flow pauses
- * and tells the user to navigate to their contactless cards.
+ * The signed-in My Account dashboard — not a login page, but also not a
+ * journey history page. TfL redirects here in two patterns: account.tfl.gov.uk
+ * (after some flows) and contactless.tfl.gov.uk/Dashboard (post-login redirect
+ * seen on device). The flow pauses and tells the user to navigate to their
+ * contactless cards and tap Continue.
  */
 export function isAccountDashboard(url: string): boolean {
-  return /account\.tfl\.gov\.uk/i.test(url) && !isLoginUrl(url);
+  return (
+    (/account\.tfl\.gov\.uk/i.test(url) && !isLoginUrl(url)) ||
+    /contactless\.tfl\.gov\.uk\/Dashboard/i.test(url)
+  );
 }
 
 /**
@@ -307,3 +312,5 @@ export function statusText(s: FlowState): string {
     case 'error': return `Couldn't refresh — ${s.message}`;
   }
 }
+(node:2405) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
