@@ -6,6 +6,7 @@
 // Deliberate (design principles): the user signs in and submits on tfl.gov.uk
 // themselves — no credential storage, no automated submission.
 import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -63,7 +64,7 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
           <Text style={styles.back}>‹ Back</Text>
         </Pressable>
         <Text style={styles.topTitle} numberOfLines={1}>File claim on tfl.gov.uk</Text>
-        <Pressable style={styles.claimedButton} onPress={() => { markClaimed(journey.id, assessment?.refundValue ?? null); onDone(true); }}>
+        <Pressable style={styles.claimedButton} onPress={() => { markClaimed(journey.id, assessment?.refundValue ?? null); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onDone(true); }}>
           <Text style={styles.claimedButtonText}>Mark claimed</Text>
         </Pressable>
       </View>
