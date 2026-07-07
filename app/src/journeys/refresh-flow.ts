@@ -35,6 +35,11 @@ export const OYSTER_HISTORY_URL = 'https://oyster.tfl.gov.uk/oyster/journeyHisto
 /** Back-compat alias; contactless is the default mode's home. */
 export const HISTORY_URL = CONTACTLESS_HISTORY_URL;
 
+/** Contactless statements page — the direct CSV fetch's start (TfL-14).
+ * Duplicated from (not imported from) direct-csv.NEW_STATEMENTS_URL for the
+ * same zero-runtime-imports reason as above; the tests assert the two match. */
+export const NEW_STATEMENTS_URL = 'https://contactless.tfl.gov.uk/NewStatements';
+
 /** Which journey-history section(s) the user's cards live in (TfL-13). */
 export type FetchMode = 'contactless' | 'oyster' | 'both';
 
@@ -46,6 +51,17 @@ export function historyUrlsFor(mode: FetchMode): string[] {
   if (mode === 'oyster') return [OYSTER_HISTORY_URL];
   if (mode === 'both') return [CONTACTLESS_HISTORY_URL, OYSTER_HISTORY_URL];
   return [CONTACTLESS_HISTORY_URL];
+}
+
+/**
+ * First page a refresh loads (TfL-14): contactless modes open the statements
+ * page so the direct CSV fetch can run there (the page visit doubles as
+ * cookie warm-up for its fetches); Oyster has no statements endpoint. Only
+ * the start differs — the steering home and the visit queue stay on the
+ * classic history pages, which is what the direct fetch falls back to.
+ */
+export function startUrlFor(mode: FetchMode): string {
+  return mode === 'oyster' ? OYSTER_HISTORY_URL : NEW_STATEMENTS_URL;
 }
 
 /** A payment card the harvest script found linked on a TfL page. */
@@ -93,6 +109,7 @@ export type FlowEvent =
       cards?: CardEntry[];
     }
   | { type: 'handover' }
+  | { type: 'direct-failed' }
   | { type: 'imported'; inserted: number }
   | { type: 'import-failed'; message: string }
   | { type: 'web-error'; message: string }
@@ -224,6 +241,15 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       // Harvest every landed page — the script itself tells the flow whether
       // it's a challenge, a wrong page, a card picker or the history.
       return { ...l, phase: 'harvesting' };
+    case 'direct-failed':
+      // The direct CSV fetch on the statements page came up empty (TfL-14) —
+      // steer to the mode's history page and let the classic steering harvest
+      // take over. Queued pages (Oyster in 'both' mode) stay queued behind
+      // it, so falling back never skips the contactless history. Gated on
+      // 'harvesting' like harvest reports: anything else is a stale duplicate.
+      if (s.phase !== 'harvesting') return s;
+      if (l.steers >= MAX_STEERS) return { phase: 'error', message: 'kept landing away from the journey history page' };
+      return { ...l, phase: 'steering', target: l.home, steers: l.steers + 1 };
     case 'harvest':
       // Reports only count while a harvest is running: injection only happens
       // in 'harvesting', so anything else is a stale duplicate — and while

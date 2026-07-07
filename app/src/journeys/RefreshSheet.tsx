@@ -22,6 +22,7 @@ import {
   pickCardId,
   rowsToCsv,
 } from './autofetch';
+import { buildDirectCsvScript, currentAndPreviousPeriods, isNewStatementsUrl } from './direct-csv';
 import { getMeta, listCards, setMeta } from './db';
 import { importCsvText, ImportOutcome } from './import';
 import {
@@ -30,11 +31,11 @@ import {
   FetchMode,
   FlowEvent,
   FlowState,
-  historyUrlsFor,
   isPaused,
   isTerminal,
   makeInitialFlow,
   reduceFlow,
+  startUrlFor,
   statusText,
 } from './refresh-flow';
 import { colors, spacing } from '../theme';
@@ -64,6 +65,7 @@ function persistedMode(): FetchMode | null {
 
 export default function RefreshSheet({ onClose }: Props) {
   const webRef = useRef<WebView>(null);
+  const urlRef = useRef(''); // last URL the WebView reported — picks the injected script
   const stateRef = useRef<FlowState>(makeInitialFlow('contactless'));
   const outcomeRef = useRef<ImportOutcome | null>(null);
   const closedRef = useRef(false);
@@ -90,10 +92,18 @@ export default function RefreshSheet({ onClose }: Props) {
     } catch { /* capture only */ }
   };
 
-  // The probe goes in first so the harvest script's own CSV fetch is captured.
+  // The probe goes in first so either script's own CSV fetches are captured.
   // Only ever called for the 'harvesting' phase — never on a paused page.
+  // On the statements page the direct CSV fetch runs (TfL-14); everywhere
+  // else the classic harvest does. Periods come from the device's local date
+  // so a UTC month boundary can't shift which statements get fetched.
   const injectHarvest = () => {
-    webRef.current?.injectJavaScript(buildNetProbeScript() + '\n' + buildHarvestScript());
+    const now = new Date();
+    const script = isNewStatementsUrl(urlRef.current)
+      ? buildDirectCsvScript(currentAndPreviousPeriods(
+        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`))
+      : buildHarvestScript();
+    webRef.current?.injectJavaScript(buildNetProbeScript() + '\n' + script);
   };
 
   const dispatch = useCallback((e: FlowEvent) => {
@@ -125,6 +135,7 @@ export default function RefreshSheet({ onClose }: Props) {
     // Fresh start: new mode, new flow, new tallies. The WebView remounts via
     // key={mode} and loads the mode's first history page.
     outcomeRef.current = null;
+    urlRef.current = '';
     stateRef.current = makeInitialFlow(m);
     setState(stateRef.current);
     setMode(m);
@@ -138,6 +149,7 @@ export default function RefreshSheet({ onClose }: Props) {
   };
 
   const onLoaded = (url: string) => {
+    urlRef.current = url;
     dispatch({ type: 'loaded', url });
     // Injection is keyed off the phase the machine settles in: paused states
     // never reach 'harvesting' on a load, so login/challenge pages get no
@@ -161,6 +173,36 @@ export default function RefreshSheet({ onClose }: Props) {
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.type === 'net-probe') {
         recordCsvHit(String(msg.kind ?? 'net'), String(msg.url ?? ''));
+        return;
+      }
+      if (msg.type === 'direct-csv') {
+        // TfL-14: the statements-page script. Success feeds the fetched
+        // statements straight into the same import path a harvested CSV
+        // takes; login/challenge park the flow exactly like harvest reports;
+        // everything else falls back to the classic steering harvest.
+        if (msg.status === 'csv') {
+          const wasHarvesting = stateRef.current.phase === 'harvesting';
+          dispatch({ type: 'harvest', status: 'csv' });
+          if (!wasHarvesting) return; // duplicate report — import already ran
+          try {
+            const files = Array.isArray(msg.files) ? msg.files : [];
+            const cardId = pickCardId(listCards());
+            let inserted = 0;
+            for (const f of files) {
+              recordCsvHit('direct', String(f?.url ?? ''));
+              const outcome = importCsvText(String(f?.text ?? ''), `${cardId}.csv`);
+              outcomeRef.current = mergeOutcome(outcomeRef.current, outcome);
+              inserted += outcome.inserted;
+            }
+            dispatch({ type: 'imported', inserted });
+          } catch (e) {
+            dispatch({ type: 'import-failed', message: String(e) });
+          }
+        } else if (msg.status === 'signed-out' || msg.status === 'challenge') {
+          dispatch({ type: 'harvest', status: msg.status });
+        } else {
+          dispatch({ type: 'direct-failed' }); // wrong-page / failed → steering harvest
+        }
         return;
       }
       if (msg.type !== 'journey-harvest') return;
@@ -239,19 +281,21 @@ export default function RefreshSheet({ onClose }: Props) {
             <WebView
               key={mode}
               ref={webRef}
-              source={{ uri: historyUrlsFor(mode)[0] }}
+              source={{ uri: startUrlFor(mode) }}
               style={styles.web}
               // Session reuse, not session capture: the cookie stays in the shared
               // system WebView store — the app never reads or persists credentials.
               sharedCookiesEnabled={true}
               incognito={false}
               onLoadEnd={(e: any) => onLoaded(String(e?.nativeEvent?.url ?? ''))}
-              onNavigationStateChange={(nav: { url?: string; title?: string }) =>
+              onNavigationStateChange={(nav: { url?: string; title?: string }) => {
+                if (nav?.url) urlRef.current = String(nav.url);
                 dispatch({
                   type: 'nav',
                   url: String(nav?.url ?? ''),
                   title: typeof nav?.title === 'string' ? nav.title : undefined,
-                })}
+                });
+              }}
               onShouldStartLoadWithRequest={(req: any) => {
                 const url = String(req?.url ?? '');
                 if (isCsvEndpoint(url)) recordCsvHit('nav', url);
