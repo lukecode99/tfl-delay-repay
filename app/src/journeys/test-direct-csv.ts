@@ -234,8 +234,8 @@ function run(events: FlowEvent[], from: FlowState): FlowState {
   return events.reduce(reduceFlow, from);
 }
 
-ok(startUrlFor('contactless') === NEW_STATEMENTS_URL && startUrlFor('both') === NEW_STATEMENTS_URL,
-  'flow: contactless modes start on the statements page for the direct fetch');
+ok(startUrlFor('contactless') === CONTACTLESS_HISTORY_URL && startUrlFor('both') === CONTACTLESS_HISTORY_URL,
+  'flow: contactless modes start on the classic history page; statements is reached after the queue');
 ok(startUrlFor('oyster') === OYSTER_HISTORY_URL, 'flow: Oyster has no statements endpoint — starts on its history');
 {
   const s = makeInitialFlow('contactless');

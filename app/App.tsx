@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, AppState, Linking, StyleSheet } from 'react-native';
+import { Alert, AppState, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ClaimRecord, listClaims } from './src/claims/db';
 import { syncClaimReminders } from './src/claims/notify';
@@ -14,12 +14,22 @@ import { ImportOutcome, importFromUrl, importViaPicker } from './src/journeys/im
 import ClaimDetailScreen from './src/screens/ClaimDetailScreen';
 import ClaimWebScreen from './src/screens/ClaimWebScreen';
 import JourneysScreen from './src/screens/JourneysScreen';
+import { getAllRailJourneys, type RailJourney } from './src/rail/db';
+import RailJourneysScreen from './src/screens/RailJourneysScreen';
+import RailJourneyEntryScreen from './src/screens/RailJourneyEntryScreen';
+import RailClaimWebScreen from './src/screens/RailClaimWebScreen';
 import { colors, spacing } from './src/theme';
 
 // Journeys list → claim detail → guided claim WebView (TfL-5/6). Three
 // screens, state-switched — the app is shallow enough that a navigation
 // library would be dead weight.
+// NR-1: Rail mode adds a parallel three-screen stack toggled by a tab bar.
+type AppMode = 'tfl' | 'rail';
+
 export default function App() {
+  const [mode, setMode] = useState<AppMode>('tfl');
+
+  // --- TfL state ---
   const [journeys, setJourneys] = useState<StoredJourney[]>([]);
   const [selected, setSelected] = useState<StoredJourney | null>(null);
   const [filing, setFiling] = useState(false);
@@ -117,41 +127,99 @@ export default function App() {
     } else if (r.kind === 'cancelled') {
       setRefreshNote(null);
     } else {
-      setRefreshNote('Couldn’t refresh from TfL — you can still import a CSV.');
+      setRefreshNote('Couldn't refresh from TfL — you can still import a CSV.');
     }
   }, [refresh]);
+
+  // --- Rail state ---
+  const [railJourneys, setRailJourneys] = useState<RailJourney[]>([]);
+  const [railAdding, setRailAdding] = useState(false);
+  const [railSelected, setRailSelected] = useState<RailJourney | null>(null);
+
+  const refreshRail = useCallback(() => {
+    setRailJourneys(getAllRailJourneys(200));
+  }, []);
+  useEffect(() => { if (mode === 'rail') refreshRail(); }, [mode, refreshRail]);
+
+  // Tab bar — shown when not deep in a sub-screen
+  const showTabs = !selected && !filing && !railAdding && !railSelected;
 
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" />
-        {selected && filing ? (
-          <ClaimWebScreen
-            journey={selected}
-            assessment={assessments.get(selected.id)}
-            onDone={() => { setFiling(false); refresh(); }}
-          />
-        ) : selected ? (
-          <ClaimDetailScreen
-            journey={selected}
-            assessment={assessments.get(selected.id)}
-            onBack={() => { setSelected(null); refresh(); }}
-            onFileClaim={() => setFiling(true)}
-          />
-        ) : (
-          <JourneysScreen
-            journeys={journeys}
-            assessments={assessments}
-            claims={claims}
-            lastImport={lastImport}
-            onImportPress={onImportPress}
-            onSelect={setSelected}
-            onRefreshPress={() => startAutoFetch(true)}
-            refreshing={autoFetching}
-            refreshNote={refreshNote}
-          />
+
+        {/* TfL screens */}
+        {mode === 'tfl' && (
+          selected && filing ? (
+            <ClaimWebScreen
+              journey={selected}
+              assessment={assessments.get(selected.id)}
+              onDone={() => { setFiling(false); refresh(); }}
+            />
+          ) : selected ? (
+            <ClaimDetailScreen
+              journey={selected}
+              assessment={assessments.get(selected.id)}
+              onBack={() => { setSelected(null); refresh(); }}
+              onFileClaim={() => setFiling(true)}
+            />
+          ) : (
+            <JourneysScreen
+              journeys={journeys}
+              assessments={assessments}
+              claims={claims}
+              lastImport={lastImport}
+              onImportPress={onImportPress}
+              onSelect={setSelected}
+              onRefreshPress={() => startAutoFetch(true)}
+              refreshing={autoFetching}
+              refreshNote={refreshNote}
+            />
+          )
         )}
-        {autoFetching && <RefreshSheet onClose={onRefreshClose} />}
+        {mode === 'tfl' && autoFetching && <RefreshSheet onClose={onRefreshClose} />}
+
+        {/* Rail screens */}
+        {mode === 'rail' && (
+          railSelected ? (
+            <RailClaimWebScreen
+              journey={railSelected}
+              onDone={() => { setRailSelected(null); refreshRail(); }}
+            />
+          ) : railAdding ? (
+            <RailJourneyEntryScreen
+              onBack={() => setRailAdding(false)}
+              onSaved={() => { setRailAdding(false); refreshRail(); }}
+            />
+          ) : (
+            <RailJourneysScreen
+              journeys={railJourneys}
+              onAdd={() => setRailAdding(true)}
+              onSelect={j => {
+                if (j.delayMinutes != null && j.delayMinutes >= 15) setRailSelected(j);
+              }}
+            />
+          )
+        )}
+
+        {/* Mode toggle tab bar */}
+        {showTabs && (
+          <View style={styles.tabBar}>
+            <Pressable
+              style={[styles.tab, mode === 'tfl' && styles.tabActive]}
+              onPress={() => setMode('tfl')}
+            >
+              <Text style={[styles.tabText, mode === 'tfl' && styles.tabTextActive]}>TfL</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.tab, mode === 'rail' && styles.tabActive]}
+              onPress={() => { setMode('rail'); refreshRail(); }}
+            >
+              <Text style={[styles.tabText, mode === 'rail' && styles.tabTextActive]}>National Rail</Text>
+            </Pressable>
+          </View>
+        )}
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -159,4 +227,20 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg, padding: spacing.l },
+  tabBar: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+    paddingTop: spacing.s,
+    marginTop: spacing.s,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.s,
+    borderRadius: 8,
+  },
+  tabActive: { backgroundColor: colors.card },
+  tabText: { color: colors.textDim, fontSize: 14, fontWeight: '600' },
+  tabTextActive: { color: colors.accentBright, fontWeight: '800' },
 });

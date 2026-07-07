@@ -87,6 +87,11 @@ interface Live {
   /** Whether to attempt the direct CSV fetch on NewStatements after the queue
    * is exhausted (TfL-15). False for Oyster-only mode (no statements page). */
   directCsv: boolean;
+  /** True once the classic history queue has been exhausted and advance() has
+   * steered to NewStatements. Used by direct-failed to decide whether the
+   * history page has already been swept (return done/no-history) or not
+   * (steer back to home as a fallback). */
+  historySwept: boolean;
 }
 
 export type FlowState =
@@ -120,7 +125,7 @@ export type FlowEvent =
 /** Flow start for a mode: first history page loads, the rest queue up. */
 export function makeInitialFlow(mode: FetchMode): FlowState {
   const [home, ...rest] = historyUrlsFor(mode);
-  return { phase: 'loading', steers: 0, queue: rest, visited: [], inserted: 0, harvested: false, home, directCsv: mode !== 'oyster' };
+  return { phase: 'loading', steers: 0, queue: rest, visited: [], inserted: 0, harvested: false, home, directCsv: mode !== 'oyster', historySwept: false };
 }
 
 export const INITIAL_FLOW: FlowState = makeInitialFlow('contactless');
@@ -185,6 +190,7 @@ const liveOf = (s: FlowState): Live => ({
   harvested: 'harvested' in s ? s.harvested : false,
   home: 'home' in s ? s.home : CONTACTLESS_HISTORY_URL,
   directCsv: 'directCsv' in s ? s.directCsv : false,
+  historySwept: 'historySwept' in s ? s.historySwept : false,
 });
 
 /**
@@ -197,7 +203,7 @@ const liveOf = (s: FlowState): Live => ({
 function advance(l: Live): FlowState {
   const [next, ...rest] = l.queue;
   if (next) return { ...l, phase: 'steering', target: next, queue: rest, visited: [...l.visited, next] };
-  if (l.directCsv) return { ...l, phase: 'steering', target: NEW_STATEMENTS_URL, directCsv: false };
+  if (l.directCsv) return { ...l, phase: 'steering', target: NEW_STATEMENTS_URL, directCsv: false, historySwept: true };
   if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted), inserted: l.inserted };
   return { phase: 'done', message: 'No journey history found on TfL.', inserted: 0 };
 }
@@ -259,13 +265,21 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       if (s.phase === 'importing') return s; // import already under way
       // Harvest every landed page — the script itself tells the flow whether
       // it's a challenge, a wrong page, a card picker or the history.
+      // On the statements page specifically, clear directCsv so that a
+      // successful harvest → import → advance goes to done rather than
+      // re-steering back here (TfL-14/15).
+      if (/\/newstatements(\?|$)/i.test(e.url)) return { ...l, phase: 'harvesting', directCsv: false };
       return { ...l, phase: 'harvesting' };
     case 'direct-failed':
-      // The direct CSV fetch on the statements page failed (TfL-15). The
-      // classic harvest already ran before this page was reached, so just
-      // advance — whatever was imported from the history sweep stands.
+      // The direct CSV fetch on the statements page failed (TfL-15).
       if (s.phase !== 'harvesting') return s;
-      return advance({ ...l, directCsv: false });
+      if (l.steers >= MAX_STEERS) return { phase: 'error', message: 'kept landing away from the journey history page' };
+      // If the classic history queue was already exhausted before we reached
+      // this page (historySwept), just advance — whatever history sweep data
+      // stands. Otherwise steer to the home page as a fallback so the classic
+      // harvest can run (fresh-start path where statements is visited first).
+      if (l.historySwept) return advance({ ...l, directCsv: false });
+      return { ...l, phase: 'steering', target: l.home, steers: l.steers + 1, directCsv: false };
     case 'harvest':
       // Reports only count while a harvest is running: injection only happens
       // in 'harvesting', so anything else is a stale duplicate — and while
