@@ -57,10 +57,16 @@ eq(estimateRefund('quarter', 0), null, 'estimateRefund: zero fare → null');
 eq(estimateRefund('quarter', 20), 5, 'estimateRefund: quarter of 20 → 5');
 eq(estimateRefund('half', 20), 10, 'estimateRefund: half of 20 → 10');
 eq(estimateRefund('full-single', 20), 20, 'estimateRefund: full-single of 20 → 20');
-eq(estimateRefund('full-return', 20), 40, 'estimateRefund: full-return of 20 → 40');
+// full-return with default ticketType (return) → 2× single
+eq(estimateRefund('full-return', 20), 40, 'estimateRefund: full-return default → 2× single (return ticket)');
+eq(estimateRefund('full-return', 20, 'return'), 40, 'estimateRefund: full-return explicit return → 2× single');
+// full-return with single ticket → 1× single (QA fix)
+eq(estimateRefund('full-return', 20, 'single'), 20, 'estimateRefund: full-return single ticket → 1× single');
+eq(estimateRefund('full-return', 50, 'single'), 50, 'estimateRefund: full-return single £50 → £50');
+eq(estimateRefund('full-return', 15.40, 'return'), 30.80, 'estimateRefund: full-return return £15.40 → £30.80');
+eq(estimateRefund('full-return', 15.40, 'single'), 15.40, 'estimateRefund: full-return single £15.40 → £15.40');
 eq(estimateRefund('quarter', 7.50), 1.88, 'estimateRefund: quarter of 7.50 → 1.88 (rounded)');
 eq(estimateRefund('half', 7.50), 3.75, 'estimateRefund: half of 7.50 → 3.75');
-eq(estimateRefund('full-return', 15.40), 30.80, 'estimateRefund: full-return of 15.40 → 30.80');
 
 // --- assessRailJourney ---
 {
@@ -84,8 +90,19 @@ eq(estimateRefund('full-return', 15.40), 30.80, 'estimateRefund: full-return of 
   ok(r.isEligible && r.band === 'full-single' && r.refundEstimate === 50, 'assess: 90 min, £50 → £50 refund');
 }
 {
+  // return ticket (default) at 120+ min → 2× single
   const r = assessRailJourney({ delayMinutes: 150, singleFare: 50 });
-  ok(r.isEligible && r.band === 'full-return' && r.refundEstimate === 100, 'assess: 150 min, £50 → £100 refund');
+  ok(r.isEligible && r.band === 'full-return' && r.refundEstimate === 100, 'assess: 150 min, £50 return ticket → £100 refund');
+}
+{
+  // single ticket at 120+ min → 1× single (QA fix)
+  const r = assessRailJourney({ delayMinutes: 150, singleFare: 50, ticketType: 'single' });
+  ok(r.isEligible && r.band === 'full-return' && r.refundEstimate === 50, 'assess: 150 min, £50 single ticket → £50 refund');
+}
+{
+  // return ticket explicit at 120+ min → 2×
+  const r = assessRailJourney({ delayMinutes: 120, singleFare: 30, ticketType: 'return' });
+  ok(r.isEligible && r.band === 'full-return' && r.refundEstimate === 60, 'assess: 120 min, £30 return ticket → £60 refund');
 }
 {
   const r = assessRailJourney({ delayMinutes: 30, singleFare: null });

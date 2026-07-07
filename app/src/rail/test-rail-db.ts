@@ -10,6 +10,8 @@ import {
   insertRailJourney,
   listRailJourneys,
   markRailClaimed,
+  migrateRailSchema,
+  setRailClaimStatus,
   type RailJourney,
   unmarkRailClaimed,
   updateRailActuals,
@@ -50,8 +52,12 @@ const BASE: Omit<RailJourney, 'id'> = {
   actualArrive: '09:43',
   delayMinutes: 25,
   operator: 'avanti',
-  singleFare: 45.50,
+  ticketPricePence: 4550,   // £45.50
+  ticketType: 'single',
+  ticketRef: 'X3K9P',
+  claimDeadline: null,       // computed by insertRailJourney
   claimedAt: null,
+  claimStatus: 'pending',
   importedAt: NOW,
 };
 
@@ -62,7 +68,7 @@ test('schema creation is idempotent', () => {
   ok(true, 'schema: ensureRailSchema is idempotent');
 });
 
-test('insert and retrieve', () => {
+test('insert and retrieve — new fields', () => {
   const d = makeDb();
   ensureRailSchema(d);
   const id = insertRailJourney(d, BASE, NOW);
@@ -74,8 +80,21 @@ test('insert and retrieve', () => {
   eq(row!.scheduledDepart, '07:03', 'insert: scheduledDepart persisted');
   eq(row!.delayMinutes, 25, 'insert: delayMinutes persisted');
   eq(row!.operator, 'avanti', 'insert: operator persisted');
-  eq(row!.singleFare, 45.50, 'insert: singleFare persisted');
+  eq(row!.ticketPricePence, 4550, 'insert: ticketPricePence persisted');
+  eq(row!.ticketType, 'single', 'insert: ticketType persisted');
+  eq(row!.ticketRef, 'X3K9P', 'insert: ticketRef persisted');
+  ok(row!.claimDeadline === '2026-08-04', 'insert: claimDeadline = departure + 28 days');
   ok(row!.claimedAt === null, 'insert: claimedAt starts null');
+  eq(row!.claimStatus, 'pending', 'insert: claimStatus defaults to pending');
+});
+
+test('claimDeadline computed as departure_date + 28 days', () => {
+  const d = makeDb();
+  ensureRailSchema(d);
+  const j: Omit<RailJourney, 'id'> = { ...BASE, departureDate: '2026-12-31' };
+  const id = insertRailJourney(d, j, NOW)!;
+  const row = getRailJourney(d, id)!;
+  ok(row.claimDeadline === '2027-01-28', 'claimDeadline: wraps into next year');
 });
 
 test('dedupe: same journey not double-inserted', () => {
@@ -124,7 +143,7 @@ test('listRailJourneys respects limit', () => {
   eq(rows.length, 3, 'limit: listRailJourneys respects limit param');
 });
 
-test('markRailClaimed and unmarkRailClaimed', () => {
+test('markRailClaimed sets claimedAt and claimStatus', () => {
   const d = makeDb();
   ensureRailSchema(d);
   const id = insertRailJourney(d, BASE, NOW)!;
@@ -132,9 +151,21 @@ test('markRailClaimed and unmarkRailClaimed', () => {
   markRailClaimed(d, id, claimTime);
   const claimed = getRailJourney(d, id);
   eq(claimed!.claimedAt, claimTime, 'claim: claimedAt set correctly');
+  eq(claimed!.claimStatus, 'filed', 'claim: claimStatus → filed');
   unmarkRailClaimed(d, id);
   const unclaimed = getRailJourney(d, id);
   ok(unclaimed!.claimedAt === null, 'unclaim: claimedAt cleared to null');
+  eq(unclaimed!.claimStatus, 'pending', 'unclaim: claimStatus → pending');
+});
+
+test('setRailClaimStatus', () => {
+  const d = makeDb();
+  ensureRailSchema(d);
+  const id = insertRailJourney(d, BASE, NOW)!;
+  setRailClaimStatus(d, id, 'paid');
+  eq(getRailJourney(d, id)!.claimStatus, 'paid', 'status: set to paid');
+  setRailClaimStatus(d, id, 'rejected');
+  eq(getRailJourney(d, id)!.claimStatus, 'rejected', 'status: set to rejected');
 });
 
 test('updateRailActuals', () => {
@@ -169,8 +200,12 @@ test('nullable fields survive round-trip', () => {
     actualArrive: null,
     delayMinutes: null,
     operator: 'southern',
-    singleFare: null,
+    ticketPricePence: null,
+    ticketType: null,
+    ticketRef: null,
+    claimDeadline: null,
     claimedAt: null,
+    claimStatus: 'pending',
     importedAt: NOW,
   };
   const id = insertRailJourney(d, minimal, NOW)!;
@@ -178,7 +213,9 @@ test('nullable fields survive round-trip', () => {
   ok(row.actualDepart === null, 'nullable: actualDepart null preserved');
   ok(row.actualArrive === null, 'nullable: actualArrive null preserved');
   ok(row.delayMinutes === null, 'nullable: delayMinutes null preserved');
-  ok(row.singleFare === null, 'nullable: singleFare null preserved');
+  ok(row.ticketPricePence === null, 'nullable: ticketPricePence null preserved');
+  ok(row.ticketType === null, 'nullable: ticketType null preserved');
+  ok(row.ticketRef === null, 'nullable: ticketRef null preserved');
 });
 
 test('countRailJourneys', () => {
@@ -193,6 +230,74 @@ test('getRailJourney unknown id returns null', () => {
   const d = makeDb();
   ensureRailSchema(d);
   ok(getRailJourney(d, 999) === null, 'getRailJourney: unknown id → null');
+});
+
+test('migration: adds columns to old schema and populates claim_deadline', () => {
+  const d = makeDb();
+  // Simulate an old install: create table without new columns
+  d.execSync(`
+    CREATE TABLE rail_journeys (
+      id INTEGER PRIMARY KEY,
+      origin_crs TEXT NOT NULL,
+      destination_crs TEXT NOT NULL,
+      departure_date TEXT NOT NULL,
+      scheduled_depart TEXT NOT NULL,
+      actual_depart TEXT,
+      scheduled_arrive TEXT,
+      actual_arrive TEXT,
+      delay_minutes INTEGER,
+      operator TEXT NOT NULL,
+      single_fare REAL,
+      claimed_at TEXT,
+      imported_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_rail_journeys_dedupe
+      ON rail_journeys (origin_crs, destination_crs, departure_date, scheduled_depart, operator);
+  `);
+  // Insert a row with old schema
+  d.runSync(
+    `INSERT INTO rail_journeys (origin_crs, destination_crs, departure_date, scheduled_depart, operator, single_fare, claimed_at, imported_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    'EUS', 'MAN', '2026-07-07', '07:03', 'avanti', 45.50, '2026-07-08T12:00:00.000Z', NOW,
+  );
+  // Run migration
+  migrateRailSchema(d);
+  // Verify new columns exist and are populated
+  const row = d.getFirstSync<Record<string, unknown>>('SELECT * FROM rail_journeys');
+  ok(row !== null, 'migration: row still exists after migration');
+  ok(row!.ticket_price_pence === 4550, 'migration: single_fare → ticket_price_pence (£45.50 → 4550p)');
+  ok(row!.claim_deadline === '2026-08-04', 'migration: claim_deadline = departure_date + 28 days');
+  ok(row!.claim_status === 'filed', 'migration: claim_status = filed (was claimed_at set)');
+});
+
+test('migration: pending status for unclaimed rows', () => {
+  const d = makeDb();
+  d.execSync(`
+    CREATE TABLE rail_journeys (
+      id INTEGER PRIMARY KEY,
+      origin_crs TEXT NOT NULL, destination_crs TEXT NOT NULL,
+      departure_date TEXT NOT NULL, scheduled_depart TEXT NOT NULL,
+      operator TEXT NOT NULL, single_fare REAL, claimed_at TEXT,
+      imported_at TEXT NOT NULL
+    );
+  `);
+  d.runSync(
+    `INSERT INTO rail_journeys (origin_crs, destination_crs, departure_date, scheduled_depart, operator, claimed_at, imported_at)
+     VALUES (?, ?, ?, ?, ?, NULL, ?)`,
+    'VIC', 'BTN', '2026-07-07', '10:00', 'southern', NOW,
+  );
+  migrateRailSchema(d);
+  const row = d.getFirstSync<Record<string, unknown>>('SELECT * FROM rail_journeys');
+  ok(row!.claim_status === 'pending', 'migration: unclaimed rows get pending status');
+  ok(row!.ticket_price_pence === null, 'migration: null single_fare → null ticket_price_pence');
+});
+
+test('migration is idempotent on fresh schema', () => {
+  const d = makeDb();
+  ensureRailSchema(d);
+  migrateRailSchema(d); // should not throw on a fresh schema
+  migrateRailSchema(d); // idempotent
+  ok(true, 'migration: idempotent on fresh schema');
 });
 
 for (const { name, fn } of tests) {

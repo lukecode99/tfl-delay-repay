@@ -7,7 +7,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { addRailJourney } from '../rail/db';
 import { computeDelay } from '../rail/eligibility';
 import { searchStations } from '../rail/stations';
-import type { RailJourney, RailOperator } from '../rail/store-core';
+import type { RailJourney, RailOperator, TicketType } from '../rail/store-core';
 import { colors, spacing } from '../theme';
 
 interface Props {
@@ -83,8 +83,15 @@ export default function RailJourneyEntryScreen({ onBack, onSaved }: Props) {
   const [schedArrive, setSchedArrive] = useState('');
   const [actualArrive, setActualArrive] = useState('');
   const [operatorIdx, setOperatorIdx] = useState(0);
+  const [ticketTypeIdx, setTicketTypeIdx] = useState(0); // 0 = single, 1 = return
   const [fare, setFare] = useState('');
+  const [ticketRef, setTicketRef] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const TICKET_TYPES: { label: string; value: TicketType }[] = [
+    { label: 'Single', value: 'single' },
+    { label: 'Return', value: 'return' },
+  ];
 
   const save = () => {
     const origin = originCrs.trim().toUpperCase();
@@ -99,7 +106,8 @@ export default function RailJourneyEntryScreen({ onBack, onSaved }: Props) {
     const aa = actualArrive.trim() || null;
     const ad = actualDepart.trim() || null;
     const delay = (sa && aa) ? computeDelay(sa, aa) : null;
-    const singleFare = fare.trim() ? parseFloat(fare.trim()) : null;
+    const farePounds = fare.trim() ? parseFloat(fare.trim()) : null;
+    const pricePence = (farePounds != null && !isNaN(farePounds)) ? Math.round(farePounds * 100) : null;
 
     const journey: Omit<RailJourney, 'id'> = {
       originCrs: origin,
@@ -111,8 +119,12 @@ export default function RailJourneyEntryScreen({ onBack, onSaved }: Props) {
       actualArrive: aa,
       delayMinutes: delay,
       operator: OPERATORS[operatorIdx].value,
-      singleFare: (singleFare != null && !isNaN(singleFare)) ? singleFare : null,
+      ticketPricePence: pricePence,
+      ticketType: TICKET_TYPES[ticketTypeIdx].value,
+      ticketRef: ticketRef.trim() || null,
+      claimDeadline: null, // computed by insertRailJourney
       claimedAt: null,
+      claimStatus: 'pending',
       importedAt: new Date().toISOString(),
     };
 
@@ -173,8 +185,26 @@ export default function RailJourneyEntryScreen({ onBack, onSaved }: Props) {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Ticket type</Text>
+        <View style={styles.operatorRow}>
+          {TICKET_TYPES.map((tt, i) => (
+            <Pressable
+              key={tt.value}
+              style={[styles.operatorBtn, i === ticketTypeIdx && styles.operatorBtnActive]}
+              onPress={() => setTicketTypeIdx(i)}
+            >
+              <Text style={[styles.operatorBtnText, i === ticketTypeIdx && styles.operatorBtnTextActive]}>
+                {tt.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Fare (optional)</Text>
-        <Field label="Single fare (£)" value={fare} onChange={setFare} placeholder="0.00" keyboardType="decimal-pad" />
+        <Field label="Ticket price (£)" value={fare} onChange={setFare} placeholder="0.00" keyboardType="decimal-pad" />
+        <Field label="Ticket ref" value={ticketRef} onChange={setTicketRef} placeholder="e.g. X3K9P" />
       </View>
 
       <Pressable style={[styles.saveButton, saving && styles.saveButtonBusy]} onPress={save} disabled={saving}>

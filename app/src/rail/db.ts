@@ -8,8 +8,12 @@ import {
   insertRailJourney,
   listRailJourneys,
   markRailClaimed,
+  migrateRailSchema,
+  setRailClaimStatus,
+  type ClaimStatus,
   type RailJourney,
   type RailOperator,
+  type TicketType,
   unmarkRailClaimed,
   updateRailActuals,
 } from './store-core';
@@ -19,14 +23,15 @@ let _db: SQLite.SQLiteDatabase | null = null;
 function getDb(): SQLite.SQLiteDatabase {
   if (_db) return _db;
   _db = SQLite.openDatabaseSync('rail.db');
-  const adapter: DbLike = {
+  const a: DbLike = {
     execSync: sql => _db!.execSync(sql),
     runSync: (sql, ...p) => _db!.runSync(sql, ...p),
     getAllSync: (sql, ...p) => _db!.getAllSync(sql, ...p),
     getFirstSync: (sql, ...p) => _db!.getFirstSync(sql, ...p),
     withTransactionSync: fn => _db!.withTransactionSync(fn),
   };
-  ensureRailSchema(adapter);
+  ensureRailSchema(a);
+  migrateRailSchema(a); // safe on fresh tables; adds columns if missing
   return _db;
 }
 
@@ -74,4 +79,8 @@ export function countAllRailJourneys(): number {
   return countRailJourneys(adapter());
 }
 
-export type { RailJourney, RailOperator };
+export function setRailJourneyClaimStatus(id: number, status: ClaimStatus): void {
+  setRailClaimStatus(adapter(), id, status);
+}
+
+export type { RailJourney, RailOperator, TicketType, ClaimStatus };

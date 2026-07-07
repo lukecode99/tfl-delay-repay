@@ -80,11 +80,11 @@ export function buildAvantiPrefill(
       keywords: ['delay band', 'compensation band', 'repay amount'],
     });
   }
-  if (journey.singleFare != null) {
+  if (journey.ticketPricePence != null) {
     fields.push({
       key: 'fare',
       label: 'Fare (£)',
-      value: journey.singleFare.toFixed(2),
+      value: (journey.ticketPricePence / 100).toFixed(2),
       keywords: ['ticket price', 'fare', 'amount paid', 'cost'],
     });
   }

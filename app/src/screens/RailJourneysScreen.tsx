@@ -27,7 +27,8 @@ function EligibilityBadge({ journey }: { journey: RailJourney }) {
   if (journey.delayMinutes == null) {
     return <Text style={styles.badgePending}>no delay data</Text>;
   }
-  const result = assessRailJourney({ delayMinutes: journey.delayMinutes, singleFare: journey.singleFare });
+  const singleFare = journey.ticketPricePence != null ? journey.ticketPricePence / 100 : null;
+  const result = assessRailJourney({ delayMinutes: journey.delayMinutes, singleFare, ticketType: journey.ticketType ?? 'return' });
   if (result.band === 'none') {
     return <Text style={styles.badgeNone}>{journey.delayMinutes} min — not eligible</Text>;
   }
@@ -35,7 +36,7 @@ function EligibilityBadge({ journey }: { journey: RailJourney }) {
     <View style={styles.badgeEligible}>
       <Text style={styles.badgeEligibleText}>
         {journey.delayMinutes} min — {bandLabel(result.band)}
-        {result.refundAmount != null ? ` ≈ ${formatGBP(result.refundAmount)}` : ''}
+        {result.refundEstimate != null ? ` ≈ ${formatGBP(result.refundEstimate)}` : ''}
       </Text>
     </View>
   );

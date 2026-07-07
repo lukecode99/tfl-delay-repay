@@ -28,8 +28,12 @@ const BASE_JOURNEY: RailJourney = {
   actualArrive: '09:43',
   delayMinutes: 25,
   operator: 'avanti',
-  singleFare: 45.50,
+  ticketPricePence: 4550,    // £45.50
+  ticketType: 'single',
+  ticketRef: 'X3K9P',
+  claimDeadline: '2026-08-04',
   claimedAt: null,
+  claimStatus: 'pending',
   importedAt: '2026-07-07T10:00:00.000Z',
 };
 
@@ -62,7 +66,7 @@ ok(GTR_CLAIM_URL.includes('thameslink'), 'GTR URL is Thameslink');
   eq(delayF.value, '25', 'Avanti prefill: delay value is string');
 
   const fareF = fields.find(f => f.key === 'fare')!;
-  eq(fareF.value, '45.50', 'Avanti prefill: fare formatted to 2dp');
+  eq(fareF.value, '45.50', 'Avanti prefill: fare formatted to 2dp (pence → pounds)');
 
   ok(fields.every(f => f.keywords.length > 0), 'Avanti prefill: all fields have keywords');
   ok(fields.every(f => f.value !== ''), 'Avanti prefill: no empty values');
@@ -74,7 +78,7 @@ ok(GTR_CLAIM_URL.includes('thameslink'), 'GTR URL is Thameslink');
 }
 {
   // No fare
-  const noFare: RailJourney = { ...BASE_JOURNEY, singleFare: null };
+  const noFare: RailJourney = { ...BASE_JOURNEY, ticketPricePence: null };
   const fields = buildAvantiPrefill(noFare, 25);
   ok(!fields.some(f => f.key === 'fare'), 'Avanti prefill: no fare field when singleFare null');
 }
@@ -88,7 +92,7 @@ ok(GTR_CLAIM_URL.includes('thameslink'), 'GTR URL is Thameslink');
 
 // --- buildSouthernPrefill ---
 {
-  const journey: RailJourney = { ...BASE_JOURNEY, originCrs: 'VIC', destinationCrs: 'BTN', operator: 'southern', singleFare: 22.80 };
+  const journey: RailJourney = { ...BASE_JOURNEY, originCrs: 'VIC', destinationCrs: 'BTN', operator: 'southern', ticketPricePence: 2280 };
   const fields = buildSouthernPrefill(journey, 35);
   const keys = fields.map(f => f.key);
   ok(keys.includes('date'), 'Southern prefill: date present');

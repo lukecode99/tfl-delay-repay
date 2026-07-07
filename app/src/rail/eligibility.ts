@@ -8,7 +8,7 @@
 //   15–29 min → 25 % of single fare
 //   30–59 min → 50 % of single fare
 //   60–119 min → 100 % of single fare
-//   120+ min  → 100 % of return fare (≈ 2× single for DR purposes)
+//   120+ min  → 100 % of return fare (return ticket) OR 100 % of single (single ticket)
 
 export type Dr15Band = 'none' | 'quarter' | 'half' | 'full-single' | 'full-return';
 
@@ -39,22 +39,33 @@ export function bandLabel(band: Dr15Band): string {
   }
 }
 
-/** Estimate refund value given a band and a single fare (in pounds). */
-export function estimateRefund(band: Dr15Band, singleFare: number | null): number | null {
+/**
+ * Estimate refund value given a band and a single fare (in pounds).
+ * For the full-return band (120+ min), ticketType controls payout:
+ *   'return' → 100% of return (2× single); 'single' → 100% of single (1×).
+ * Defaults to 'return' so existing callers without ticketType are unaffected.
+ */
+export function estimateRefund(
+  band: Dr15Band,
+  singleFare: number | null,
+  ticketType: 'single' | 'return' = 'return',
+): number | null {
   if (band === 'none' || singleFare == null || singleFare <= 0) return null;
   switch (band) {
     case 'quarter': return Math.round(singleFare * 0.25 * 100) / 100;
     case 'half': return Math.round(singleFare * 0.5 * 100) / 100;
     case 'full-single': return Math.round(singleFare * 100) / 100;
-    case 'full-return': return Math.round(singleFare * 2 * 100) / 100;
+    case 'full-return':
+      return Math.round(singleFare * (ticketType === 'return' ? 2 : 1) * 100) / 100;
   }
 }
 
 export function assessRailJourney(opts: {
   delayMinutes: number | null;
   singleFare: number | null;
+  ticketType?: 'single' | 'return';
 }): RailEligibility {
-  const { delayMinutes, singleFare } = opts;
+  const { delayMinutes, singleFare, ticketType = 'return' } = opts;
   if (delayMinutes == null) {
     return { band: 'none', delayMinutes: null, refundEstimate: null, isEligible: false, label: 'Delay unknown — enter manually' };
   }
@@ -62,7 +73,7 @@ export function assessRailJourney(opts: {
   return {
     band,
     delayMinutes,
-    refundEstimate: estimateRefund(band, singleFare),
+    refundEstimate: estimateRefund(band, singleFare, ticketType),
     isEligible: band !== 'none',
     label: bandLabel(band),
   };

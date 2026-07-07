@@ -93,11 +93,11 @@ export function buildSouthernPrefill(
       });
     }
   }
-  if (journey.singleFare != null) {
+  if (journey.ticketPricePence != null) {
     fields.push({
       key: 'fare',
       label: 'Fare (£)',
-      value: journey.singleFare.toFixed(2),
+      value: (journey.ticketPricePence / 100).toFixed(2),
       keywords: ['ticket price', 'cost of ticket', 'fare paid'],
     });
   }
