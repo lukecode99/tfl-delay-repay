@@ -82,11 +82,10 @@ export default function RefreshSheet({ onClose }: Props) {
     onClose(r);
   }, [onClose]);
 
-  // Capture-only CSV endpoint discovery (TfL-13): log to the device console
-  // and the db meta table; never disturb the flow, whatever goes wrong.
+  // Capture-only CSV endpoint discovery (TfL-13): log to the db meta table;
+  // never disturb the flow, whatever goes wrong.
   const recordCsvHit = (source: string, url: string) => {
     try {
-      console.log(`[tfl-csv-probe] ${source}: ${url}`);
       setMeta(CSV_LOG_KEY, appendCsvHit(getMeta(CSV_LOG_KEY), { source, url, at: new Date().toISOString() }));
     } catch { /* capture only */ }
   };

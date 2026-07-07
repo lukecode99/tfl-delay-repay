@@ -19,10 +19,10 @@ export const JOURNEY_HISTORY_URL = 'https://contactless.tfl.gov.uk/HomePage/7Day
 export const LAST_AUTOFETCH_KEY = 'lastAutoFetch';
 
 /**
- * TEMPORARY: rate limiting is switched off while Luke tests repeated
- * refreshes on device. Set back to true to restore one fetch per day.
+ * One fetch per day. Was temporarily false for on-device testing of repeated
+ * refreshes; restored for App Store submission (TFL-PRE-1).
  */
-export const AUTOFETCH_RATE_LIMIT_ENABLED = false;
+export const AUTOFETCH_RATE_LIMIT_ENABLED = true;
 
 /**
  * Rate limit: at most one fetch per (UTC) calendar day — when enabled. A
@@ -34,7 +34,7 @@ export function shouldAutoFetch(lastFetchISO: string | null, nowISO: string): bo
   return isNewFetchDay(lastFetchISO, nowISO);
 }
 
-/** Day comparison behind the rate limit — kept tested while the limit is off. */
+/** Day comparison behind the rate limit. */
 export function isNewFetchDay(lastFetchISO: string | null, nowISO: string): boolean {
   if (!lastFetchISO) return true;
   return lastFetchISO.slice(0, 10) !== nowISO.slice(0, 10);

@@ -35,15 +35,19 @@ function ok(cond: boolean, msg: string) {
   console.log(`  ✓ ${msg}`);
 }
 
-// --- rate limit: day logic (limit itself currently switched off for testing) ---
+// --- rate limit: day logic ---
 ok(isNewFetchDay(null, '2026-07-06T08:00:00.000Z'), 'day logic: first ever fetch is a new day');
 ok(!isNewFetchDay('2026-07-06T07:00:00.000Z', '2026-07-06T22:00:00.000Z'),
   'day logic: same UTC day is not a new day');
 ok(isNewFetchDay('2026-07-05T23:59:00.000Z', '2026-07-06T00:01:00.000Z'),
   'day logic: next day is a new day');
-ok(AUTOFETCH_RATE_LIMIT_ENABLED === false, 'rate limit: currently disabled for on-device testing');
-ok(shouldAutoFetch('2026-07-06T07:00:00.000Z', '2026-07-06T22:00:00.000Z'),
-  'rate limit: same-day refetch allowed while the limit is off');
+ok(AUTOFETCH_RATE_LIMIT_ENABLED === true, 'rate limit: enabled for release (TFL-PRE-1)');
+ok(!shouldAutoFetch('2026-07-06T07:00:00.000Z', '2026-07-06T22:00:00.000Z'),
+  'rate limit: same-day refetch blocked while the limit is on');
+ok(shouldAutoFetch('2026-07-06T07:00:00.000Z', '2026-07-07T06:00:00.000Z'),
+  'rate limit: next-day refetch allowed');
+ok(shouldAutoFetch(null, '2026-07-06T07:00:00.000Z'),
+  'rate limit: first ever fetch always allowed');
 
 // --- card id: dedupe against previous imports whatever the CSV was called ---
 ok(pickCardId([]) === 'contactless', 'card id: fallback when nothing imported yet');
