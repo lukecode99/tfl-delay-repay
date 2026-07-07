@@ -1,6 +1,7 @@
 // TfL-5: claim detail — the evidence behind a verdict: expected vs actual
 // duration, disruption from the ledger, refund value, days left to claim.
 import React, { useState } from 'react';
+import * as Haptics from 'expo-haptics';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { getClaim, reopenClaim, setClaimOutcome, unmarkClaimed } from '../claims/db';
 import { claimDeadline } from '../eligibility/deadline';
@@ -177,6 +178,7 @@ export default function ClaimDetailScreen({ journey, assessment: a, onBack, onFi
                           onPress: (value?: string) => {
                             const n = Number(value?.replace(/[£,\s]/g, ''));
                             setClaimOutcome(journey.id, 'paid', Number.isFinite(n) && n >= 0 ? n : fallback);
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                             setClaim(getClaim(journey.id));
                           },
                         },
