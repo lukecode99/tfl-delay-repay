@@ -1,4 +1,3 @@
-sha: 0f4572612c2eb8b617fe35fc52957394ae116b30
 // Visible-refresh flow state machine (TfL-11/12/13). Pure module — node-testable.
 //
 // TfL-10's hidden WebView gave no on-device feedback, so the refresh runs
