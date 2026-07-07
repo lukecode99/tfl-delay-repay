@@ -10,6 +10,7 @@ import {
   HISTORY_URL,
   historyUrlsFor,
   INITIAL_FLOW,
+  isAccountDashboard,
   isChallengeTitle,
   isLoginUrl,
   isPaused,
@@ -17,8 +18,10 @@ import {
   makeInitialFlow,
   MAX_CARDS,
   MAX_STEERS,
+  NEW_STATEMENTS_URL,
   OYSTER_HISTORY_URL,
   reduceFlow,
+  startUrlFor,
   statusText,
 } from './refresh-flow.ts';
 
@@ -37,12 +40,28 @@ const CARD_A = 'https://contactless.tfl.gov.uk/Card/A/History';
 const CARD_B = 'https://contactless.tfl.gov.uk/Card/B/History';
 const CARD_C = 'https://contactless.tfl.gov.uk/Card/C/History';
 
+// Helper: close the direct CSV phase after a classic history sweep. The flow
+// steers to NEW_STATEMENTS_URL when the queue is empty; these two events
+// simulate the direct fetch failing and the flow finishing gracefully.
+const CLOSE_DIRECT: FlowEvent[] = [
+  { type: 'loaded', url: NEW_STATEMENTS_URL },
+  { type: 'direct-failed' },
+];
+
 // --- URL classification ---
 ok(HISTORY_URL === JOURNEY_HISTORY_URL && CONTACTLESS_HISTORY_URL === JOURNEY_HISTORY_URL,
-  'urls: steering target matches the harvest module’s history URL');
+  "urls: steering target matches the harvest module's history URL");
 ok(isLoginUrl(LOGIN_URL) && isLoginUrl('https://contactless.tfl.gov.uk/SignIn'), 'urls: login pages recognised');
 ok(!isLoginUrl(JOURNEY_HISTORY_URL) && !isLoginUrl(HOME_URL), 'urls: contactless pages are not login pages');
 ok(!isLoginUrl(DASHBOARD_URL), 'urls: the signed-in My Account dashboard is NOT a login page (TfL-12)');
+ok(isAccountDashboard(DASHBOARD_URL) && isAccountDashboard('https://account.tfl.gov.uk/MyAccount'),
+  'urls: account.tfl.gov.uk non-login pages are the account dashboard (TfL-15)');
+ok(!isAccountDashboard(LOGIN_URL), 'urls: login pages are NOT treated as the account dashboard');
+ok(!isAccountDashboard(JOURNEY_HISTORY_URL) && !isAccountDashboard(HOME_URL),
+  'urls: contactless pages are not the account dashboard');
+ok(startUrlFor('contactless') === CONTACTLESS_HISTORY_URL && startUrlFor('both') === CONTACTLESS_HISTORY_URL,
+  'urls: contactless modes start on the history page (TfL-15)');
+ok(startUrlFor('oyster') === OYSTER_HISTORY_URL, 'urls: oyster mode starts on the Oyster history page');
 ok(isChallengeTitle('Just a moment...') && isChallengeTitle('Attention Required! | Cloudflare')
   && isChallengeTitle('Verify you are human'), 'titles: robot-check titles recognised');
 ok(!isChallengeTitle('Journey history - Transport for London') && !isChallengeTitle(''),
@@ -59,7 +78,7 @@ ok(historyUrlsFor('both')[0] === CONTACTLESS_HISTORY_URL && historyUrlsFor('both
   const s = makeInitialFlow('oyster');
   ok(s.phase === 'loading' && 'home' in s && s.home === OYSTER_HISTORY_URL && s.queue.length === 0,
     'oyster flow starts loading the Oyster history with nothing else queued');
-  const steered = run([{ type: 'loaded', url: DASHBOARD_URL }, { type: 'harvest', status: 'wrong-page' }], s);
+  const steered = run([{ type: 'loaded', url: HOME_URL }, { type: 'harvest', status: 'wrong-page' }], s);
   ok(steered.phase === 'steering' && steered.target === OYSTER_HISTORY_URL,
     'oyster mode: wrong pages steer to the OYSTER history, not contactless');
 }
@@ -74,11 +93,12 @@ ok(historyUrlsFor('both')[0] === CONTACTLESS_HISTORY_URL && historyUrlsFor('both
     { type: 'loaded', url: OYSTER_HISTORY_URL },
     { type: 'harvest', status: 'rows' },
     { type: 'imported', inserted: 5 },
+    ...CLOSE_DIRECT,
   ], s);
   ok(s.phase === 'done' && s.inserted === 5, 'both-mode sweep completes with the Oyster journeys imported');
 }
 
-// --- happy path: load → harvest → import → done, narrated ---
+// --- happy path: load → harvest → import → direct CSV → done, narrated ---
 ok(INITIAL_FLOW.phase === 'loading' && statusText(INITIAL_FLOW).includes('Loading'), 'flow starts loading, status says so');
 {
   let s = reduceFlow(INITIAL_FLOW, { type: 'loaded', url: JOURNEY_HISTORY_URL });
@@ -86,23 +106,28 @@ ok(INITIAL_FLOW.phase === 'loading' && statusText(INITIAL_FLOW).includes('Loadin
   s = reduceFlow(s, { type: 'harvest', status: 'csv' });
   ok(s.phase === 'importing' && statusText(s).includes('Importing'), 'harvest data → importing, status narrates');
   s = reduceFlow(s, { type: 'imported', inserted: 3 });
+  // Queue exhausted → steer to NewStatements for direct CSV (TfL-15).
+  ok(s.phase === 'steering' && 'target' in s && s.target === NEW_STATEMENTS_URL, 'history done → steers to statements page for direct CSV');
+  s = run(CLOSE_DIRECT, s);
   ok(s.phase === 'done' && statusText(s) === 'Imported 3 new journeys from TfL.', 'import done → success message with count');
 }
 ok(statusText(run([
   { type: 'loaded', url: JOURNEY_HISTORY_URL },
   { type: 'harvest', status: 'rows' },
   { type: 'imported', inserted: 1 },
+  ...CLOSE_DIRECT,
 ])) === 'Imported 1 new journey from TfL.', 'singular count reads correctly');
 {
   const s = run([
     { type: 'loaded', url: JOURNEY_HISTORY_URL },
     { type: 'harvest', status: 'csv' },
     { type: 'imported', inserted: 0 },
+    ...CLOSE_DIRECT,
   ]);
   ok(s.phase === 'done' && statusText(s).includes('up to date'), 'zero new journeys says so explicitly');
 }
 {
-  const s = run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'empty' }]);
+  const s = run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'empty' }, ...CLOSE_DIRECT]);
   ok(s.phase === 'done' && s.inserted === 0 && statusText(s).includes('No journey history'),
     'empty report from a confirmed history page → explicit no-history message');
 }
@@ -137,6 +162,7 @@ ok(statusText(run([
     { type: 'loaded', url: JOURNEY_HISTORY_URL },
     { type: 'harvest', status: 'csv' },
     { type: 'imported', inserted: 2 },
+    ...CLOSE_DIRECT,
   ], s);
   ok(s.phase === 'done' && s.inserted === 2, 'flow completes after challenge → Continue → steer → history');
 }
@@ -160,8 +186,38 @@ ok(statusText(run([
     { type: 'loaded', url: JOURNEY_HISTORY_URL },
     { type: 'harvest', status: 'csv' },
     { type: 'imported', inserted: 2 },
+    ...CLOSE_DIRECT,
   ], resumed);
   ok(done.phase === 'done' && done.inserted === 2, 'flow completes after in-sheet sign-in');
+}
+{
+  // TfL-15: account dashboard pause — same contract as signed-out.
+  const ad = reduceFlow(INITIAL_FLOW, { type: 'nav', url: DASHBOARD_URL });
+  ok(ad.phase === 'account-dashboard' && isPaused(ad) && !isTerminal(ad),
+    'account dashboard nav → account-dashboard pause, flow paused');
+  ok(statusText(ad).includes('Continue'), 'account-dashboard status points at the Continue button');
+  ok(reduceFlow(ad, { type: 'loaded', url: DASHBOARD_URL }) === ad,
+    'page loads during account-dashboard are ignored — no injection');
+  ok(reduceFlow(ad, { type: 'nav', url: HOME_URL }) === ad,
+    'navigations during account-dashboard are ignored — no steering');
+  ok(reduceFlow(ad, { type: 'harvest', status: 'wrong-page' }) === ad,
+    'stale harvest reports during account-dashboard are absorbed');
+  ok(reduceFlow(ad, { type: 'web-error', message: 'x' }) === ad,
+    'page errors while the user navigates do not kill the refresh');
+  // Same detection from 'loaded' event (TfL-15 primary trigger).
+  const adLoaded = reduceFlow(INITIAL_FLOW, { type: 'loaded', url: DASHBOARD_URL });
+  ok(adLoaded.phase === 'account-dashboard', 'account dashboard load → account-dashboard pause');
+  // User navigated to their contactless history and tapped Continue:
+  const cont = reduceFlow(ad, { type: 'handover' });
+  ok(cont.phase === 'harvesting', 'Continue from account-dashboard → harvest whatever page is showing');
+  const adDone = run([
+    { type: 'harvest', status: 'wrong-page' },
+    { type: 'loaded', url: JOURNEY_HISTORY_URL },
+    { type: 'harvest', status: 'csv' },
+    { type: 'imported', inserted: 3 },
+    ...CLOSE_DIRECT,
+  ], cont);
+  ok(adDone.phase === 'done' && adDone.inserted === 3, 'flow completes after account-dashboard → Continue → history');
 }
 {
   // Pause must not lose sweep progress: handover resumes with queue/tallies intact.
@@ -180,7 +236,7 @@ ok(statusText(run([
     { type: 'harvest', status: 'signed-out' }, // session expired mid-sweep
   ]);
   ok(s.phase === 'signed-out', 'session expiry mid-sweep pauses');
-  s = run([{ type: 'handover' }, { type: 'harvest', status: 'rows' }, { type: 'imported', inserted: 2 }], s);
+  s = run([{ type: 'handover' }, { type: 'harvest', status: 'rows' }, { type: 'imported', inserted: 2 }, ...CLOSE_DIRECT], s);
   ok(s.phase === 'done' && s.inserted === 5, 'handover resumes the sweep with earlier imports intact');
 }
 
@@ -195,15 +251,17 @@ ok(statusText(run([
 // --- TfL-13: handover as an escape hatch from any stalled live phase ---
 {
   ok(reduceFlow(INITIAL_FLOW, { type: 'handover' }).phase === 'harvesting', 'handover works from loading');
-  const steering = run([{ type: 'loaded', url: DASHBOARD_URL }, { type: 'harvest', status: 'wrong-page' }]);
+  const steering = run([{ type: 'loaded', url: HOME_URL }, { type: 'harvest', status: 'wrong-page' }]);
   ok(reduceFlow(steering, { type: 'handover' }).phase === 'harvesting', 'handover works from a stalled steer');
+  const acctDash = reduceFlow(INITIAL_FLOW, { type: 'nav', url: DASHBOARD_URL });
+  ok(reduceFlow(acctDash, { type: 'handover' }).phase === 'harvesting', 'handover works from account-dashboard pause');
   const harvesting = reduceFlow(INITIAL_FLOW, { type: 'loaded', url: JOURNEY_HISTORY_URL });
   ok(reduceFlow(harvesting, { type: 'handover' }).phase === 'harvesting', 'handover re-harvests from harvesting');
   const importing = run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'csv' }]);
   ok(reduceFlow(importing, { type: 'handover' }) === importing, 'handover never interrupts a running import');
   ok(canHandover(INITIAL_FLOW) && canHandover(steering) && canHandover(harvesting) && !canHandover(importing),
     'Continue button offered in live phases, hidden while importing');
-  const done = run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'empty' }]);
+  const done = run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'empty' }, ...CLOSE_DIRECT]);
   ok(!canHandover(done) && reduceFlow(done, { type: 'handover' }) === done, 'no Continue once the flow is finished');
 }
 
@@ -211,8 +269,10 @@ ok(statusText(run([
 {
   // The machine only reaches done-no-history via a harvest 'empty', and the
   // script only reports 'empty' from a confirmed history page. Every other
-  // report from an intermediate page steers or waits:
-  const harvesting = reduceFlow(INITIAL_FLOW, { type: 'loaded', url: DASHBOARD_URL });
+  // report from an intermediate page steers or waits. Use HOME_URL (a
+  // contactless page that's not a history page) to exercise wrong-page —
+  // DASHBOARD_URL now triggers account-dashboard pause, not harvesting.
+  const harvesting = reduceFlow(INITIAL_FLOW, { type: 'loaded', url: HOME_URL });
   const wrong = reduceFlow(harvesting, { type: 'harvest', status: 'wrong-page' });
   ok(wrong.phase === 'steering', 'wrong-page → steering, not done');
   const signedOut = reduceFlow(harvesting, { type: 'harvest', status: 'signed-out' });
@@ -224,13 +284,15 @@ ok(statusText(run([
 
 // --- TfL-12: steer cap — a redirect loop errors instead of spinning ---
 {
+  // Use HOME_URL (a non-history contactless page) to exercise the steer cap:
+  // DASHBOARD_URL now triggers account-dashboard pause, which doesn't steer.
   let s: FlowState = INITIAL_FLOW;
   for (let i = 0; i < MAX_STEERS; i++) {
-    s = reduceFlow(s, { type: 'loaded', url: DASHBOARD_URL });
+    s = reduceFlow(s, { type: 'loaded', url: HOME_URL });
     s = reduceFlow(s, { type: 'harvest', status: 'wrong-page' });
     ok(s.phase === 'steering' && s.steers === i + 1, `steer ${i + 1}/${MAX_STEERS} allowed`);
   }
-  s = reduceFlow(s, { type: 'loaded', url: DASHBOARD_URL });
+  s = reduceFlow(s, { type: 'loaded', url: HOME_URL });
   s = reduceFlow(s, { type: 'harvest', status: 'wrong-page' });
   ok(s.phase === 'error' && statusText(s).includes('journey history'),
     'one wrong page too many → error, never an infinite steer loop');
@@ -289,7 +351,7 @@ ok(statusText(run([
     { type: 'imported', inserted: 4 },
   ], s);
   ok(s.phase === 'steering' && s.target === CARD_C, 'card with journeys imports, then the sweep continues');
-  s = run([{ type: 'loaded', url: CARD_C }, { type: 'harvest', status: 'empty' }], s);
+  s = run([{ type: 'loaded', url: CARD_C }, { type: 'harvest', status: 'empty' }, ...CLOSE_DIRECT], s);
   ok(s.phase === 'done' && s.inserted === 4 && statusText(s) === 'Imported 4 new journeys from TfL.',
     'sweep done → merged total from the one card that had journeys');
 }
@@ -305,6 +367,7 @@ ok(statusText(run([
   s = run([
     { type: 'harvest', status: 'rows', cards: [{ href: CARD_A, label: 'Visa ending in 5006' }] },
     { type: 'imported', inserted: 1 },
+    ...CLOSE_DIRECT,
   ], s);
   ok(s.phase === 'done' && s.inserted === 1, 'visited card re-listed alongside data → not re-queued, flow finishes');
 }
@@ -336,6 +399,7 @@ ok(run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status:
 for (const mk of [
   () => INITIAL_FLOW,
   () => reduceFlow(INITIAL_FLOW, { type: 'nav', url: LOGIN_URL }),
+  () => reduceFlow(INITIAL_FLOW, { type: 'nav', url: DASHBOARD_URL }),
   () => reduceFlow(INITIAL_FLOW, { type: 'loaded', url: JOURNEY_HISTORY_URL }),
   () => run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'challenge' }]),
   () => run([{ type: 'loaded', url: DASHBOARD_URL }, { type: 'harvest', status: 'wrong-page' }]),
@@ -360,7 +424,7 @@ ok(run([
 
 // --- terminal states absorb everything ---
 {
-  const done = run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'empty' }]);
+  const done = run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'empty' }, ...CLOSE_DIRECT]);
   const cancelled = reduceFlow(INITIAL_FLOW, { type: 'cancel' });
   const errored = reduceFlow(INITIAL_FLOW, { type: 'web-error', message: 'x' });
   ok(isTerminal(done) && isTerminal(cancelled) && isTerminal(errored), 'done/cancelled/error are terminal');

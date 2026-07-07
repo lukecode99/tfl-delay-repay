@@ -71,6 +71,9 @@ export default function RefreshSheet({ onClose }: Props) {
   const closedRef = useRef(false);
   // null = never chosen: the sheet opens with the chooser and no WebView.
   const [mode, setMode] = useState<FetchMode | null>(persistedMode);
+  // DEBUG TfL-15: last 3 URLs seen — strip before next PR
+  const [urlLog, setUrlLog] = useState<string[]>([]);
+  const addUrlLog = (url: string) => setUrlLog(prev => [...prev.slice(-2), url]);
   const [state, setState] = useState<FlowState>(() => {
     const m = persistedMode();
     const initial = makeInitialFlow(m ?? 'contactless');
@@ -150,6 +153,7 @@ export default function RefreshSheet({ onClose }: Props) {
 
   const onLoaded = (url: string) => {
     urlRef.current = url;
+    addUrlLog(url);
     dispatch({ type: 'loaded', url });
     // Injection is keyed off the phase the machine settles in: paused states
     // never reach 'harvesting' on a load, so login/challenge pages get no
@@ -278,6 +282,14 @@ export default function RefreshSheet({ onClose }: Props) {
                 </Pressable>
               )}
             </View>
+            {/* DEBUG TfL-15: URL breadcrumb — strip before next PR */}
+            {urlLog.length > 0 && (
+              <View style={styles.urlLog}>
+                {urlLog.map((u, i) => (
+                  <Text key={i} style={styles.urlLogText} numberOfLines={1}>{u}</Text>
+                ))}
+              </View>
+            )}
             <WebView
               key={mode}
               ref={webRef}
@@ -289,7 +301,7 @@ export default function RefreshSheet({ onClose }: Props) {
               incognito={false}
               onLoadEnd={(e: any) => onLoaded(String(e?.nativeEvent?.url ?? ''))}
               onNavigationStateChange={(nav: { url?: string; title?: string }) => {
-                if (nav?.url) urlRef.current = String(nav.url);
+                if (nav?.url) { urlRef.current = String(nav.url); addUrlLog(String(nav.url)); }
                 dispatch({
                   type: 'nav',
                   url: String(nav?.url ?? ''),
@@ -367,4 +379,7 @@ const styles = StyleSheet.create({
   continueButtonPaused: { borderColor: colors.accentBright },
   continueText: { color: colors.accentBright, fontSize: 14, fontWeight: '700' },
   web: { flex: 1, backgroundColor: '#fff' },
+  // DEBUG TfL-15 — strip with the breadcrumb before next PR
+  urlLog: { paddingHorizontal: spacing.l, paddingBottom: spacing.s, gap: 2 },
+  urlLogText: { color: colors.textDim, fontSize: 10, fontFamily: 'monospace' },
 });

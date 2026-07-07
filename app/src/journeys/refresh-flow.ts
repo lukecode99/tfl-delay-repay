@@ -54,14 +54,12 @@ export function historyUrlsFor(mode: FetchMode): string[] {
 }
 
 /**
- * First page a refresh loads (TfL-14): contactless modes open the statements
- * page so the direct CSV fetch can run there (the page visit doubles as
- * cookie warm-up for its fetches); Oyster has no statements endpoint. Only
- * the start differs — the steering home and the visit queue stay on the
- * classic history pages, which is what the direct fetch falls back to.
+ * First page a refresh loads (TfL-15): contactless modes start on the classic
+ * history page; the direct CSV fetch is queued and runs after the history
+ * sweep. Oyster has no statements endpoint.
  */
 export function startUrlFor(mode: FetchMode): string {
-  return mode === 'oyster' ? OYSTER_HISTORY_URL : NEW_STATEMENTS_URL;
+  return mode === 'oyster' ? OYSTER_HISTORY_URL : CONTACTLESS_HISTORY_URL;
 }
 
 /** A payment card the harvest script found linked on a TfL page. */
@@ -86,12 +84,16 @@ interface Live {
   harvested: boolean;
   /** Where wrong pages get steered to — the mode's primary history page. */
   home: string;
+  /** Whether to attempt the direct CSV fetch on NewStatements after the queue
+   * is exhausted (TfL-15). False for Oyster-only mode (no statements page). */
+  directCsv: boolean;
 }
 
 export type FlowState =
   | ({ phase: 'loading' } & Live)
   | ({ phase: 'signed-out' } & Live)
   | ({ phase: 'challenge' } & Live)
+  | ({ phase: 'account-dashboard' } & Live)
   | ({ phase: 'steering'; target: string } & Live)
   | ({ phase: 'harvesting' } & Live)
   | ({ phase: 'importing' } & Live)
@@ -118,7 +120,7 @@ export type FlowEvent =
 /** Flow start for a mode: first history page loads, the rest queue up. */
 export function makeInitialFlow(mode: FetchMode): FlowState {
   const [home, ...rest] = historyUrlsFor(mode);
-  return { phase: 'loading', steers: 0, queue: rest, visited: [], inserted: 0, harvested: false, home };
+  return { phase: 'loading', steers: 0, queue: rest, visited: [], inserted: 0, harvested: false, home, directCsv: mode !== 'oyster' };
 }
 
 export const INITIAL_FLOW: FlowState = makeInitialFlow('contactless');
@@ -128,14 +130,13 @@ export function isTerminal(s: FlowState): boolean {
 }
 
 /**
- * Paused = the page belongs to the user (login or robot check). While paused
- * the machine ignores loads, navigations and stale harvest reports — the
- * component keys ALL injection and steering off phases this predicate
- * excludes, so pausing IS the no-injection guarantee. Only 'handover'
- * (the Continue button) resumes.
+ * Paused = the page belongs to the user. While paused the machine ignores
+ * loads, navigations and stale harvest reports — the component keys ALL
+ * injection and steering off phases this predicate excludes, so pausing IS
+ * the no-injection guarantee. Only 'handover' (the Continue button) resumes.
  */
 export function isPaused(s: FlowState): boolean {
-  return s.phase === 'signed-out' || s.phase === 'challenge';
+  return s.phase === 'signed-out' || s.phase === 'challenge' || s.phase === 'account-dashboard';
 }
 
 /** Whether the Continue button applies: any live phase except a running import. */
@@ -143,13 +144,19 @@ export function canHandover(s: FlowState): boolean {
   return !isTerminal(s) && s.phase !== 'importing';
 }
 
-/**
- * Actual sign-in pages only. The signed-in My Account dashboard also lives on
- * account.tfl.gov.uk, so matching the whole host would wrongly park the flow
- * there (TfL-12) — the account host is NOT a login marker.
- */
+/** Actual sign-in pages only — path contains signin/sign-in/login. */
 export function isLoginUrl(url: string): boolean {
   return /signin|sign-in|login/i.test(url);
+}
+
+/**
+ * The signed-in My Account dashboard on account.tfl.gov.uk — not a login
+ * page, but also not a journey history page. TfL redirects here after
+ * NewStatements when the session is unestablished (TfL-15); the flow pauses
+ * and tells the user to navigate to their contactless cards.
+ */
+export function isAccountDashboard(url: string): boolean {
+  return /account\.tfl\.gov\.uk/i.test(url) && !isLoginUrl(url);
 }
 
 /**
@@ -162,7 +169,7 @@ export function isChallengeTitle(title: string): boolean {
 }
 
 export function doneMessage(inserted: number): string {
-  if (inserted <= 0) return 'No new journeys — you’re already up to date.';
+  if (inserted <= 0) return "No new journeys — you're already up to date.";
   return `Imported ${inserted} new journey${inserted === 1 ? '' : 's'} from TfL.`;
 }
 
@@ -173,17 +180,20 @@ const liveOf = (s: FlowState): Live => ({
   inserted: 'inserted' in s ? s.inserted : 0,
   harvested: 'harvested' in s ? s.harvested : false,
   home: 'home' in s ? s.home : CONTACTLESS_HISTORY_URL,
+  directCsv: 'directCsv' in s ? s.directCsv : false,
 });
 
 /**
- * Done with the current page: steer to the next queued page, or finish. The
- * no-history verdict can only be reached here off the back of a confirmed
- * history-page 'empty' with nothing left to visit — never from the dashboard
- * or any intermediate page.
+ * Done with the current page: steer to the next queued page; if the queue is
+ * exhausted, steer to the statements page for the direct CSV fetch (TfL-15);
+ * or finish. The no-history verdict can only be reached here off the back of
+ * a confirmed history-page 'empty' with nothing left to visit — never from
+ * the dashboard or any intermediate page.
  */
 function advance(l: Live): FlowState {
   const [next, ...rest] = l.queue;
   if (next) return { ...l, phase: 'steering', target: next, queue: rest, visited: [...l.visited, next] };
+  if (l.directCsv) return { ...l, phase: 'steering', target: NEW_STATEMENTS_URL, directCsv: false };
   if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted), inserted: l.inserted };
   return { phase: 'done', message: 'No journey history found on TfL.', inserted: 0 };
 }
@@ -230,26 +240,28 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       // Robot check spotted from the reported page title — no injection needed.
       if (e.title != null && isChallengeTitle(e.title)) return { ...l, phase: 'challenge' };
       // An expired session redirects to the account sign-in mid-navigation.
-      return isLoginUrl(e.url) ? { ...l, phase: 'signed-out' } : s;
+      if (isLoginUrl(e.url)) return { ...l, phase: 'signed-out' };
+      // TfL redirects to the My Account dashboard (account.tfl.gov.uk) when
+      // the session is unestablished on contactless.tfl.gov.uk (TfL-15).
+      if (isAccountDashboard(e.url)) return { ...l, phase: 'account-dashboard' };
+      return s;
     case 'loaded':
       // Paused: pages load while the user solves/signs in — none of them are
       // ours to touch. No harvesting transition means no injection (TfL-13);
       // the flow resumes only via handover.
       if (isPaused(s)) return s;
       if (isLoginUrl(e.url)) return { ...l, phase: 'signed-out' };
+      if (isAccountDashboard(e.url)) return { ...l, phase: 'account-dashboard' };
       if (s.phase === 'importing') return s; // import already under way
       // Harvest every landed page — the script itself tells the flow whether
       // it's a challenge, a wrong page, a card picker or the history.
       return { ...l, phase: 'harvesting' };
     case 'direct-failed':
-      // The direct CSV fetch on the statements page came up empty (TfL-14) —
-      // steer to the mode's history page and let the classic steering harvest
-      // take over. Queued pages (Oyster in 'both' mode) stay queued behind
-      // it, so falling back never skips the contactless history. Gated on
-      // 'harvesting' like harvest reports: anything else is a stale duplicate.
+      // The direct CSV fetch on the statements page failed (TfL-15). The
+      // classic harvest already ran before this page was reached, so just
+      // advance — whatever was imported from the history sweep stands.
       if (s.phase !== 'harvesting') return s;
-      if (l.steers >= MAX_STEERS) return { phase: 'error', message: 'kept landing away from the journey history page' };
-      return { ...l, phase: 'steering', target: l.home, steers: l.steers + 1 };
+      return advance({ ...l, directCsv: false });
     case 'harvest':
       // Reports only count while a harvest is running: injection only happens
       // in 'harvesting', so anything else is a stale duplicate — and while
@@ -285,12 +297,13 @@ export function statusText(s: FlowState): string {
   switch (s.phase) {
     case 'loading': return 'Loading TfL…';
     case 'signed-out': return 'Sign in to your TfL account, then tap Continue.';
-    case 'challenge': return 'Complete TfL’s security check, then tap Continue.';
+    case 'challenge': return "Complete TfL's security check, then tap Continue.";
+    case 'account-dashboard': return "Navigate to 'My contactless cards' on TfL, then tap Continue.";
     case 'steering': return 'Opening your journey history…';
     case 'harvesting': return 'Reading your journey history…';
     case 'importing': return 'Importing journeys…';
     case 'done': return s.message;
     case 'cancelled': return 'Refresh cancelled.';
-    case 'error': return `Couldn’t refresh — ${s.message}`;
+    case 'error': return `Couldn't refresh — ${s.message}`;
   }
 }
