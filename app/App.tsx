@@ -127,7 +127,7 @@ export default function App() {
     } else if (r.kind === 'cancelled') {
       setRefreshNote(null);
     } else {
-      setRefreshNote('Couldn't refresh from TfL — you can still import a CSV.');
+      setRefreshNote("Couldn't refresh from TfL — you can still import a CSV.");
     }
   }, [refresh]);
 
