@@ -92,6 +92,9 @@ interface Live {
    * history page has already been swept (return done/no-history) or not
    * (steer back to home as a fallback). */
   historySwept: boolean;
+  /** True once the TfL-17 in-place direct attempt has run on the contactless
+   * Dashboard — one shot per refresh; later Dashboard landings park normally. */
+  directTried: boolean;
 }
 
 export type FlowState =
@@ -116,7 +119,7 @@ export type FlowEvent =
       cards?: CardEntry[];
     }
   | { type: 'handover' }
-  | { type: 'direct-failed' }
+  | { type: 'direct-failed'; url?: string }
   | { type: 'imported'; inserted: number }
   | { type: 'import-failed'; message: string }
   | { type: 'web-error'; message: string }
@@ -125,7 +128,7 @@ export type FlowEvent =
 /** Flow start for a mode: first history page loads, the rest queue up. */
 export function makeInitialFlow(mode: FetchMode): FlowState {
   const [home, ...rest] = historyUrlsFor(mode);
-  return { phase: 'loading', steers: 0, queue: rest, visited: [], inserted: 0, harvested: false, home, directCsv: mode !== 'oyster', historySwept: false };
+  return { phase: 'loading', steers: 0, queue: rest, visited: [], inserted: 0, harvested: false, home, directCsv: mode !== 'oyster', historySwept: false, directTried: false };
 }
 
 export const INITIAL_FLOW: FlowState = makeInitialFlow('contactless');
@@ -164,8 +167,18 @@ export function isLoginUrl(url: string): boolean {
 export function isAccountDashboard(url: string): boolean {
   return (
     (/account\.tfl\.gov\.uk/i.test(url) && !isLoginUrl(url)) ||
-    /contactless\.tfl\.gov\.uk\/Dashboard/i.test(url)
+    isContactlessDashboard(url)
   );
+}
+
+/**
+ * The signed-in Dashboard on contactless.tfl.gov.uk specifically (TfL-17).
+ * TfL redirects every steer here, but it's same-origin with the statements
+ * endpoint — so instead of parking, the flow runs the direct CSV fetch right
+ * on this page (once per refresh) before falling back to the user handover.
+ */
+export function isContactlessDashboard(url: string): boolean {
+  return /contactless\.tfl\.gov\.uk\/Dashboard/i.test(url);
 }
 
 /**
@@ -191,6 +204,7 @@ const liveOf = (s: FlowState): Live => ({
   home: 'home' in s ? s.home : CONTACTLESS_HISTORY_URL,
   directCsv: 'directCsv' in s ? s.directCsv : false,
   historySwept: 'historySwept' in s ? s.historySwept : false,
+  directTried: 'directTried' in s ? s.directTried : false,
 });
 
 /**
@@ -251,6 +265,9 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       if (e.title != null && isChallengeTitle(e.title)) return { ...l, phase: 'challenge' };
       // An expired session redirects to the account sign-in mid-navigation.
       if (isLoginUrl(e.url)) return { ...l, phase: 'signed-out' };
+      // TfL-17: the contactless Dashboard gets a direct attempt on 'loaded' —
+      // don't park on the mid-navigation event (parking blocks injection).
+      if (isContactlessDashboard(e.url) && l.directCsv && !l.directTried) return s;
       // TfL redirects to the My Account dashboard (account.tfl.gov.uk) when
       // the session is unestablished on contactless.tfl.gov.uk (TfL-15).
       if (isAccountDashboard(e.url)) return { ...l, phase: 'account-dashboard' };
@@ -261,6 +278,13 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       // the flow resumes only via handover.
       if (isPaused(s)) return s;
       if (isLoginUrl(e.url)) return { ...l, phase: 'signed-out' };
+      // TfL-17: signed-in contactless Dashboard — TfL bounces every steer
+      // here, so run the direct CSV fetch in place instead of parking. One
+      // shot per refresh; directCsv clears so a success advances to done (or
+      // Oyster) rather than steering to the statements page TfL won't serve.
+      if (isContactlessDashboard(e.url) && l.directCsv && !l.directTried) {
+        return { ...l, phase: 'harvesting', directTried: true, directCsv: false };
+      }
       if (isAccountDashboard(e.url)) return { ...l, phase: 'account-dashboard' };
       if (s.phase === 'importing') return s; // import already under way
       // Harvest every landed page — the script itself tells the flow whether
@@ -273,6 +297,9 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
     case 'direct-failed':
       // The direct CSV fetch on the statements page failed (TfL-15).
       if (s.phase !== 'harvesting') return s;
+      // TfL-17: failed while sitting on the contactless Dashboard — steering
+      // just bounces back here, so park and let the user navigate + Continue.
+      if (e.url != null && isContactlessDashboard(e.url)) return { ...l, phase: 'account-dashboard' };
       if (l.steers >= MAX_STEERS) return { phase: 'error', message: 'kept landing away from the journey history page' };
       // If the classic history queue was already exhausted before we reached
       // this page (historySwept), just advance — whatever history sweep data

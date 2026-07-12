@@ -23,7 +23,7 @@ import {
   pickCardId,
   rowsToCsv,
 } from './autofetch';
-import { buildDirectCsvScript, currentAndPreviousPeriods, isNewStatementsUrl } from './direct-csv';
+import { buildDirectCsvScript, cardIdsFromLog, currentAndPreviousPeriods, isDirectCsvUrl } from './direct-csv';
 import { getMeta, listCards, setMeta } from './db';
 import { importCsvText, ImportOutcome } from './import';
 import {
@@ -98,14 +98,17 @@ export default function RefreshSheet({ onClose }: Props) {
 
   // The probe goes in first so either script's own CSV fetches are captured.
   // Only ever called for the 'harvesting' phase — never on a paused page.
-  // On the statements page the direct CSV fetch runs (TfL-14); everywhere
+  // On the statements page or the contactless Dashboard the direct CSV fetch
+  // runs (TfL-14/17), seeded with card ids the endpoint log captured on
+  // earlier refreshes (the Dashboard links no statements itself); everywhere
   // else the classic harvest does. Periods come from the device's local date
   // so a UTC month boundary can't shift which statements get fetched.
   const injectHarvest = () => {
     const now = new Date();
-    const script = isNewStatementsUrl(urlRef.current)
+    const script = isDirectCsvUrl(urlRef.current)
       ? buildDirectCsvScript(currentAndPreviousPeriods(
-        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`))
+        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`),
+        cardIdsFromLog(getMeta(CSV_LOG_KEY)))
       : buildHarvestScript();
     webRef.current?.injectJavaScript(buildNetProbeScript() + '\n' + script);
   };
@@ -207,7 +210,12 @@ export default function RefreshSheet({ onClose }: Props) {
         } else if (msg.status === 'signed-out' || msg.status === 'challenge') {
           dispatch({ type: 'harvest', status: msg.status });
         } else {
-          dispatch({ type: 'direct-failed' }); // wrong-page / failed → steering harvest
+          // DEBUG TfL-15/17: surface why the direct fetch fell back — strip
+          // with the breadcrumb before next PR.
+          addUrlLog(`direct-csv ${String(msg.status)}: ${String(msg.message ?? msg.href ?? '')}`);
+          // wrong-page / failed → steering harvest; from the contactless
+          // Dashboard the machine parks for the user instead (TfL-17).
+          dispatch({ type: 'direct-failed', url: urlRef.current });
         }
         return;
       }

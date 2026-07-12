@@ -7,8 +7,10 @@ import assert from 'node:assert/strict';
 import {
   buildCsvUrl,
   buildDirectCsvScript,
+  cardIdsFromLog,
   currentAndPreviousPeriods,
   extractCardDisplayId,
+  isDirectCsvUrl,
   isNewStatementsUrl,
   looksLikeCsv,
   MAX_DIRECT_CARDS,
@@ -45,6 +47,24 @@ ok(isNewStatementsUrl('https://contactless.tfl.gov.uk/NewStatements')
   && isNewStatementsUrl('https://contactless.tfl.gov.uk/newstatements?x=1')
   && !isNewStatementsUrl(CONTACTLESS_HISTORY_URL),
   'constants: statements URL recognised case-insensitively, history page is not');
+ok(isDirectCsvUrl(NEW_STATEMENTS_URL)
+  && isDirectCsvUrl('https://contactless.tfl.gov.uk/Dashboard')
+  && isDirectCsvUrl('https://contactless.tfl.gov.uk/dashboard?x=1')
+  && !isDirectCsvUrl(CONTACTLESS_HISTORY_URL)
+  && !isDirectCsvUrl('https://account.tfl.gov.uk/Dashboard'),
+  'TfL-17: direct script runs on statements + contactless Dashboard, nowhere else');
+
+// --- card ids from the endpoint log (TfL-17 Dashboard seed) ---
+ok(cardIdsFromLog(null).length === 0 && cardIdsFromLog('not json').length === 0
+  && cardIdsFromLog('{"a":1}').length === 0,
+  'log ids: missing or corrupt log → empty list, never throws');
+ok(cardIdsFromLog(JSON.stringify([
+  { source: 'nav', url: buildCsvUrl('5|2026', CARD_A), at: 'x' },
+  { source: 'direct', url: buildCsvUrl('6|2026', CARD_A.toUpperCase()), at: 'x' },
+  { source: 'harvest', url: `https://contactless.tfl.gov.uk/NewStatements?CardDisplayId=${CARD_B}`, at: 'x' },
+  { source: 'net', url: 'https://contactless.tfl.gov.uk/Dashboard', at: 'x' },
+])).join(',') === `${CARD_A},${CARD_B}`,
+  'log ids: extracted from logged endpoint URLs, case-insensitively deduped, non-card URLs skipped');
 
 // --- periods: <month>|<year>, current + previous, unpadded month ---
 ok(currentAndPreviousPeriods('2026-07-07T10:00:00.000Z').join(',') === '7|2026,6|2026',
@@ -118,6 +138,7 @@ async function runDirect(
   doc: any,
   winOver: { href?: string; fetch?: any } = {},
   periods = ['7|2026', '6|2026'],
+  knownCards: string[] = [],
 ) {
   const messages: any[] = [];
   const win: any = {
@@ -125,7 +146,7 @@ async function runDirect(
     fetch: winOver.fetch,
     ReactNativeWebView: { postMessage: (s: string) => messages.push(JSON.parse(s)) },
   };
-  new Function('document', 'window', buildDirectCsvScript(periods))(doc, win);
+  new Function('document', 'window', buildDirectCsvScript(periods, knownCards))(doc, win);
   await new Promise(r => setTimeout(r, 20)); // let the fetch chain settle
   return messages;
 }
@@ -227,6 +248,67 @@ async function runDirect(
   const msgs = await runDirect(hostile);
   ok(msgs.length === 1 && msgs[0].status === 'failed',
     'script: hostile DOM reports failed instead of throwing into the page');
+}
+
+// --- script: TfL-17 — the Dashboard path ---
+const DASHBOARD_HREF = 'https://contactless.tfl.gov.uk/Dashboard';
+{
+  // Dashboard + known ids from the endpoint log: no statement links on the
+  // page, but the seeded ids fetch straight away — the TfL-17 happy path.
+  const calls: { url: string; opts: any }[] = [];
+  const fetchStub = (url: string, opts: any) => {
+    calls.push({ url: String(url), opts });
+    return Promise.resolve({ ok: true, text: () => Promise.resolve(CSV_BODY) });
+  };
+  const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }),
+    { href: DASHBOARD_HREF, fetch: fetchStub }, ['7|2026', '6|2026'], [CARD_A]);
+  ok(msgs.length === 1 && msgs[0].status === 'csv' && msgs[0].files.length === 2,
+    'TfL-17: Dashboard + logged card id → both months fetched, no statements page needed');
+  ok(calls[0].url === buildCsvUrl('7|2026', CARD_A) && calls.every(c => c.opts.credentials === 'include'),
+    'TfL-17: Dashboard fetches hit the same endpoint with the session cookie');
+}
+{
+  // Known ids dedupe against ids found on the page (case-insensitively).
+  const calls: string[] = [];
+  const fetchStub = (url: string) => {
+    calls.push(String(url));
+    return Promise.resolve({ ok: true, text: () => Promise.resolve(CSV_BODY) });
+  };
+  const msgs = await runDirect(statementsDoc({
+    anchors: [{ href: `/x?CardDisplayId=${CARD_A}` }],
+  }), { fetch: fetchStub }, ['7|2026', '6|2026'], [CARD_A.toUpperCase(), CARD_B]);
+  ok(msgs[0].status === 'csv' && msgs[0].files.length === 4 && calls.length === 4,
+    'TfL-17: known ids merge behind page ids without duplicating them');
+}
+{
+  // Dashboard with nothing on the page and no log: the script pulls the
+  // statements HTML same-origin and mines the ids out of it.
+  const calls: string[] = [];
+  const fetchStub = (url: string) => {
+    calls.push(String(url));
+    if (String(url) === NEW_STATEMENTS_URL) {
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(
+          `<html><a href="/NewStatements/DownloadBillingCsv?Period=6|2026&CardDisplayId=${CARD_B}">June</a>`
+          + `<a href="?CardDisplayId=${CARD_B}">dup</a></html>`),
+      });
+    }
+    return Promise.resolve({ ok: true, text: () => Promise.resolve(CSV_BODY) });
+  };
+  const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }),
+    { href: DASHBOARD_HREF, fetch: fetchStub });
+  ok(calls[0] === NEW_STATEMENTS_URL && msgs.length === 1 && msgs[0].status === 'csv'
+    && msgs[0].files.length === 2 && msgs[0].files.every((f: any) => f.card === CARD_B),
+    'TfL-17: statements HTML fetched and mined for card ids when page and log are empty');
+}
+{
+  // Even the HTML fallback found nothing → one failed report, fallback decides.
+  const fetchStub = () => Promise.resolve({ ok: true, text: () => Promise.resolve('<html>nothing</html>') });
+  const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }),
+    { href: DASHBOARD_HREF, fetch: fetchStub });
+  ok(msgs.length === 1 && msgs[0].status === 'failed',
+    'TfL-17: no ids anywhere → failed, exactly one report');
 }
 
 // --- flow: where a refresh starts, and the fallback path ---

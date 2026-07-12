@@ -24,10 +24,41 @@
  * --experimental-strip-types — the test suite asserts the two match. */
 export const NEW_STATEMENTS_URL = 'https://contactless.tfl.gov.uk/NewStatements';
 
-/** Whether a loaded URL is the statements page — picks which script the
- * refresh sheet injects (direct fetch here, classic harvest elsewhere). */
+/** Whether a loaded URL is the statements page. */
 export function isNewStatementsUrl(url: string): boolean {
   return /newstatements/i.test(url);
+}
+
+/**
+ * Whether the direct CSV script should run on a loaded URL — picks which
+ * script the refresh sheet injects (direct fetch here, classic harvest
+ * elsewhere). TfL-17: the signed-in contactless Dashboard qualifies too —
+ * TfL redirects every steer there, and the download endpoint is same-origin
+ * from any contactless page, so the fetches work without ever reaching the
+ * statements page.
+ */
+export function isDirectCsvUrl(url: string): boolean {
+  return isNewStatementsUrl(url) || /contactless\.tfl\.gov\.uk\/dashboard/i.test(url);
+}
+
+/**
+ * Card ids previously captured in the endpoint log (TfL-13's csvEndpointLog
+ * meta entry, a JSON array of {source, url, at}). The Dashboard doesn't link
+ * statements, so ids the log captured on earlier visits are the direct
+ * fetch's best seed there. Corrupt or missing log → empty list, never throws.
+ */
+export function cardIdsFromLog(logJson: string | null): string[] {
+  try {
+    const entries = JSON.parse(logJson ?? '[]');
+    if (!Array.isArray(entries)) return [];
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    for (const e of entries) {
+      const id = extractCardDisplayId(String(e?.url ?? ''));
+      if (id && !seen.has(id.toLowerCase())) { seen.add(id.toLowerCase()); ids.push(id); }
+    }
+    return ids;
+  } catch { return []; }
 }
 
 /**
@@ -85,12 +116,15 @@ export const MAX_DIRECT_CARDS = 8;
  *
  * Challenge and signed-out detection mirror the harvest script exactly — the
  * statements page is behind the same login and the same WAF. Card ids are
- * collected from statement links (and any card <select>) on the page; every
- * card × period pair is fetched sequentially with the session cookie, HTML
- * responses are dropped by the same header check as looksLikeCsv, and one
- * report carries whatever survived. Nothing here throws into the page.
+ * collected from statement links (and any card <select>) on the page, then
+ * seeded from knownCards (the endpoint log's previously captured ids — the
+ * TfL-17 Dashboard path, where the page itself links no statements), then as
+ * a last resort mined out of the statements page HTML fetched same-origin.
+ * Every card × period pair is fetched sequentially with the session cookie,
+ * HTML responses are dropped by the same header check as looksLikeCsv, and
+ * one report carries whatever survived. Nothing here throws into the page.
  */
-export function buildDirectCsvScript(periods: string[]): string {
+export function buildDirectCsvScript(periods: string[], knownCards: string[] = []): string {
   return `(function () {
   var report = function (msg) {
     if (window.ReactNativeWebView) { window.ReactNativeWebView.postMessage(JSON.stringify(msg)); }
@@ -99,6 +133,7 @@ export function buildDirectCsvScript(periods: string[]): string {
     var doc = document;
     var win = window;
     var periods = ${JSON.stringify(periods)};
+    var known = ${JSON.stringify(knownCards)};
     var href = '';
     try { href = String((win.location && win.location.href) || '').toLowerCase(); } catch (e) { }
 
@@ -120,9 +155,16 @@ export function buildDirectCsvScript(periods: string[]): string {
     } catch (e) { }
     if (signedOut) { report({ type: 'direct-csv', status: 'signed-out' }); return; }
 
-    // Only the statements page carries the card ids this script needs.
-    if (href.indexOf('newstatements') === -1) {
+    // TfL-17: any signed-in contactless page will do — the download endpoint
+    // is same-origin from all of them (the Dashboard included, which is where
+    // TfL redirects every steer). Off-domain pages (account.tfl.gov.uk) can't
+    // reach it cross-origin, so those still fall back to steering.
+    if (href.indexOf('contactless.tfl.gov.uk') === -1) {
       report({ type: 'direct-csv', status: 'wrong-page', href: href });
+      return;
+    }
+    if (!win.fetch) {
+      report({ type: 'direct-csv', status: 'failed', message: 'no fetch in page' });
       return;
     }
 
@@ -144,15 +186,9 @@ export function buildDirectCsvScript(periods: string[]): string {
       var options = doc.querySelectorAll('option');
       for (var o = 0; o < options.length; o++) { take(options[o].value); }
     } catch (e) { }
-    if (ids.length > ${MAX_DIRECT_CARDS}) { ids = ids.slice(0, ${MAX_DIRECT_CARDS}); }
-    if (!ids.length) {
-      report({ type: 'direct-csv', status: 'failed', message: 'no cards found on the statements page' });
-      return;
-    }
-    if (!win.fetch) {
-      report({ type: 'direct-csv', status: 'failed', message: 'no fetch in page' });
-      return;
-    }
+    // Ids the endpoint log captured on earlier visits (TfL-17) — the Dashboard
+    // links no statements, so these are often the only ids available there.
+    for (var kc = 0; kc < known.length; kc++) { take(known[kc]); }
 
     // Same header check as looksLikeCsv — HTML 200s must not reach the parser.
     var isCsv = function (t) {
@@ -162,34 +198,54 @@ export function buildDirectCsvScript(periods: string[]): string {
       return line.indexOf(',') !== -1 && /date/i.test(line);
     };
 
-    var jobs = [];
-    for (var c = 0; c < ids.length; c++) {
-      for (var p = 0; p < periods.length; p++) { jobs.push({ card: ids[c], period: periods[p] }); }
-    }
-    var files = [];
-    // Sequential, not parallel — kinder to the WAF, and order keeps the
-    // report deterministic. A failed month is skipped, not fatal.
-    var next = function (k) {
-      if (k >= jobs.length) {
-        if (files.length) { report({ type: 'direct-csv', status: 'csv', files: files }); }
-        else { report({ type: 'direct-csv', status: 'failed', message: 'no statement CSV came back' }); }
+    var proceed = function () {
+      if (ids.length > ${MAX_DIRECT_CARDS}) { ids = ids.slice(0, ${MAX_DIRECT_CARDS}); }
+      if (!ids.length) {
+        report({ type: 'direct-csv', status: 'failed', message: 'no card ids on page, in log, or in statements HTML' });
         return;
       }
-      var job = jobs[k];
-      var url = '${NEW_STATEMENTS_URL}/DownloadBillingCsv?Period='
-        + encodeURIComponent(job.period) + '&CardDisplayId=' + encodeURIComponent(job.card);
-      win.fetch(url, { credentials: 'include' })
-        .then(function (res) {
-          if (!res.ok) { throw new Error('HTTP ' + res.status); }
-          return res.text();
-        })
-        .then(function (t) {
-          if (isCsv(t)) { files.push({ text: t, card: job.card, period: job.period, url: url }); }
-        })
-        .catch(function () { })
-        .then(function () { next(k + 1); });
+      var jobs = [];
+      for (var c = 0; c < ids.length; c++) {
+        for (var p = 0; p < periods.length; p++) { jobs.push({ card: ids[c], period: periods[p] }); }
+      }
+      var files = [];
+      // Sequential, not parallel — kinder to the WAF, and order keeps the
+      // report deterministic. A failed month is skipped, not fatal.
+      var next = function (k) {
+        if (k >= jobs.length) {
+          if (files.length) { report({ type: 'direct-csv', status: 'csv', files: files }); }
+          else { report({ type: 'direct-csv', status: 'failed', message: 'no statement CSV came back' }); }
+          return;
+        }
+        var job = jobs[k];
+        var url = '${NEW_STATEMENTS_URL}/DownloadBillingCsv?Period='
+          + encodeURIComponent(job.period) + '&CardDisplayId=' + encodeURIComponent(job.card);
+        win.fetch(url, { credentials: 'include' })
+          .then(function (res) {
+            if (!res.ok) { throw new Error('HTTP ' + res.status); }
+            return res.text();
+          })
+          .then(function (t) {
+            if (isCsv(t)) { files.push({ text: t, card: job.card, period: job.period, url: url }); }
+          })
+          .catch(function () { })
+          .then(function () { next(k + 1); });
+      };
+      next(0);
     };
-    next(0);
+
+    if (ids.length) { proceed(); return; }
+    // TfL-17 last resort: pull the statements page HTML over the session
+    // cookie (same-origin from any contactless page) and mine it for ids.
+    win.fetch('${NEW_STATEMENTS_URL}', { credentials: 'include' })
+      .then(function (res) { return res.text(); })
+      .then(function (html) {
+        var re = /CardDisplayId=([0-9a-fA-F]{32})/g;
+        var m;
+        while ((m = re.exec(String(html || '')))) { take(m[1]); }
+      })
+      .catch(function () { })
+      .then(function () { proceed(); });
   } catch (e) {
     report({ type: 'direct-csv', status: 'failed', message: String(e) });
   }

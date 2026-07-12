@@ -12,6 +12,7 @@ import {
   INITIAL_FLOW,
   isAccountDashboard,
   isChallengeTitle,
+  isContactlessDashboard,
   isLoginUrl,
   isPaused,
   isTerminal,
@@ -58,6 +59,10 @@ ok(isAccountDashboard(DASHBOARD_URL) && isAccountDashboard('https://account.tfl.
   'urls: account.tfl.gov.uk non-login pages are the account dashboard (TfL-15)');
 ok(isAccountDashboard('https://contactless.tfl.gov.uk/Dashboard'),
   'urls: contactless.tfl.gov.uk/Dashboard is also treated as account dashboard (TfL-16)');
+ok(isContactlessDashboard('https://contactless.tfl.gov.uk/Dashboard')
+  && isContactlessDashboard('https://contactless.tfl.gov.uk/dashboard?x=1')
+  && !isContactlessDashboard(DASHBOARD_URL) && !isContactlessDashboard(CONTACTLESS_HISTORY_URL),
+  'urls: the contactless Dashboard specifically is recognised (TfL-17), account dashboard is not');
 ok(!isAccountDashboard(LOGIN_URL), 'urls: login pages are NOT treated as the account dashboard');
 ok(!isAccountDashboard(JOURNEY_HISTORY_URL) && !isAccountDashboard(HOME_URL),
   'urls: contactless pages are not the account dashboard');
@@ -221,6 +226,56 @@ ok(statusText(run([
   ], cont);
   ok(adDone.phase === 'done' && adDone.inserted === 3, 'flow completes after account-dashboard → Continue → history');
 }
+// --- TfL-17: contactless Dashboard gets one in-place direct CSV attempt ---
+const CONTACTLESS_DASHBOARD = 'https://contactless.tfl.gov.uk/Dashboard';
+{
+  // TfL 302s every steer to the Dashboard — instead of parking, the flow
+  // harvests right there (the direct script fetches the CSVs same-origin).
+  const nav = reduceFlow(INITIAL_FLOW, { type: 'nav', url: CONTACTLESS_DASHBOARD });
+  ok(nav === INITIAL_FLOW, 'Dashboard nav with the direct attempt pending → wait for loaded, no park');
+  const h = reduceFlow(INITIAL_FLOW, { type: 'loaded', url: CONTACTLESS_DASHBOARD });
+  ok(h.phase === 'harvesting' && 'directTried' in h && h.directTried && !h.directCsv,
+    'Dashboard loaded → harvesting in place, one-shot spent, statements steer disarmed');
+  // Direct fetch succeeds → import → done, zero steering.
+  const done = run([{ type: 'harvest', status: 'csv' }, { type: 'imported', inserted: 4 }], h);
+  ok(done.phase === 'done' && done.inserted === 4 && 'steers' in h && h.steers === 0,
+    'Dashboard direct fetch success → imported → done without a single steer');
+  // Direct fetch fails ON the Dashboard → park for the user (steering would
+  // just bounce back here), and Continue keeps working.
+  const parked = reduceFlow(h, { type: 'direct-failed', url: CONTACTLESS_DASHBOARD });
+  ok(parked.phase === 'account-dashboard' && isPaused(parked),
+    'direct fetch failed on the Dashboard → parked for the user, not a steer bounce');
+  const resumed = reduceFlow(parked, { type: 'handover' });
+  ok(resumed.phase === 'harvesting', 'Continue still resumes from the Dashboard park');
+  // The in-place attempt is one shot: a later Dashboard landing parks normally.
+  const again = reduceFlow(resumed, { type: 'loaded', url: CONTACTLESS_DASHBOARD });
+  ok(again.phase === 'account-dashboard', 'a second Dashboard landing parks — no retry loop');
+}
+{
+  // 'both' mode: Dashboard direct success still hands over to Oyster.
+  const s = run([
+    { type: 'loaded', url: CONTACTLESS_DASHBOARD },
+    { type: 'harvest', status: 'csv' },
+    { type: 'imported', inserted: 2 },
+  ], makeInitialFlow('both'));
+  ok(s.phase === 'steering' && s.target === OYSTER_HISTORY_URL && s.inserted === 2,
+    'both-mode Dashboard direct success → Oyster history still queued and visited');
+}
+{
+  // Oyster mode has no direct CSV — the Dashboard parks as before.
+  const s = reduceFlow(makeInitialFlow('oyster'), { type: 'loaded', url: CONTACTLESS_DASHBOARD });
+  ok(s.phase === 'account-dashboard', 'oyster mode: Dashboard still parks (no direct attempt to make)');
+}
+{
+  // A direct failure on the statements page itself keeps the classic fallback.
+  const s = run([
+    { type: 'loaded', url: NEW_STATEMENTS_URL },
+    { type: 'direct-failed', url: NEW_STATEMENTS_URL },
+  ], INITIAL_FLOW);
+  ok(s.phase === 'steering' && s.target === CONTACTLESS_HISTORY_URL && s.steers === 1,
+    'direct-failed on the statements page → classic steer to the history, unchanged');
+}
+
 {
   // Pause must not lose sweep progress: handover resumes with queue/tallies intact.
   let s = run([
