@@ -1,16 +1,18 @@
-// Direct CSV fetch (TfL-14). Pure module — node-testable.
+// Direct CSV fetch (TfL-14/18). Pure module — node-testable.
 //
-// TfL's statements section serves each month's journey history as a CSV from
-// a stable endpoint: NewStatements/DownloadBillingCsv?Period=<month>|<year>&
-// CardDisplayId=<32-hex id>. Captured on device (TfL-13's endpoint log), so
-// the happy-path refresh no longer steers through the history pages — the
-// flow lands on the statements page once (which also warms the session
-// cookies for the fetches), the injected script below collects the account's
-// card ids from the page and fetches current + previous month's CSV for each
-// (the previous month covers journeys near the start of a month, well inside
-// the 28-day Delay Repay claim window), and the existing CSV import pipeline
-// takes it from there. Any failure falls back to the classic TfL-12 steering
-// harvest — this module is an optimisation, not a replacement.
+// TfL serves each month's journey history as a CSV from a stable endpoint:
+// NewStatements/DownloadBillingCsv?Period=<month>|<year>&CardDisplayId=
+// <32-hex id>. Captured on device (TfL-13's endpoint log). The NewStatements
+// PAGE itself was removed by TfL (TfL-18: 302 → Error/NotFound) but the
+// endpoint under it survives and is same-origin from any contactless page —
+// so the script below runs IN PLACE on whatever signed-in contactless page
+// the flow is showing: it collects card ids from that page (plus previously
+// captured ids passed in as knownCards) and fetches current + previous
+// month's CSV for each (the previous month covers journeys near the start of
+// a month, well inside the 28-day Delay Repay claim window); the existing CSV
+// import pipeline takes it from there. Any failure falls back to the classic
+// TfL-12 steering harvest — this module is an optimisation, not a
+// replacement.
 //
 // The fetches run from page context so the session cookie and the browser's
 // TLS fingerprint ride along (TfL's WAF rejects non-browser clients — a
@@ -115,11 +117,12 @@ export const MAX_DIRECT_CARDS = 8;
  *   status 'failed'       — no card ids found / nothing fetched; fall back
  *
  * Challenge and signed-out detection mirror the harvest script exactly — the
- * statements page is behind the same login and the same WAF. Card ids are
- * collected from statement links (and any card <select>) on the page, then
- * seeded from knownCards (the endpoint log's previously captured ids — the
- * TfL-17 Dashboard path, where the page itself links no statements), then as
- * a last resort mined out of the statements page HTML fetched same-origin.
+ * endpoint is behind the same login and the same WAF. Card ids are collected
+ * from statement/download links (and any card <select>) on the page, then
+ * seeded from knownCards (the endpoint log's previously captured ids — often
+ * the only ids available on the Dashboard), then as a last resort mined out
+ * of the current page's raw HTML (TfL-18 — the statements page is gone, so
+ * there is nothing left to fetch; the page we're standing on is the source).
  * Every card × period pair is fetched sequentially with the session cookie,
  * HTML responses are dropped by the same header check as looksLikeCsv, and
  * one report carries whatever survived. Nothing here throws into the page.
@@ -189,6 +192,17 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
     // Ids the endpoint log captured on earlier visits (TfL-17) — the Dashboard
     // links no statements, so these are often the only ids available there.
     for (var kc = 0; kc < known.length; kc++) { take(known[kc]); }
+    // TfL-18 last resort: mine the current page's raw HTML — ids can sit in
+    // inline scripts or data attributes the anchor/option sweep misses. The
+    // statements page is gone, so there is no other page left to fetch.
+    if (!ids.length) {
+      try {
+        var html = String((doc.documentElement && doc.documentElement.innerHTML) || '');
+        var hre = /CardDisplayId=([0-9a-fA-F]{32})/g;
+        var hm;
+        while ((hm = hre.exec(html))) { take(hm[1]); }
+      } catch (e) { }
+    }
 
     // Same header check as looksLikeCsv — HTML 200s must not reach the parser.
     var isCsv = function (t) {
@@ -201,7 +215,7 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
     var proceed = function () {
       if (ids.length > ${MAX_DIRECT_CARDS}) { ids = ids.slice(0, ${MAX_DIRECT_CARDS}); }
       if (!ids.length) {
-        report({ type: 'direct-csv', status: 'failed', message: 'no card ids on page, in log, or in statements HTML' });
+        report({ type: 'direct-csv', status: 'failed', message: 'no card ids on this page or in the endpoint log' });
         return;
       }
       var jobs = [];
@@ -234,18 +248,7 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
       next(0);
     };
 
-    if (ids.length) { proceed(); return; }
-    // TfL-17 last resort: pull the statements page HTML over the session
-    // cookie (same-origin from any contactless page) and mine it for ids.
-    win.fetch('${NEW_STATEMENTS_URL}', { credentials: 'include' })
-      .then(function (res) { return res.text(); })
-      .then(function (html) {
-        var re = /CardDisplayId=([0-9a-fA-F]{32})/g;
-        var m;
-        while ((m = re.exec(String(html || '')))) { take(m[1]); }
-      })
-      .catch(function () { })
-      .then(function () { proceed(); });
+    proceed();
   } catch (e) {
     report({ type: 'direct-csv', status: 'failed', message: String(e) });
   }

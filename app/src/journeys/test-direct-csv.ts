@@ -113,10 +113,11 @@ ok(!looksLikeCsv('a,b,c\n1,2,3'), 'guard: header without a Date column rejected'
 interface StubAnchor { href: string }
 function statementsDoc(over: {
   password?: boolean; challenge?: boolean; title?: string;
-  anchors?: StubAnchor[]; options?: string[];
+  anchors?: StubAnchor[]; options?: string[]; html?: string;
 } = {}) {
   return {
     title: over.title ?? '',
+    documentElement: { innerHTML: over.html ?? '' },
     querySelector: (sel: string) => {
       if (sel === 'input[type="password"]') return over.password ? {} : null;
       if (sel.includes('challenge')) return over.challenge ? {} : null;
@@ -226,8 +227,10 @@ async function runDirect(
   ok(msgs.length === 1 && msgs[0].status === 'failed', 'script: non-OK responses count as failures too');
 }
 {
-  const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }));
-  ok(msgs.length === 1 && msgs[0].status === 'failed',
+  const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }),
+    { fetch: () => Promise.reject(new Error('must not be called')) });
+  ok(msgs.length === 1 && msgs[0].status === 'failed'
+    && msgs[0].message === 'no card ids on this page or in the endpoint log',
     'script: statements page with no card ids → failed, fallback decides');
 }
 {
@@ -281,34 +284,51 @@ const DASHBOARD_HREF = 'https://contactless.tfl.gov.uk/Dashboard';
     'TfL-17: known ids merge behind page ids without duplicating them');
 }
 {
-  // Dashboard with nothing on the page and no log: the script pulls the
-  // statements HTML same-origin and mines the ids out of it.
+  // TfL-18: the statements page is gone, so there is no page left to fetch —
+  // with links and log empty the script mines the CURRENT page's raw HTML
+  // (inline scripts, data attributes) for card ids instead.
   const calls: string[] = [];
   const fetchStub = (url: string) => {
     calls.push(String(url));
-    if (String(url) === NEW_STATEMENTS_URL) {
-      return Promise.resolve({
-        ok: true,
-        text: () => Promise.resolve(
-          `<html><a href="/NewStatements/DownloadBillingCsv?Period=6|2026&CardDisplayId=${CARD_B}">June</a>`
-          + `<a href="?CardDisplayId=${CARD_B}">dup</a></html>`),
-      });
-    }
     return Promise.resolve({ ok: true, text: () => Promise.resolve(CSV_BODY) });
+  };
+  const msgs = await runDirect(statementsDoc({
+    anchors: [{ href: '/help' }],
+    html: `<script>var x = "/NewStatements/DownloadBillingCsv?Period=6|2026&CardDisplayId=${CARD_B}";`
+      + ` var dup = "?CardDisplayId=${CARD_B}";</script>`,
+  }), { href: DASHBOARD_HREF, fetch: fetchStub });
+  ok(msgs.length === 1 && msgs[0].status === 'csv' && msgs[0].files.length === 2
+    && msgs[0].files.every((f: any) => f.card === CARD_B)
+    && calls[0] === buildCsvUrl('7|2026', CARD_B),
+    'TfL-18: current page HTML mined for card ids when links and log are empty — no dead-page fetch');
+}
+{
+  // Ids found on the page suppress the HTML mining — it is a last resort.
+  const calls: string[] = [];
+  const fetchStub = (url: string) => {
+    calls.push(String(url));
+    return Promise.resolve({ ok: true, text: () => Promise.resolve(CSV_BODY) });
+  };
+  const msgs = await runDirect(statementsDoc({
+    anchors: [{ href: `/x?CardDisplayId=${CARD_A}` }],
+    html: `<a href="?CardDisplayId=${CARD_B}">`,
+  }), { href: DASHBOARD_HREF, fetch: fetchStub });
+  ok(msgs[0].status === 'csv' && msgs[0].files.every((f: any) => f.card === CARD_A) && calls.length === 2,
+    'TfL-18: HTML mining is a last resort — page ids suppress it');
+}
+{
+  // Nothing anywhere → one failed report and zero network traffic; the dead
+  // statements page is never fetched.
+  const calls: string[] = [];
+  const fetchStub = (url: string) => {
+    calls.push(String(url));
+    return Promise.resolve({ ok: true, text: () => Promise.resolve('<html>nothing</html>') });
   };
   const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }),
     { href: DASHBOARD_HREF, fetch: fetchStub });
-  ok(calls[0] === NEW_STATEMENTS_URL && msgs.length === 1 && msgs[0].status === 'csv'
-    && msgs[0].files.length === 2 && msgs[0].files.every((f: any) => f.card === CARD_B),
-    'TfL-17: statements HTML fetched and mined for card ids when page and log are empty');
-}
-{
-  // Even the HTML fallback found nothing → one failed report, fallback decides.
-  const fetchStub = () => Promise.resolve({ ok: true, text: () => Promise.resolve('<html>nothing</html>') });
-  const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }),
-    { href: DASHBOARD_HREF, fetch: fetchStub });
-  ok(msgs.length === 1 && msgs[0].status === 'failed',
-    'TfL-17: no ids anywhere → failed, exactly one report');
+  ok(msgs.length === 1 && msgs[0].status === 'failed' && calls.length === 0
+    && msgs[0].message === 'no card ids on this page or in the endpoint log',
+    'TfL-18: no ids anywhere → failed with exactly one report and no fetches');
 }
 
 // --- flow: where a refresh starts, and the fallback path ---

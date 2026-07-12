@@ -35,7 +35,10 @@ export const OYSTER_HISTORY_URL = 'https://oyster.tfl.gov.uk/oyster/journeyHisto
 /** Back-compat alias; contactless is the default mode's home. */
 export const HISTORY_URL = CONTACTLESS_HISTORY_URL;
 
-/** Contactless statements page — the direct CSV fetch's start (TfL-14).
+/** Contactless statements base URL (TfL-14). The PAGE was removed by TfL
+ * (TfL-18: 302 → Error/NotFound) but the DownloadBillingCsv endpoint under it
+ * survives, so this stays as the endpoint base. The flow never navigates here
+ * any more — the direct fetch runs in place on whatever page is showing.
  * Duplicated from (not imported from) direct-csv.NEW_STATEMENTS_URL for the
  * same zero-runtime-imports reason as above; the tests assert the two match. */
 export const NEW_STATEMENTS_URL = 'https://contactless.tfl.gov.uk/NewStatements';
@@ -84,13 +87,14 @@ interface Live {
   harvested: boolean;
   /** Where wrong pages get steered to — the mode's primary history page. */
   home: string;
-  /** Whether to attempt the direct CSV fetch on NewStatements after the queue
-   * is exhausted (TfL-15). False for Oyster-only mode (no statements page). */
+  /** Whether to attempt the direct CSV fetch after the queue is exhausted
+   * (TfL-15/18 — in place on the current page; the statements page is gone).
+   * False for Oyster-only mode (no statements endpoint). */
   directCsv: boolean;
   /** True once the classic history queue has been exhausted and advance() has
-   * steered to NewStatements. Used by direct-failed to decide whether the
-   * history page has already been swept (return done/no-history) or not
-   * (steer back to home as a fallback). */
+   * moved on to the direct CSV attempt. Used by direct-failed to decide
+   * whether the history page has already been swept (return done/no-history)
+   * or not (steer back to home as a fallback). */
   historySwept: boolean;
   /** True once the TfL-17 in-place direct attempt has run on the contactless
    * Dashboard — one shot per refresh; later Dashboard landings park normally. */
@@ -209,15 +213,17 @@ const liveOf = (s: FlowState): Live => ({
 
 /**
  * Done with the current page: steer to the next queued page; if the queue is
- * exhausted, steer to the statements page for the direct CSV fetch (TfL-15);
- * or finish. The no-history verdict can only be reached here off the back of
- * a confirmed history-page 'empty' with nothing left to visit — never from
- * the dashboard or any intermediate page.
+ * exhausted, run the direct CSV fetch in place on whatever page is showing
+ * (TfL-18 — the statements page is gone, but the download endpoint is
+ * same-origin from any contactless page); or finish. The no-history verdict
+ * can only be reached here off the back of a confirmed history-page 'empty'
+ * with nothing left to visit — never from the dashboard or any intermediate
+ * page.
  */
 function advance(l: Live): FlowState {
   const [next, ...rest] = l.queue;
   if (next) return { ...l, phase: 'steering', target: next, queue: rest, visited: [...l.visited, next] };
-  if (l.directCsv) return { ...l, phase: 'steering', target: NEW_STATEMENTS_URL, directCsv: false, historySwept: true };
+  if (l.directCsv) return { ...l, phase: 'harvesting', directCsv: false, directTried: true, historySwept: true };
   if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted), inserted: l.inserted };
   return { phase: 'done', message: 'No journey history found on TfL.', inserted: 0 };
 }

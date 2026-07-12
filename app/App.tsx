@@ -18,13 +18,15 @@ import { getAllRailJourneys, type RailJourney } from './src/rail/db';
 import RailJourneysScreen from './src/screens/RailJourneysScreen';
 import RailJourneyEntryScreen from './src/screens/RailJourneyEntryScreen';
 import RailClaimWebScreen from './src/screens/RailClaimWebScreen';
+import AuditLogScreen from './src/screens/AuditLogScreen';
 import { colors, spacing } from './src/theme';
 
 // Journeys list → claim detail → guided claim WebView (TfL-5/6). Three
 // screens, state-switched — the app is shallow enough that a navigation
 // library would be dead weight.
 // NR-1: Rail mode adds a parallel three-screen stack toggled by a tab bar.
-type AppMode = 'tfl' | 'rail';
+// TfL-18: Log tab shows the refresh audit trail (shareable as text).
+type AppMode = 'tfl' | 'rail' | 'log';
 
 export default function App() {
   const [mode, setMode] = useState<AppMode>('tfl');
@@ -94,8 +96,9 @@ export default function App() {
   const startAutoFetch = useCallback((manual: boolean) => {
     setAutoFetching(current => {
       if (current) return current; // one in flight already
-      if (!shouldAutoFetch(getMeta(LAST_AUTOFETCH_KEY), new Date().toISOString())) {
-        if (manual) setRefreshNote('Journeys already updated today — TfL is checked at most once a day.');
+      // TfL-18: only the hidden auto-check is rate-limited — a deliberate tap
+      // on Refresh always runs.
+      if (!manual && !shouldAutoFetch(getMeta(LAST_AUTOFETCH_KEY), new Date().toISOString())) {
         return current;
       }
       setRefreshNote('Checking TfL for new journeys…');
@@ -180,6 +183,9 @@ export default function App() {
         )}
         {mode === 'tfl' && autoFetching && <RefreshSheet onClose={onRefreshClose} />}
 
+        {/* Audit log (TfL-18) */}
+        {mode === 'log' && <AuditLogScreen />}
+
         {/* Rail screens */}
         {mode === 'rail' && (
           railSelected ? (
@@ -217,6 +223,12 @@ export default function App() {
               onPress={() => { setMode('rail'); refreshRail(); }}
             >
               <Text style={[styles.tabText, mode === 'rail' && styles.tabTextActive]}>National Rail</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.tab, mode === 'log' && styles.tabActive]}
+              onPress={() => setMode('log')}
+            >
+              <Text style={[styles.tabText, mode === 'log' && styles.tabTextActive]}>Log</Text>
             </Pressable>
           </View>
         )}

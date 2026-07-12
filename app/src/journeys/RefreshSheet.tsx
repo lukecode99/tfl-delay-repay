@@ -10,6 +10,14 @@
 // done, and doubles as an escape hatch from any stalled page. A persisted
 // Contactless / Oyster / Both choice decides which journey-history section(s)
 // the flow visits.
+//
+// TfL-18: the statements page is gone, so the direct CSV attempt no longer
+// arrives via a page load — advance() flips the flow straight into an
+// in-place harvesting state, and dispatch() injects the direct script the
+// moment it sees that transition. Every URL, phase change and fetch status is
+// also written to the persistent audit log (the app's Log tab), and a Manual
+// chip opens a capture-only WebView where the user drives and the app just
+// records.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -23,6 +31,7 @@ import {
   pickCardId,
   rowsToCsv,
 } from './autofetch';
+import { appendAudit, AUDIT_LOG_KEY } from './audit-log';
 import { buildDirectCsvScript, cardIdsFromLog, currentAndPreviousPeriods, isDirectCsvUrl } from './direct-csv';
 import { getMeta, listCards, setMeta } from './db';
 import { importCsvText, ImportOutcome } from './import';
@@ -59,9 +68,18 @@ const MODES: { value: FetchMode; label: string }[] = [
   { value: 'both', label: 'Both' },
 ];
 
+// Manual capture (TfL-18) starts from the contactless landing page — signed
+// in it links everywhere the user might download a statement from.
+const CAPTURE_URL = 'https://contactless.tfl.gov.uk/HomePage';
+
 function persistedMode(): FetchMode | null {
   const m = getMeta(FETCH_MODE_KEY);
   return m === 'contactless' || m === 'oyster' || m === 'both' ? m : null;
+}
+
+// TfL-18: has this flow state already made its in-place direct CSV attempt?
+function directTried(s: FlowState): boolean {
+  return 'directTried' in s && s.directTried === true;
 }
 
 export default function RefreshSheet({ onClose }: Props) {
@@ -70,11 +88,13 @@ export default function RefreshSheet({ onClose }: Props) {
   const stateRef = useRef<FlowState>(makeInitialFlow('contactless'));
   const outcomeRef = useRef<ImportOutcome | null>(null);
   const closedRef = useRef(false);
+  // TfL-18: set while a dispatch() call injects the in-place direct script,
+  // so the handler that triggered it doesn't inject a second time.
+  const dispatchInjected = useRef(false);
   // null = never chosen: the sheet opens with the chooser and no WebView.
   const [mode, setMode] = useState<FetchMode | null>(persistedMode);
-  // DEBUG TfL-15: last 3 URLs seen — strip before next PR
-  const [urlLog, setUrlLog] = useState<string[]>([]);
-  const addUrlLog = (url: string) => setUrlLog(prev => [...prev.slice(-2), url]);
+  // TfL-18: Manual capture — the user drives, the app only records.
+  const [capture, setCapture] = useState(false);
   const [state, setState] = useState<FlowState>(() => {
     const m = persistedMode();
     const initial = makeInitialFlow(m ?? 'contactless');
@@ -82,10 +102,22 @@ export default function RefreshSheet({ onClose }: Props) {
     return initial;
   });
 
+  // Audit trail (TfL-18): a persistent record of what the refresh actually
+  // did, shown in the app's Log tab. Capture only — a logging failure must
+  // never be able to break a refresh.
+  const recordAudit = (tag: string, detail?: string) => {
+    try {
+      setMeta(AUDIT_LOG_KEY, appendAudit(getMeta(AUDIT_LOG_KEY), { at: new Date().toISOString(), tag, detail }));
+    } catch { /* capture only */ }
+  };
+
   const close = useCallback((r: RefreshResult) => {
     if (closedRef.current) return;
     closedRef.current = true;
+    recordAudit('close', r.kind === 'imported' ? `imported ${r.outcome.inserted} new` : r.kind);
     onClose(r);
+    // recordAudit is stable in behaviour (no state captured) — safe to omit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose]);
 
   // Capture-only CSV endpoint discovery (TfL-13): log to the db meta table;
@@ -103,21 +135,42 @@ export default function RefreshSheet({ onClose }: Props) {
   // earlier refreshes (the Dashboard links no statements itself); everywhere
   // else the classic harvest does. Periods come from the device's local date
   // so a UTC month boundary can't shift which statements get fetched.
-  const injectHarvest = () => {
+  const directScript = () => {
     const now = new Date();
-    const script = isDirectCsvUrl(urlRef.current)
-      ? buildDirectCsvScript(currentAndPreviousPeriods(
-        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`),
-        cardIdsFromLog(getMeta(CSV_LOG_KEY)))
-      : buildHarvestScript();
-    webRef.current?.injectJavaScript(buildNetProbeScript() + '\n' + script);
+    return buildDirectCsvScript(currentAndPreviousPeriods(
+      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`),
+      cardIdsFromLog(getMeta(CSV_LOG_KEY)));
+  };
+
+  const injectHarvest = () => {
+    const direct = isDirectCsvUrl(urlRef.current);
+    recordAudit('inject', `${direct ? 'direct-csv' : 'harvest'} on ${urlRef.current}`);
+    webRef.current?.injectJavaScript(buildNetProbeScript() + '\n' + (direct ? directScript() : buildHarvestScript()));
+  };
+
+  // TfL-18: the in-place direct attempt runs on whatever page is showing —
+  // always the direct script, never the URL-keyed harvest picker.
+  const injectDirect = () => {
+    recordAudit('inject', `direct-csv in place on ${urlRef.current}`);
+    webRef.current?.injectJavaScript(buildNetProbeScript() + '\n' + directScript());
   };
 
   const dispatch = useCallback((e: FlowEvent) => {
-    const next = reduceFlow(stateRef.current, e);
-    if (next === stateRef.current) return;
+    const prev = stateRef.current;
+    const next = reduceFlow(prev, e);
+    if (next === prev) return;
     stateRef.current = next;
     setState(next);
+    if (next.phase !== prev.phase) {
+      recordAudit('phase', next.phase + (next.phase === 'steering' ? ` → ${next.target}` : ''));
+    }
+    // TfL-18: queue exhausted → the direct CSV attempt happens in place, so
+    // no page load will ever fire to trigger injection — inject on the
+    // transition itself. The ref stops the calling handler doubling up.
+    if (next.phase === 'harvesting' && directTried(next) && !directTried(prev)) {
+      dispatchInjected.current = true;
+      injectDirect();
+    }
     if (next.phase === 'steering') {
       // Wrong landing page (dashboard, card list…) or the next queued page:
       // the machine says where to go, the WebView follows.
@@ -138,7 +191,14 @@ export default function RefreshSheet({ onClose }: Props) {
     if (!closedRef.current && !isTerminal(stateRef.current)) close({ kind: 'cancelled' });
   }, [close]);
 
+  useEffect(() => {
+    // A persisted mode starts the flow straight from mount (no chooseMode).
+    if (persistedMode()) recordAudit('refresh-start', `mode ${persistedMode()}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const chooseMode = (m: FetchMode) => {
+    recordAudit('refresh-start', `mode ${m}`);
     setMeta(FETCH_MODE_KEY, m);
     // Fresh start: new mode, new flow, new tallies. The WebView remounts via
     // key={mode} and loads the mode's first history page.
@@ -152,17 +212,22 @@ export default function RefreshSheet({ onClose }: Props) {
   // Continue button (TfL-13): resume from login/challenge, or force a harvest
   // of whatever page the user navigated to themselves.
   const onContinue = () => {
+    recordAudit('continue', urlRef.current);
+    dispatchInjected.current = false;
     dispatch({ type: 'handover' });
+    if (dispatchInjected.current) return; // this dispatch injected in place (TfL-18)
     if (stateRef.current.phase === 'harvesting') injectHarvest();
   };
 
   const onLoaded = (url: string) => {
     urlRef.current = url;
-    addUrlLog(url);
+    recordAudit('loaded', url);
+    dispatchInjected.current = false;
     dispatch({ type: 'loaded', url });
     // Injection is keyed off the phase the machine settles in: paused states
     // never reach 'harvesting' on a load, so login/challenge pages get no
     // script at all (TfL-13).
+    if (dispatchInjected.current) return; // this dispatch injected in place (TfL-18)
     if (stateRef.current.phase === 'harvesting') injectHarvest();
   };
 
@@ -195,6 +260,7 @@ export default function RefreshSheet({ onClose }: Props) {
           if (!wasHarvesting) return; // duplicate report — import already ran
           try {
             const files = Array.isArray(msg.files) ? msg.files : [];
+            recordAudit('direct-csv', `csv — ${files.length} file(s)`);
             const cardId = pickCardId(listCards());
             let inserted = 0;
             for (const f of files) {
@@ -203,16 +269,17 @@ export default function RefreshSheet({ onClose }: Props) {
               outcomeRef.current = mergeOutcome(outcomeRef.current, outcome);
               inserted += outcome.inserted;
             }
+            recordAudit('imported', `${inserted} new journeys`);
             dispatch({ type: 'imported', inserted });
           } catch (e) {
+            recordAudit('import-failed', String(e));
             dispatch({ type: 'import-failed', message: String(e) });
           }
         } else if (msg.status === 'signed-out' || msg.status === 'challenge') {
+          recordAudit('direct-csv', String(msg.status));
           dispatch({ type: 'harvest', status: msg.status });
         } else {
-          // DEBUG TfL-15/17: surface why the direct fetch fell back — strip
-          // with the breadcrumb before next PR.
-          addUrlLog(`direct-csv ${String(msg.status)}: ${String(msg.message ?? msg.href ?? '')}`);
+          recordAudit('direct-csv', `${String(msg.status)}: ${String(msg.message ?? msg.href ?? '')}`);
           // wrong-page / failed → steering harvest; from the contactless
           // Dashboard the machine parks for the user instead (TfL-17).
           dispatch({ type: 'direct-failed', url: urlRef.current });
@@ -223,6 +290,7 @@ export default function RefreshSheet({ onClose }: Props) {
       const cards = Array.isArray(msg.cards) ? msg.cards : undefined;
       if (msg.status === 'csv' || msg.status === 'rows') {
         if (msg.status === 'csv' && msg.url) recordCsvHit('harvest', String(msg.url));
+        recordAudit('harvest', String(msg.status));
         const wasHarvesting = stateRef.current.phase === 'harvesting';
         dispatch({ type: 'harvest', status: msg.status, cards });
         if (!wasHarvesting) return; // duplicate report — this page's import already ran
@@ -232,12 +300,15 @@ export default function RefreshSheet({ onClose }: Props) {
           // dedupe index treats auto-fetched rows as the same statement.
           const outcome = importCsvText(csv, `${pickCardId(listCards())}.csv`);
           outcomeRef.current = mergeOutcome(outcomeRef.current, outcome);
+          recordAudit('imported', `${outcome.inserted} new journeys`);
           dispatch({ type: 'imported', inserted: outcome.inserted });
         } catch (e) {
+          recordAudit('import-failed', String(e));
           dispatch({ type: 'import-failed', message: String(e) });
         }
         return;
       }
+      recordAudit('harvest', `${String(msg.status)}${msg.message ? ` — ${String(msg.message)}` : ''}`);
       dispatch({ type: 'harvest', status: msg.status, message: msg.message ? String(msg.message) : undefined, cards });
     } catch { /* not ours */ }
   };
@@ -251,25 +322,75 @@ export default function RefreshSheet({ onClose }: Props) {
           <Pressable
             style={styles.cancelButton}
             hitSlop={8}
-            onPress={() => (state.phase === 'error'
-              ? close({ kind: 'error', message: state.message })
-              : dispatch({ type: 'cancel' }))}
+            onPress={() => (capture
+              ? close({ kind: 'cancelled' })
+              : state.phase === 'error'
+                ? close({ kind: 'error', message: state.message })
+                : dispatch({ type: 'cancel' }))}
           >
-            <Text style={styles.cancelText}>{finished ? 'Close' : 'Cancel'}</Text>
+            <Text style={styles.cancelText}>{capture ? 'Done' : finished ? 'Close' : 'Cancel'}</Text>
           </Pressable>
         </View>
         <View style={styles.modeRow}>
           {MODES.map(m => (
             <Pressable
               key={m.value}
-              style={[styles.modeChip, mode === m.value && styles.modeChipActive]}
-              onPress={() => mode !== m.value && chooseMode(m.value)}
+              style={[styles.modeChip, !capture && mode === m.value && styles.modeChipActive]}
+              onPress={() => {
+                // Leaving capture restarts the flow fresh — its WebView was
+                // unmounted, so any old flow state is stale (TfL-18).
+                if (capture) { setCapture(false); chooseMode(m.value); return; }
+                if (mode !== m.value) chooseMode(m.value);
+              }}
             >
-              <Text style={[styles.modeChipText, mode === m.value && styles.modeChipTextActive]}>{m.label}</Text>
+              <Text style={[styles.modeChipText, !capture && mode === m.value && styles.modeChipTextActive]}>{m.label}</Text>
             </Pressable>
           ))}
+          <Pressable
+            style={[styles.modeChip, capture && styles.modeChipActive]}
+            onPress={() => {
+              if (capture) return;
+              recordAudit('capture-start');
+              setCapture(true);
+            }}
+          >
+            <Text style={[styles.modeChipText, capture && styles.modeChipTextActive]}>Manual</Text>
+          </Pressable>
         </View>
-        {mode == null ? (
+        {capture ? (
+          <>
+            <View style={styles.captureBar}>
+              <Text style={styles.captureText}>
+                Manual mode — browse the TfL site yourself. Every page and CSV
+                you touch is recorded in the Log tab; nothing steers or injects.
+              </Text>
+            </View>
+            <WebView
+              key="capture"
+              source={{ uri: CAPTURE_URL }}
+              style={styles.web}
+              sharedCookiesEnabled={true}
+              incognito={false}
+              onNavigationStateChange={(nav: { url?: string }) => {
+                if (nav?.url && nav.url !== urlRef.current) {
+                  urlRef.current = String(nav.url);
+                  recordAudit('capture-nav', String(nav.url));
+                }
+              }}
+              onShouldStartLoadWithRequest={(req: any) => {
+                const url = String(req?.url ?? '');
+                if (isCsvEndpoint(url)) {
+                  recordAudit('capture-csv', url);
+                  recordCsvHit('capture', url);
+                }
+                return true; // observation only — every request proceeds
+              }}
+              onFileDownload={({ nativeEvent }: any) => {
+                recordAudit('capture-download', String(nativeEvent?.downloadUrl ?? ''));
+              }}
+            />
+          </>
+        ) : mode == null ? (
           <View style={styles.chooser}>
             <Text style={styles.chooserTitle}>How do you travel?</Text>
             <Text style={styles.chooserBody}>
@@ -292,14 +413,6 @@ export default function RefreshSheet({ onClose }: Props) {
                 </Pressable>
               )}
             </View>
-            {/* DEBUG TfL-15: URL breadcrumb — strip before next PR */}
-            {urlLog.length > 0 && (
-              <View style={styles.urlLog}>
-                {urlLog.map((u, i) => (
-                  <Text key={i} style={styles.urlLogText} numberOfLines={1}>{u}</Text>
-                ))}
-              </View>
-            )}
             <WebView
               key={mode}
               ref={webRef}
@@ -311,7 +424,10 @@ export default function RefreshSheet({ onClose }: Props) {
               incognito={false}
               onLoadEnd={(e: any) => onLoaded(String(e?.nativeEvent?.url ?? ''))}
               onNavigationStateChange={(nav: { url?: string; title?: string }) => {
-                if (nav?.url) { urlRef.current = String(nav.url); addUrlLog(String(nav.url)); }
+                if (nav?.url && nav.url !== urlRef.current) {
+                  urlRef.current = String(nav.url);
+                  recordAudit('nav', String(nav.url));
+                }
                 dispatch({
                   type: 'nav',
                   url: String(nav?.url ?? ''),
@@ -389,7 +505,15 @@ const styles = StyleSheet.create({
   continueButtonPaused: { borderColor: colors.accentBright },
   continueText: { color: colors.accentBright, fontSize: 14, fontWeight: '700' },
   web: { flex: 1, backgroundColor: '#fff' },
-  // DEBUG TfL-15 — strip with the breadcrumb before next PR
-  urlLog: { paddingHorizontal: spacing.l, paddingBottom: spacing.s, gap: 2 },
-  urlLogText: { color: colors.textDim, fontSize: 10, fontFamily: 'monospace' },
+  captureBar: {
+    backgroundColor: colors.card,
+    borderColor: colors.cardBorder,
+    borderWidth: 1,
+    borderRadius: 8,
+    marginHorizontal: spacing.l,
+    marginBottom: spacing.s,
+    paddingHorizontal: spacing.m,
+    paddingVertical: spacing.s,
+  },
+  captureText: { color: colors.text, fontSize: 13 },
 });

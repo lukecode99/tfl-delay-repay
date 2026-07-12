@@ -41,11 +41,11 @@ const CARD_A = 'https://contactless.tfl.gov.uk/Card/A/History';
 const CARD_B = 'https://contactless.tfl.gov.uk/Card/B/History';
 const CARD_C = 'https://contactless.tfl.gov.uk/Card/C/History';
 
-// Helper: close the direct CSV phase after a classic history sweep. The flow
-// steers to NEW_STATEMENTS_URL when the queue is empty; these two events
-// simulate the direct fetch failing and the flow finishing gracefully.
+// Helper: close the direct CSV phase after a classic history sweep. When the
+// queue empties the flow flips straight to in-place harvesting (TfL-18 — the
+// statements page is gone, so nothing navigates); this event simulates the
+// direct fetch failing and the flow finishing gracefully.
 const CLOSE_DIRECT: FlowEvent[] = [
-  { type: 'loaded', url: NEW_STATEMENTS_URL },
   { type: 'direct-failed' },
 ];
 
@@ -113,8 +113,9 @@ ok(INITIAL_FLOW.phase === 'loading' && statusText(INITIAL_FLOW).includes('Loadin
   s = reduceFlow(s, { type: 'harvest', status: 'csv' });
   ok(s.phase === 'importing' && statusText(s).includes('Importing'), 'harvest data → importing, status narrates');
   s = reduceFlow(s, { type: 'imported', inserted: 3 });
-  // Queue exhausted → steer to NewStatements for direct CSV (TfL-15).
-  ok(s.phase === 'steering' && 'target' in s && s.target === NEW_STATEMENTS_URL, 'history done → steers to statements page for direct CSV');
+  // Queue exhausted → direct CSV attempt runs in place, no navigation (TfL-18).
+  ok(s.phase === 'harvesting' && 'directTried' in s && s.directTried && !s.directCsv && s.historySwept,
+    'history done → in-place direct CSV attempt, statements steer retired');
   s = run(CLOSE_DIRECT, s);
   ok(s.phase === 'done' && statusText(s) === 'Imported 3 new journeys from TfL.', 'import done → success message with count');
 }
