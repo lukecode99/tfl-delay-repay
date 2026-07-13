@@ -11,7 +11,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { markClaimed } from '../claims/db';
-import { buildFillScript, buildPrefill, CLAIM_START_URL, PrefillField } from '../claims/prefill';
+import { buildFillScript, buildPrefill, CLAIM_APPLY_URL, PrefillField } from '../claims/prefill';
 import { buildApplyPlan, buildDirectFillScript } from '../claims/apply-fill';
 import type { Assessment } from '../eligibility/engine';
 import type { StoredJourney } from '../journeys/db';
@@ -36,7 +36,11 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   const applyPlan = useMemo(() => buildApplyPlan(journey, assessment), [journey, assessment]);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [fillNote, setFillNote] = useState<string | null>(null);
-  const [currentUrl, setCurrentUrl] = useState<string>(CLAIM_START_URL);
+  const [currentUrl, setCurrentUrl] = useState<string>(CLAIM_APPLY_URL);
+  // TfL-22: after TfL's sign-in the OAuth flow returns to the contactless
+  // Dashboard, not the card list we opened. Advance to MyCards once so login
+  // never strands the user on the dashboard. One-shot — never loops.
+  const advancedRef = useRef(false);
 
   // The Apply form is the only page with the mode/station dropdowns. On every
   // other page (sign-in, card list) fall back to the keyword fill.
@@ -52,7 +56,7 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
     } catch { /* capture only */ }
   };
 
-  useEffect(() => { recordAudit('claim-open', CLAIM_START_URL); }, []);
+  useEffect(() => { recordAudit('claim-open', CLAIM_APPLY_URL); }, []);
 
   const copy = async (f: PrefillField) => {
     await Clipboard.setStringAsync(f.value);
@@ -136,7 +140,7 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
 
       <WebView
         ref={webRef}
-        source={{ uri: CLAIM_START_URL }}
+        source={{ uri: CLAIM_APPLY_URL }}
         style={styles.web}
         onMessage={onMessage}
         // TfL-20: record the page's outbound traffic (fetch/XHR/form/beacon)
@@ -146,7 +150,17 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
         injectedJavaScript={buildNetCaptureScript()}
         injectedJavaScriptForMainFrameOnly={false}
         onNavigationStateChange={(nav: { url?: string }) => {
-          if (nav?.url) { recordAudit('claim-nav', String(nav.url)); setCurrentUrl(String(nav.url)); }
+          if (!nav?.url) return;
+          const url = String(nav.url);
+          recordAudit('claim-nav', url);
+          setCurrentUrl(url);
+          // TfL-22: TfL's post-login OAuth lands on the contactless Dashboard.
+          // Advance to the card list once so the user reaches their cards →
+          // Apply form. We never auto-select a card (wrong card = wrong claim).
+          if (!advancedRef.current && /contactless\.tfl\.gov\.uk\/Dashboard/i.test(url)) {
+            advancedRef.current = true;
+            webRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(CLAIM_APPLY_URL)}; true;`);
+          }
         }}
         // TfL-10: shared system cookie store, so the session from signing in
         // here is reusable by the hidden journey auto-fetch WebView. Sign-in
