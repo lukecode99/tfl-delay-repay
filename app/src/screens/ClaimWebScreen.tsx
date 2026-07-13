@@ -12,6 +12,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { markClaimed } from '../claims/db';
 import { buildFillScript, buildPrefill, CLAIM_START_URL, PrefillField } from '../claims/prefill';
+import { buildApplyPlan, buildDirectFillScript } from '../claims/apply-fill';
 import type { Assessment } from '../eligibility/engine';
 import type { StoredJourney } from '../journeys/db';
 import { getMeta, setMeta } from '../journeys/db';
@@ -28,8 +29,18 @@ interface Props {
 export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   const webRef = useRef<WebView>(null);
   const fields = useMemo(() => buildPrefill(journey, assessment), [journey, assessment]);
+  // TfL-21: the Apply page's dropdowns (Mode select + station typeaheads) can't
+  // be driven by keyword heuristics — they set hidden numeric fields (ModeId /
+  // Start-/FinishNlcId). This plan resolves those exact fields from the journey
+  // so we can fill them directly by name once the user reaches the Apply form.
+  const applyPlan = useMemo(() => buildApplyPlan(journey, assessment), [journey, assessment]);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [fillNote, setFillNote] = useState<string | null>(null);
+  const [currentUrl, setCurrentUrl] = useState<string>(CLAIM_START_URL);
+
+  // The Apply form is the only page with the mode/station dropdowns. On every
+  // other page (sign-in, card list) fall back to the keyword fill.
+  const onApplyPage = /ServiceDelayRefunds\/Apply/i.test(currentUrl);
 
   // TfL-20: the claim WebView records the page's own outbound traffic
   // (fetch/XHR/form/beacon) to the audit Log, so filing one real claim here
@@ -51,7 +62,13 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
 
   const fill = () => {
     setFillNote(null);
-    webRef.current?.injectJavaScript(buildFillScript(fields));
+    // TfL-21: on the Apply form, fill the real captured field names directly so
+    // the mode + station dropdowns populate. Elsewhere, the keyword heuristic.
+    if (onApplyPage) {
+      webRef.current?.injectJavaScript(buildDirectFillScript(applyPlan.fields));
+    } else {
+      webRef.current?.injectJavaScript(buildFillScript(fields));
+    }
   };
 
   const onMessage = (event: any) => {
@@ -59,6 +76,24 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
       const msg = JSON.parse(event.nativeEvent.data);
       // TfL-20: instrumented page traffic → straight to the audit log.
       if (msg.type === 'net-capture') { recordAudit('net-capture', describeCapture(msg)); return; }
+      // TfL-21: direct-fill result from the Apply form. Report what filled,
+      // name anything left for the user (unmapped station/mode + not-found
+      // fields), and remind them to tick the reCAPTCHA — we never auto-solve
+      // it. The schema dump goes to the audit log so one real tap gives us the
+      // live widget shape if any control needs tuning (no extra build round).
+      if (msg.type === 'apply-fill') {
+        if (msg.schema) { recordAudit('apply-fill-schema', JSON.stringify(msg.schema)); }
+        if (msg.error) { setFillNote('Fill failed — use the copy chips, then tick "I\'m not a robot".'); return; }
+        const notFilled: string[] = (msg.results ?? [])
+          .filter((r: { filled: boolean }) => !r.filled)
+          .map((r: { name: string }) => r.name);
+        const leftover = [...applyPlan.unresolved, ...notFilled];
+        const base = leftover.length === 0
+          ? `Filled all ${msg.total} fields — check them,`
+          : `Filled ${msg.filled}/${msg.total} — enter ${leftover.join(', ')} yourself,`;
+        setFillNote(`${base} then tick "I'm not a robot" and submit.`);
+        return;
+      }
       if (msg.type === 'prefill') {
         if (msg.error) { setFillNote('Fill failed — use the copy chips.'); return; }
         // TfL-9: the script reports per-field outcomes — name exactly what
@@ -88,7 +123,7 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
 
       <ScrollView horizontal style={styles.assistBar} contentContainerStyle={styles.assistContent} showsHorizontalScrollIndicator={false}>
         <Pressable style={styles.fillButton} onPress={fill}>
-          <Text style={styles.fillButtonText}>Fill form</Text>
+          <Text style={styles.fillButtonText}>{onApplyPage ? 'Fill form + dropdowns' : 'Fill form'}</Text>
         </Pressable>
         {fields.map(f => (
           <Pressable key={f.key} style={styles.chip} onPress={() => copy(f)}>
@@ -111,7 +146,7 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
         injectedJavaScript={buildNetCaptureScript()}
         injectedJavaScriptForMainFrameOnly={false}
         onNavigationStateChange={(nav: { url?: string }) => {
-          if (nav?.url) recordAudit('claim-nav', String(nav.url));
+          if (nav?.url) { recordAudit('claim-nav', String(nav.url)); setCurrentUrl(String(nav.url)); }
         }}
         // TfL-10: shared system cookie store, so the session from signing in
         // here is reusable by the hidden journey auto-fetch WebView. Sign-in
