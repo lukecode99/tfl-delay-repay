@@ -17,7 +17,9 @@
 // moment it sees that transition. Every URL, phase change and fetch status is
 // also written to the persistent audit log (the app's Log tab), and a Manual
 // chip opens a capture-only WebView where the user drives and the app just
-// records.
+// records. TfL-20: that capture WebView also instruments the page's own
+// network traffic (fetch/XHR/form posts) so walking through one real Delay
+// Repay claim records the claim endpoint and payload in the log.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -32,6 +34,7 @@ import {
   rowsToCsv,
 } from './autofetch';
 import { appendAudit, AUDIT_LOG_KEY } from './audit-log';
+import { buildNetCaptureScript, describeCapture } from './claim-capture';
 import {
   buildDirectCsvScript,
   cardIdsFromLog,
@@ -281,6 +284,10 @@ export default function RefreshSheet({ onClose }: Props) {
   const onCaptureMessage = (event: any) => {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
+      // TfL-20: the capture WebView instruments the page's own traffic —
+      // fetch/XHR/form posts land here and go straight to the audit log, so
+      // walking through one real claim records its endpoint and payload.
+      if (msg.type === 'net-capture') { recordAudit('net-capture', describeCapture(msg)); return; }
       if (msg.type !== 'capture-fetch') return;
       if (msg.error) {
         recordAudit('capture-import-failed', `${String(msg.url ?? '')} — ${String(msg.error)}`);
@@ -456,6 +463,11 @@ export default function RefreshSheet({ onClose }: Props) {
               style={styles.web}
               sharedCookiesEnabled={true}
               incognito={false}
+              // TfL-20: record the page's outbound traffic (fetch/XHR/form
+              // posts) so one manual claim reveals the claim endpoint and
+              // payload for later direct submission. Re-injected per page
+              // load; the script's own window flag stops double-patching.
+              injectedJavaScript={buildNetCaptureScript()}
               onNavigationStateChange={(nav: { url?: string }) => {
                 if (nav?.url && nav.url !== urlRef.current) {
                   urlRef.current = String(nav.url);
