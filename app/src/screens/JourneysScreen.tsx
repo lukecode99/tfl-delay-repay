@@ -9,6 +9,8 @@ import type { AssessmentMap } from '../eligibility/use-assessments';
 import { formatGBP, groupByDay } from '../format';
 import type { StoredJourney } from '../journeys/db';
 import type { ImportOutcome } from '../journeys/import';
+import { detectOvercharges, totalDisputableRefund } from '../journeys/incomplete-fare';
+import { journeyKey } from '../journeys/parse';
 import { colors, spacing } from '../theme';
 
 interface Props {
@@ -53,6 +55,16 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
   const eligibleCount = journeys.filter(j => assessments.get(j.id)?.status === 'eligible').length;
   const totals = claimTotals([...claims.values()]);
 
+  // TfL-21: missing tap-outs charged above the user's usual fare for that
+  // origin — a disputable max-fare overcharge. Learned from their own history.
+  const overcharges = React.useMemo(() => detectOvercharges(journeys), [journeys]);
+  const disputable = totalDisputableRefund(overcharges);
+  const journeyByKey = React.useMemo(() => {
+    const m = new Map<string, StoredJourney>();
+    for (const j of journeys) m.set(journeyKey(j), j);
+    return m;
+  }, [journeys]);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>TfL Delay Repay</Text>
@@ -92,6 +104,42 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
           {lastImport.incomplete > 0 ? `, ${lastImport.incomplete} incomplete` : ''}
           {lastImport.parsed.skipped > 0 ? ` (${lastImport.parsed.skipped} non-rail rows ignored)` : ''}
         </Text>
+      )}
+
+      {overcharges.length > 0 && (
+        <View style={styles.disputeCard}>
+          <Text style={styles.disputeTitle}>
+            ⚠ {overcharges.length} possible max-fare {overcharges.length === 1 ? 'overcharge' : 'overcharges'}
+            {disputable > 0 ? ` · ${formatGBP(disputable)} disputable` : ''}
+          </Text>
+          <Text style={styles.disputeHint}>
+            Missing tap-out charged above your usual fare for that route. Tap to review, then dispute with TfL.
+          </Text>
+          {overcharges.slice(0, 5).map(c => {
+            const match = journeyByKey.get(c.journeyKey);
+            return (
+              <Pressable
+                key={c.journeyKey}
+                style={styles.disputeRow}
+                disabled={!match}
+                onPress={() => match && onSelect(match)}
+              >
+                <View style={styles.rowMain}>
+                  <Text style={styles.disputeRoute} numberOfLines={1}>
+                    {c.origin} → {c.likelyDestination ?? '?'}
+                  </Text>
+                  <Text style={styles.disputeMeta}>
+                    {c.date} · charged {formatGBP(c.charged)} vs usual {formatGBP(c.usualFare)} · {c.confidence}
+                  </Text>
+                </View>
+                <Text style={styles.disputeRefund}>+{formatGBP(c.estimatedRefund)}</Text>
+              </Pressable>
+            );
+          })}
+          {overcharges.length > 5 && (
+            <Text style={styles.disputeHint}>…and {overcharges.length - 5} more.</Text>
+          )}
+        </View>
       )}
 
       <SectionList
@@ -150,6 +198,27 @@ const styles = StyleSheet.create({
   importSummary: { color: colors.text, fontSize: 13, marginTop: spacing.s },
   list: { flex: 1, marginTop: spacing.m },
   empty: { color: colors.textDim, fontSize: 14, marginTop: spacing.m },
+  disputeCard: {
+    backgroundColor: colors.card,
+    borderColor: colors.warn,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: spacing.m,
+    marginTop: spacing.m,
+  },
+  disputeTitle: { color: colors.warn, fontSize: 15, fontWeight: '800' },
+  disputeHint: { color: colors.textDim, fontSize: 12, marginTop: spacing.xs },
+  disputeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopColor: colors.cardBorder,
+    borderTopWidth: 1,
+    paddingTop: spacing.s,
+    marginTop: spacing.s,
+  },
+  disputeRoute: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  disputeMeta: { color: colors.textDim, fontSize: 11, marginTop: 2 },
+  disputeRefund: { color: colors.good, fontSize: 14, fontWeight: '800', marginLeft: spacing.s },
   dayHeader: {
     color: colors.textDim,
     fontSize: 13,
