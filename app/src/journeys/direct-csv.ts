@@ -1,18 +1,25 @@
-// Direct CSV fetch (TfL-14/18). Pure module — node-testable.
+// Direct CSV fetch (TfL-14/18/19). Pure module — node-testable.
 //
 // TfL serves each month's journey history as a CSV from a stable endpoint:
-// NewStatements/DownloadBillingCsv?Period=<month>|<year>&CardDisplayId=
-// <32-hex id>. Captured on device (TfL-13's endpoint log). The NewStatements
-// PAGE itself was removed by TfL (TfL-18: 302 → Error/NotFound) but the
-// endpoint under it survives and is same-origin from any contactless page —
-// so the script below runs IN PLACE on whatever signed-in contactless page
-// the flow is showing: it collects card ids from that page (plus previously
-// captured ids passed in as knownCards) and fetches current + previous
-// month's CSV for each (the previous month covers journeys near the start of
-// a month, well inside the 28-day Delay Repay claim window); the existing CSV
-// import pipeline takes it from there. Any failure falls back to the classic
-// TfL-12 steering harvest — this module is an optimisation, not a
-// replacement.
+// NewStatements/DownloadJourneyCsv?Period=<month>|<year>&CardDisplayId=
+// <32-hex id>. TfL-19: builds 13–15 fetched DownloadBillingCsv — the sibling
+// endpoint the TfL-13 endpoint log happened to capture first. Billing CSVs
+// are payment statements: they pass the header guard (they have a Date
+// column) but hold no journey rows, so every fetch "succeeded" and imported
+// zero. A device audit log walking MyCards → Statements → Download proved
+// the journey statement lives at DownloadJourneyCsv (same query shape).
+// The NewStatements PAGE itself was removed by TfL (TfL-18: 302 →
+// Error/NotFound) but the endpoint under it survives and is same-origin from
+// any contactless page — so the script below runs IN PLACE on whatever
+// signed-in contactless page the flow is showing. Card ids come from the
+// MyCards page (TfL-19: fetched same-origin and mined for CardDisplayId
+// links — the account's ACTIVE cards, with nothing hardcoded), then the
+// current page, then previously captured ids passed in as knownCards. Each
+// card fetches current + previous month's CSV (the previous month covers
+// journeys near the start of a month, well inside the 28-day Delay Repay
+// claim window); the existing CSV import pipeline takes it from there. Any
+// failure falls back to the classic TfL-12 steering harvest — this module is
+// an optimisation, not a replacement.
 //
 // The fetches run from page context so the session cookie and the browser's
 // TLS fingerprint ride along (TfL's WAF rejects non-browser clients — a
@@ -25,6 +32,11 @@
  * modules keep zero runtime imports and stay node-testable under
  * --experimental-strip-types — the test suite asserts the two match. */
 export const NEW_STATEMENTS_URL = 'https://contactless.tfl.gov.uk/NewStatements';
+
+/** The card list page (TfL-19) — links each active card's statements as
+ * NewStatements/Billing?CardDisplayId=<32 hex>, making it the authoritative
+ * same-origin source of the account's current card ids. */
+export const MY_CARDS_URL = 'https://contactless.tfl.gov.uk/MyCards';
 
 /** Whether a loaded URL is the statements page. */
 export function isNewStatementsUrl(url: string): boolean {
@@ -76,9 +88,16 @@ export function currentAndPreviousPeriods(nowISO: string): string[] {
   return [`${m}|${y}`, prev];
 }
 
-/** The captured download endpoint, reconstructed for one card and period. */
+/** The journey-statement download endpoint for one card and period (TfL-19:
+ * DownloadJourneyCsv, NOT DownloadBillingCsv — billing has no journey rows). */
 export function buildCsvUrl(period: string, cardDisplayId: string): string {
-  return `${NEW_STATEMENTS_URL}/DownloadBillingCsv?Period=${encodeURIComponent(period)}&CardDisplayId=${encodeURIComponent(cardDisplayId)}`;
+  return `${NEW_STATEMENTS_URL}/DownloadJourneyCsv?Period=${encodeURIComponent(period)}&CardDisplayId=${encodeURIComponent(cardDisplayId)}`;
+}
+
+/** Whether a URL is a statement CSV download itself (either sibling endpoint)
+ * — the capture WebView uses this to know a tapped link is worth importing. */
+export function isCsvDownloadUrl(url: string): boolean {
+  return /\/Download\w*Csv/i.test(String(url ?? ''));
 }
 
 /** Pull a CardDisplayId (32 hex chars) out of a statement link's href. */
@@ -118,14 +137,16 @@ export const MAX_DIRECT_CARDS = 8;
  *
  * Challenge and signed-out detection mirror the harvest script exactly — the
  * endpoint is behind the same login and the same WAF. Card ids are collected
- * from statement/download links (and any card <select>) on the page, then
- * seeded from knownCards (the endpoint log's previously captured ids — often
- * the only ids available on the Dashboard), then as a last resort mined out
- * of the current page's raw HTML (TfL-18 — the statements page is gone, so
- * there is nothing left to fetch; the page we're standing on is the source).
- * Every card × period pair is fetched sequentially with the session cookie,
- * HTML responses are dropped by the same header check as looksLikeCsv, and
- * one report carries whatever survived. Nothing here throws into the page.
+ * from statement/download links (and any card <select>) on the page, then —
+ * TfL-19, the primary source — the MyCards page is fetched same-origin and
+ * mined for CardDisplayId links (every ACTIVE card on the account, nothing
+ * hardcoded, exactly what an App Store install needs), then knownCards (the
+ * endpoint log's previously captured ids) fill in, and as a last resort the
+ * current page's raw HTML is mined (TfL-18 — the statements page is gone, so
+ * the page we're standing on is the source). Every card × period pair is
+ * fetched sequentially with the session cookie, HTML responses are dropped by
+ * the same header check as looksLikeCsv, and one report carries whatever
+ * survived. Nothing here throws into the page.
  */
 export function buildDirectCsvScript(periods: string[], knownCards: string[] = []): string {
   return `(function () {
@@ -189,20 +210,23 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
       var options = doc.querySelectorAll('option');
       for (var o = 0; o < options.length; o++) { take(options[o].value); }
     } catch (e) { }
-    // Ids the endpoint log captured on earlier visits (TfL-17) — the Dashboard
-    // links no statements, so these are often the only ids available there.
-    for (var kc = 0; kc < known.length; kc++) { take(known[kc]); }
-    // TfL-18 last resort: mine the current page's raw HTML — ids can sit in
-    // inline scripts or data attributes the anchor/option sweep misses. The
-    // statements page is gone, so there is no other page left to fetch.
-    if (!ids.length) {
-      try {
-        var html = String((doc.documentElement && doc.documentElement.innerHTML) || '');
-        var hre = /CardDisplayId=([0-9a-fA-F]{32})/g;
-        var hm;
-        while ((hm = hre.exec(html))) { take(hm[1]); }
-      } catch (e) { }
-    }
+    // Collection finishes after the MyCards fetch below: knownCards (the
+    // endpoint log's ids from earlier visits, TfL-17) fill in behind the live
+    // sources, then — TfL-18 last resort — the current page's raw HTML is
+    // mined; ids can sit in inline scripts or data attributes the
+    // anchor/option sweep misses.
+    var finishCollect = function () {
+      for (var kc = 0; kc < known.length; kc++) { take(known[kc]); }
+      if (!ids.length) {
+        try {
+          var html = String((doc.documentElement && doc.documentElement.innerHTML) || '');
+          var hre = /CardDisplayId=([0-9a-fA-F]{32})/g;
+          var hm;
+          while ((hm = hre.exec(html))) { take(hm[1]); }
+        } catch (e) { }
+      }
+      proceed();
+    };
 
     // Same header check as looksLikeCsv — HTML 200s must not reach the parser.
     var isCsv = function (t) {
@@ -232,7 +256,7 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
           return;
         }
         var job = jobs[k];
-        var url = '${NEW_STATEMENTS_URL}/DownloadBillingCsv?Period='
+        var url = '${NEW_STATEMENTS_URL}/DownloadJourneyCsv?Period='
           + encodeURIComponent(job.period) + '&CardDisplayId=' + encodeURIComponent(job.card);
         win.fetch(url, { credentials: 'include' })
           .then(function (res) {
@@ -248,7 +272,23 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
       next(0);
     };
 
-    proceed();
+    // TfL-19 primary source: the MyCards page links each ACTIVE card's
+    // statements as NewStatements/Billing?CardDisplayId=<32 hex> — fetched
+    // same-origin with the session cookie, so it works from the Dashboard
+    // (which links no statements itself) and never needs a hardcoded id.
+    // Page-sourced ids stay ahead of it in the list; a failed fetch just
+    // falls through to knownCards / raw-HTML mining.
+    win.fetch('${MY_CARDS_URL}', { credentials: 'include' })
+      .then(function (res) { return res.ok ? res.text() : ''; })
+      .then(function (html) {
+        try {
+          var re = /CardDisplayId=([0-9a-fA-F]{32})/g;
+          var m;
+          while ((m = re.exec(String(html || '')))) { take(m[1]); }
+        } catch (e) { }
+      })
+      .catch(function () { })
+      .then(function () { finishCollect(); });
   } catch (e) {
     report({ type: 'direct-csv', status: 'failed', message: String(e) });
   }

@@ -36,8 +36,9 @@ export const OYSTER_HISTORY_URL = 'https://oyster.tfl.gov.uk/oyster/journeyHisto
 export const HISTORY_URL = CONTACTLESS_HISTORY_URL;
 
 /** Contactless statements base URL (TfL-14). The PAGE was removed by TfL
- * (TfL-18: 302 → Error/NotFound) but the DownloadBillingCsv endpoint under it
- * survives, so this stays as the endpoint base. The flow never navigates here
+ * (TfL-18: 302 → Error/NotFound) but the DownloadJourneyCsv endpoint under it
+ * survives (TfL-19 — journey statements, not the billing sibling builds 13–15
+ * fetched), so this stays as the endpoint base. The flow never navigates here
  * any more — the direct fetch runs in place on whatever page is showing.
  * Duplicated from (not imported from) direct-csv.NEW_STATEMENTS_URL for the
  * same zero-runtime-imports reason as above; the tests assert the two match. */

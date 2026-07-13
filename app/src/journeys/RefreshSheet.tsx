@@ -32,7 +32,15 @@ import {
   rowsToCsv,
 } from './autofetch';
 import { appendAudit, AUDIT_LOG_KEY } from './audit-log';
-import { buildDirectCsvScript, cardIdsFromLog, currentAndPreviousPeriods, isDirectCsvUrl } from './direct-csv';
+import {
+  buildDirectCsvScript,
+  cardIdsFromLog,
+  currentAndPreviousPeriods,
+  extractCardDisplayId,
+  isCsvDownloadUrl,
+  isDirectCsvUrl,
+  looksLikeCsv,
+} from './direct-csv';
 import { getMeta, listCards, setMeta } from './db';
 import { importCsvText, ImportOutcome } from './import';
 import {
@@ -95,6 +103,13 @@ export default function RefreshSheet({ onClose }: Props) {
   const [mode, setMode] = useState<FetchMode | null>(persistedMode);
   // TfL-18: Manual capture — the user drives, the app only records.
   const [capture, setCapture] = useState(false);
+  // TfL-19: capture mode now IMPORTS tapped statement downloads too — the
+  // WebView needs a ref (to inject the page-context fetch; a native fetch
+  // would bounce off the WAF), a dedupe set (Download taps repeat), and a
+  // status line so a tap visibly does something.
+  const captureRef = useRef<WebView>(null);
+  const captureFetched = useRef<Set<string>>(new Set());
+  const [captureStatus, setCaptureStatus] = useState<string | null>(null);
   const [state, setState] = useState<FlowState>(() => {
     const m = persistedMode();
     const initial = makeInitialFlow(m ?? 'contactless');
@@ -242,6 +257,58 @@ export default function RefreshSheet({ onClose }: Props) {
     parsed: { ...b.parsed, skipped: a.parsed.skipped + b.parsed.skipped },
   } : b);
 
+  // TfL-19: a statement download tapped in capture mode used to be a dead end
+  // (iOS WebViews don't download files — three builds of silent taps). Now the
+  // tap triggers a page-context fetch of the same URL, and the response comes
+  // back through onCaptureMessage for a real import.
+  const captureFetch = (url: string) => {
+    if (!url || captureFetched.current.has(url)) return;
+    captureFetched.current.add(url);
+    recordAudit('capture-fetch', url);
+    setCaptureStatus('Fetching statement…');
+    captureRef.current?.injectJavaScript(`(function () {
+  fetch(${JSON.stringify(url)}, { credentials: 'include' })
+    .then(function (r) { if (!r.ok) { throw new Error('HTTP ' + r.status); } return r.text(); })
+    .then(function (t) {
+      if (window.ReactNativeWebView) { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'capture-fetch', url: ${JSON.stringify(url)}, text: t })); }
+    })
+    .catch(function (e) {
+      if (window.ReactNativeWebView) { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'capture-fetch', url: ${JSON.stringify(url)}, error: String(e) })); }
+    });
+})(); true;`);
+  };
+
+  const onCaptureMessage = (event: any) => {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data);
+      if (msg.type !== 'capture-fetch') return;
+      if (msg.error) {
+        recordAudit('capture-import-failed', `${String(msg.url ?? '')} — ${String(msg.error)}`);
+        setCaptureStatus('Statement fetch failed — try tapping it again.');
+        captureFetched.current.delete(String(msg.url ?? '')); // allow a retry
+        return;
+      }
+      const text = String(msg.text ?? '');
+      if (!looksLikeCsv(text)) {
+        recordAudit('capture-import-failed', `not a CSV (signed out?) — first line "${(text.split(/\r?\n/)[0] ?? '').slice(0, 120)}"`);
+        setCaptureStatus('That download wasn’t a statement CSV — are you signed in?');
+        return;
+      }
+      const fromUrl = extractCardDisplayId(String(msg.url ?? ''));
+      const outcome = importCsvText(text, `${pickCardId(listCards(), fromUrl ?? undefined)}.csv`);
+      outcomeRef.current = mergeOutcome(outcomeRef.current, outcome);
+      recordAudit('capture-imported', outcome.parsed.journeys.length === 0
+        ? `0 journeys (skipped ${outcome.parsed.skipped}) — header "${(text.split(/\r?\n/)[0] ?? '').slice(0, 120)}"`
+        : `parsed ${outcome.parsed.journeys.length}, inserted ${outcome.inserted}, duplicates ${outcome.duplicates}`);
+      setCaptureStatus(outcome.inserted > 0
+        ? `Imported ${outcome.inserted} new journey${outcome.inserted === 1 ? '' : 's'}.`
+        : outcome.parsed.journeys.length > 0
+          ? 'Statement fetched — all journeys already imported.'
+          : 'Statement fetched but held no journeys.');
+      if (outcome.inserted > 0) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch { /* not ours */ }
+  };
+
   const onMessage = (event: any) => {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
@@ -261,13 +328,25 @@ export default function RefreshSheet({ onClose }: Props) {
           try {
             const files = Array.isArray(msg.files) ? msg.files : [];
             recordAudit('direct-csv', `csv — ${files.length} file(s)`);
-            const cardId = pickCardId(listCards());
+            // Card list snapshotted before the loop: existing imports keep
+            // their dedupe key; a fresh install falls back to each file's own
+            // card id, so multiple cards stay separate (TfL-19).
+            const existingCards = listCards();
             let inserted = 0;
             for (const f of files) {
               recordCsvHit('direct', String(f?.url ?? ''));
-              const outcome = importCsvText(String(f?.text ?? ''), `${cardId}.csv`);
+              const text = String(f?.text ?? '');
+              const fileCard = String(f?.card ?? '').trim();
+              const outcome = importCsvText(text, `${pickCardId(existingCards, fileCard || undefined)}.csv`);
               outcomeRef.current = mergeOutcome(outcomeRef.current, outcome);
               inserted += outcome.inserted;
+              // Per-file audit (TfL-19): a zero-parse file logs its header
+              // line — that's how the billing-vs-journey mixup stayed
+              // invisible through three builds.
+              const tag = `${fileCard.slice(0, 8) || '????????'}… ${String(f?.period ?? '?')}`;
+              recordAudit('direct-file', outcome.parsed.journeys.length === 0
+                ? `${tag}: 0 journeys (skipped ${outcome.parsed.skipped}) — header "${(text.split(/\r?\n/)[0] ?? '').slice(0, 120)}"`
+                : `${tag}: parsed ${outcome.parsed.journeys.length}, inserted ${outcome.inserted}, duplicates ${outcome.duplicates}`);
             }
             recordAudit('imported', `${inserted} new journeys`);
             dispatch({ type: 'imported', inserted });
@@ -323,7 +402,11 @@ export default function RefreshSheet({ onClose }: Props) {
             style={styles.cancelButton}
             hitSlop={8}
             onPress={() => (capture
-              ? close({ kind: 'cancelled' })
+              // TfL-19: capture can import now — Done reports what landed so
+              // the journeys list refreshes, instead of always "cancelled".
+              ? close(outcomeRef.current
+                ? { kind: 'imported', outcome: outcomeRef.current }
+                : { kind: 'cancelled' })
               : state.phase === 'error'
                 ? close({ kind: 'error', message: state.message })
                 : dispatch({ type: 'cancel' }))}
@@ -361,12 +444,14 @@ export default function RefreshSheet({ onClose }: Props) {
           <>
             <View style={styles.captureBar}>
               <Text style={styles.captureText}>
-                Manual mode — browse the TfL site yourself. Every page and CSV
-                you touch is recorded in the Log tab; nothing steers or injects.
+                {captureStatus ?? 'Manual mode — browse the TfL site yourself. '
+                  + 'Tap a statement download and the app fetches and imports '
+                  + 'it; everything is recorded in the Log tab.'}
               </Text>
             </View>
             <WebView
               key="capture"
+              ref={captureRef}
               source={{ uri: CAPTURE_URL }}
               style={styles.web}
               sharedCookiesEnabled={true}
@@ -383,11 +468,18 @@ export default function RefreshSheet({ onClose }: Props) {
                   recordAudit('capture-csv', url);
                   recordCsvHit('capture', url);
                 }
-                return true; // observation only — every request proceeds
+                // TfL-19: a statement download itself gets fetched in page
+                // context and imported — the WebView can't save files, so
+                // this is what makes the tap do anything at all.
+                if (isCsvDownloadUrl(url)) captureFetch(url);
+                return true; // requests still proceed untouched
               }}
               onFileDownload={({ nativeEvent }: any) => {
-                recordAudit('capture-download', String(nativeEvent?.downloadUrl ?? ''));
+                const url = String(nativeEvent?.downloadUrl ?? '');
+                recordAudit('capture-download', url);
+                if (isCsvDownloadUrl(url)) captureFetch(url);
               }}
+              onMessage={onCaptureMessage}
             />
           </>
         ) : mode == null ? (
