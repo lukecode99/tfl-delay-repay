@@ -148,6 +148,66 @@ async function main() {
     ok(posted.length === 0, 'form: submit to a non-TfL action is not reported');
   }
 
+  // programmatic form.submit() is captured even though it fires no submit event
+  {
+    const posted: Msg[] = [];
+    let nativeSubmits = 0;
+    class Form { submit() { nativeSubmits++; } }
+    const win: any = {
+      ReactNativeWebView: { postMessage: (s: string) => posted.push(JSON.parse(s)) },
+      location: { href: 'https://tfl.gov.uk/fares/refunds/apply-for-a-service-delay-refund' },
+      HTMLFormElement: Form,
+      document: { addEventListener() {} },
+    };
+    new Function('window', buildNetCaptureScript())(win);
+    const form: any = new win.HTMLFormElement();
+    form.action = 'https://tfl.gov.uk/fares/refunds/apply-for-a-service-delay-refund';
+    form.method = 'post';
+    form.elements = [
+      { name: '__RequestVerificationToken', type: 'hidden', value: 'CSRF9' },
+      { name: 'DelayMinutes', type: 'text', value: '18' },
+      { name: 'Password', type: 'password', value: 'nope' },
+    ];
+    form.submit();
+    ok(nativeSubmits === 1 && posted.length === 1 && posted[0].kind === 'form'
+      && posted[0].method === 'POST'
+      && posted[0].body === '__RequestVerificationToken=CSRF9&DelayMinutes=18&Password=[redacted]',
+      'form.submit(): programmatic submit captured (bypasses submit event) and still runs');
+  }
+
+  // navigator.sendBeacon to a TfL host is captured, original still called
+  {
+    const posted: Msg[] = [];
+    let beaconArgs: any[] = [];
+    const win: any = {
+      ReactNativeWebView: { postMessage: (s: string) => posted.push(JSON.parse(s)) },
+      location: { href: 'https://tfl.gov.uk/x' },
+      navigator: { sendBeacon: (u: string, d: any) => { beaconArgs = [u, d]; return true; } },
+      document: { addEventListener() {} },
+    };
+    new Function('window', buildNetCaptureScript())(win);
+    const r = win.navigator.sendBeacon('https://tfl.gov.uk/DelayRepay/Beacon', 'a=1&b=2');
+    ok(r === true && beaconArgs[0] === 'https://tfl.gov.uk/DelayRepay/Beacon'
+      && posted.length === 1 && posted[0].kind === 'beacon' && posted[0].method === 'POST'
+      && posted[0].body === 'a=1&b=2',
+      'sendBeacon: TfL beacon captured, original still called and its return preserved');
+  }
+
+  // a third-party beacon is ignored (worthy filter), original still called
+  {
+    const posted: Msg[] = [];
+    let called = false;
+    const win: any = {
+      ReactNativeWebView: { postMessage: (s: string) => posted.push(JSON.parse(s)) },
+      location: { href: 'https://tfl.gov.uk/x' },
+      navigator: { sendBeacon: () => { called = true; return true; } },
+      document: { addEventListener() {} },
+    };
+    new Function('window', buildNetCaptureScript())(win);
+    win.navigator.sendBeacon('https://analytics.example.com/b', 'x=1');
+    ok(called && posted.length === 0, 'sendBeacon: third-party beacon passes through and is not reported');
+  }
+
   // double injection is a no-op (window flag)
   {
     const posted: Msg[] = [];

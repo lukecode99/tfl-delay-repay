@@ -41,7 +41,7 @@ export function isCaptureWorthy(url: string): boolean {
 /** One captured request, as posted back by the injected script. */
 export type NetCapture = {
   type: 'net-capture';
-  kind: 'fetch' | 'xhr' | 'form';
+  kind: 'fetch' | 'xhr' | 'form' | 'beacon';
   method: string;
   url: string;
   body?: string;
@@ -70,6 +70,13 @@ export function describeCapture(msg: { kind?: unknown; method?: unknown; url?: u
  * - form submits: a capturing document listener serialises the form's named
  *   fields (hidden CSRF tokens included — those are the point) and posts
  *   action + method. Classic ASP.NET sites like TfL's post forms, not JSON.
+ *   HTMLFormElement.prototype.submit is ALSO wrapped, because a programmatic
+ *   form.submit() bypasses the submit event entirely (a common claim-wizard
+ *   pattern that would otherwise be invisible).
+ * - navigator.sendBeacon: some flows fire the final POST as a beacon.
+ *
+ * All frames are instrumented (the WebView sets main-frame-only false), so a
+ * claim form rendered in an iframe is covered too.
  *
  * Every hook falls through to the original behaviour whatever happens — the
  * capture must never be able to break the user's real claim.
@@ -114,6 +121,19 @@ export function buildNetCaptureScript(): string {
         }
         return Object.prototype.toString.call(b);
       } catch (e) { return '[unreadable body]'; }
+    };
+    var formBody = function (form) {
+      var parts = [];
+      try {
+        if (form && form.elements) {
+          for (var i = 0; i < form.elements.length; i++) {
+            var el = form.elements[i];
+            if (!el || !el.name) { continue; }
+            parts.push(el.name + '=' + (secret(el.name, el.type) ? '[redacted]' : String(el.value == null ? '' : el.value)));
+          }
+        }
+      } catch (e) { }
+      return parts.join('&');
     };
     if (win.fetch) {
       var origFetch = win.fetch;
@@ -160,15 +180,29 @@ export function buildNetCaptureScript(): string {
           if (!form || !form.elements) { return; }
           var action = form.action || (win.location && win.location.href) || '';
           if (!worthy(action)) { return; }
-          var parts = [];
-          for (var i = 0; i < form.elements.length; i++) {
-            var el = form.elements[i];
-            if (!el || !el.name) { continue; }
-            parts.push(el.name + '=' + (secret(el.name, el.type) ? '[redacted]' : String(el.value == null ? '' : el.value)));
-          }
-          post('form', form.method || 'GET', action, parts.join('&'));
+          post('form', form.method || 'GET', action, formBody(form));
         } catch (e) { }
       }, true);
+    }
+    // A programmatic form.submit() does NOT fire the submit event, so hook the
+    // prototype method too — claim wizards often submit this way.
+    if (win.HTMLFormElement && win.HTMLFormElement.prototype && win.HTMLFormElement.prototype.submit) {
+      var fp = win.HTMLFormElement.prototype;
+      var origSubmit = fp.submit;
+      fp.submit = function () {
+        try {
+          var action = this.action || (win.location && win.location.href) || '';
+          if (worthy(action)) { post('form', this.method || 'GET', action, formBody(this)); }
+        } catch (e) { }
+        return origSubmit.apply(this, arguments);
+      };
+    }
+    if (win.navigator && win.navigator.sendBeacon) {
+      var origBeacon = win.navigator.sendBeacon;
+      win.navigator.sendBeacon = function (url, data) {
+        try { if (worthy(url)) { post('beacon', 'POST', url, bodyText(data)); } } catch (e) { }
+        return origBeacon.apply(win.navigator, arguments);
+      };
     }
   } catch (e) { }
 })(); true;`;

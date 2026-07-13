@@ -7,13 +7,16 @@
 // themselves — no credential storage, no automated submission.
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { markClaimed } from '../claims/db';
 import { buildFillScript, buildPrefill, CLAIM_START_URL, PrefillField } from '../claims/prefill';
 import type { Assessment } from '../eligibility/engine';
 import type { StoredJourney } from '../journeys/db';
+import { getMeta, setMeta } from '../journeys/db';
+import { appendAudit, AUDIT_LOG_KEY } from '../journeys/audit-log';
+import { buildNetCaptureScript, describeCapture } from '../journeys/claim-capture';
 import { colors, spacing } from '../theme';
 
 interface Props {
@@ -27,6 +30,18 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   const fields = useMemo(() => buildPrefill(journey, assessment), [journey, assessment]);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [fillNote, setFillNote] = useState<string | null>(null);
+
+  // TfL-20: the claim WebView records the page's own outbound traffic
+  // (fetch/XHR/form/beacon) to the audit Log, so filing one real claim here
+  // reveals the claim endpoint + payload. Capture only — logging must never
+  // be able to break the user's claim.
+  const recordAudit = (tag: string, detail?: string) => {
+    try {
+      setMeta(AUDIT_LOG_KEY, appendAudit(getMeta(AUDIT_LOG_KEY), { at: new Date().toISOString(), tag, detail }));
+    } catch { /* capture only */ }
+  };
+
+  useEffect(() => { recordAudit('claim-open', CLAIM_START_URL); }, []);
 
   const copy = async (f: PrefillField) => {
     await Clipboard.setStringAsync(f.value);
@@ -42,6 +57,8 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   const onMessage = (event: any) => {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
+      // TfL-20: instrumented page traffic → straight to the audit log.
+      if (msg.type === 'net-capture') { recordAudit('net-capture', describeCapture(msg)); return; }
       if (msg.type === 'prefill') {
         if (msg.error) { setFillNote('Fill failed — use the copy chips.'); return; }
         // TfL-9: the script reports per-field outcomes — name exactly what
@@ -87,6 +104,15 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
         source={{ uri: CLAIM_START_URL }}
         style={styles.web}
         onMessage={onMessage}
+        // TfL-20: record the page's outbound traffic (fetch/XHR/form/beacon)
+        // so filing one real claim reveals its endpoint + payload for later
+        // direct submission. Injected into every frame (the claim form may be
+        // in an iframe); the script's window flag stops double-patching.
+        injectedJavaScript={buildNetCaptureScript()}
+        injectedJavaScriptForMainFrameOnly={false}
+        onNavigationStateChange={(nav: { url?: string }) => {
+          if (nav?.url) recordAudit('claim-nav', String(nav.url));
+        }}
         // TfL-10: shared system cookie store, so the session from signing in
         // here is reusable by the hidden journey auto-fetch WebView. Sign-in
         // still happens on TfL's pages; the cookie stays in the WebView store
