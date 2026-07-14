@@ -1,7 +1,7 @@
 // Tests for the raw-statement export combine step (TfL-23).
 //   node --experimental-strip-types src/journeys/test-raw-export.ts
 import { strict as assert } from 'node:assert';
-import { combineRawStatements, RAW_STATEMENTS_FILE } from './raw-export.ts';
+import { combineRawStatements, unescapeHtmlEntities, hasDataRows, RAW_STATEMENTS_FILE } from './raw-export.ts';
 
 let n = 0;
 const test = (name: string, fn: () => void) => { fn(); n++; console.log(`  ok ${name}`); };
@@ -26,10 +26,35 @@ test('preserves each file header row (both headers survive)', () => {
   assert.equal((out.match(/Date,Journey,Charge/g) ?? []).length, 2);
 });
 
-test('keeps an empty statement as a clue, with unknown labels', () => {
-  const out = combineRawStatements([{ text: '' }]);
-  assert.ok(out.includes('# ===== period=? card=? ====='));
-  assert.ok(out.includes('1 file(s)'));
+test('drops empty (header-only / blank) statements and reports the skip (TfL-24)', () => {
+  const out = combineRawStatements([
+    { period: '6|2026', card: 'live', text: 'Date,Journey,Charge\n01/06,X to Y,2.80' },
+    { period: '5|2026', card: 'dead', text: 'Date,Journey,Charge' }, // header only
+    { period: '4|2026', card: 'gone', text: '' },                    // blank
+  ]);
+  assert.ok(out.includes('# TfL raw statements export — 1 file(s) (2 empty periods skipped)'));
+  assert.ok(out.includes('# ===== period=6|2026 card=live ====='));
+  assert.ok(!out.includes('card=dead'));
+  assert.ok(!out.includes('card=gone'));
+});
+
+test('unescapes HTML entities so bus rows are valid CSV (TfL-24)', () => {
+  const out = combineRawStatements([
+    { period: '6|2026', card: 'x', text: 'Date,Journey,Charge\n01/06,&quot;Bus Journey, Route 282&quot;,1.75' },
+  ]);
+  assert.ok(out.includes('"Bus Journey, Route 282"'));
+  assert.ok(!out.includes('&quot;'));
+});
+
+test('unescapeHtmlEntities handles quotes, apostrophes and ampersands', () => {
+  assert.equal(unescapeHtmlEntities('&quot;a&quot; &amp; &#39;b&#39;'), '"a" & \'b\'');
+  assert.equal(unescapeHtmlEntities('&lt;x&gt;'), '<x>');
+});
+
+test('hasDataRows: header-only false, real row true', () => {
+  assert.equal(hasDataRows('Date,Journey,Charge'), false);
+  assert.equal(hasDataRows(''), false);
+  assert.equal(hasDataRows('Date,Journey,Charge\n01/06,X to Y,2.80'), true);
 });
 
 test('handles the empty set', () => {

@@ -19,16 +19,57 @@ export interface RawStatement {
 }
 
 /**
+ * Undo HTML entity escaping. TfL's fetched statement text arrives with quotes
+ * (and ampersands) HTML-escaped — bus rows read `&quot;Bus Journey, Route
+ * 282&quot;` rather than `"Bus Journey, Route 282"`. Left as-is the export
+ * isn't valid CSV (TfL-24 fix). Cheap, order-matters (&amp; last).
+ */
+export function unescapeHtmlEntities(s: string): string {
+  return s
+    .replace(/&quot;/g, '"')
+    .replace(/&#0*39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
+/**
+ * True when a statement carries at least one data row, not just a header (or
+ * nothing at all). Used to drop empty periods from the export — a card that was
+ * replaced months ago still yields a header-only statement for every period,
+ * which is pure clutter (TfL-24). A line counts as data if it isn't blank, a
+ * `#` comment, or the `Date,…,Journey,…` header row.
+ */
+export function hasDataRows(text: string): boolean {
+  return (text ?? '')
+    .split(/\r?\n/)
+    .some(line => {
+      const t = line.trim();
+      if (!t || t.startsWith('#')) return false;
+      const low = t.toLowerCase();
+      if (low.startsWith('date,') && low.includes('journey')) return false; // header
+      return true;
+    });
+}
+
+/**
  * Concatenate per-period raw CSVs into one annotated blob. Each statement is
  * preceded by a comment banner naming its period + card so boundaries (and
- * each file's own header row) stay visible. Empty statements are kept — a file
- * that yielded nothing is itself a clue. Pure: no I/O, fully testable.
+ * each file's own header row) stay visible. HTML entities are unescaped so the
+ * output is valid CSV, and empty (header-only) statements are dropped — the
+ * banner reports how many were skipped so nothing is silently hidden. Pure: no
+ * I/O, fully testable.
  */
 export function combineRawStatements(files: RawStatement[]): string {
-  const lines: string[] = [`# TfL raw statements export — ${files.length} file(s)`];
-  for (const f of files) {
+  const kept = files.filter(f => hasDataRows(f.text ?? ''));
+  const skipped = files.length - kept.length;
+  const header = `# TfL raw statements export — ${kept.length} file(s)` +
+    (skipped > 0 ? ` (${skipped} empty period${skipped === 1 ? '' : 's'} skipped)` : '');
+  const lines: string[] = [header];
+  for (const f of kept) {
     lines.push(`# ===== period=${f.period ?? '?'} card=${f.card ?? '?'} =====`);
-    lines.push((f.text ?? '').replace(/\s+$/, ''));
+    lines.push(unescapeHtmlEntities(f.text ?? '').replace(/\s+$/, ''));
   }
   return lines.join('\n') + '\n';
 }

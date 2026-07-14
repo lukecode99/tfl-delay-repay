@@ -19,6 +19,7 @@ import RailJourneysScreen from './src/screens/RailJourneysScreen';
 import RailJourneyEntryScreen from './src/screens/RailJourneyEntryScreen';
 import RailClaimWebScreen from './src/screens/RailClaimWebScreen';
 import AuditLogScreen from './src/screens/AuditLogScreen';
+import StatsScreen from './src/screens/StatsScreen';
 import { colors, spacing } from './src/theme';
 
 // Journeys list → claim detail → guided claim WebView (TfL-5/6). Three
@@ -26,7 +27,8 @@ import { colors, spacing } from './src/theme';
 // library would be dead weight.
 // NR-1: Rail mode adds a parallel three-screen stack toggled by a tab bar.
 // TfL-18: Log tab shows the refresh audit trail (shareable as text).
-type AppMode = 'tfl' | 'rail' | 'log';
+// TfL-24: Stats tab — spend charts + poor-service / claimed totals.
+type AppMode = 'tfl' | 'rail' | 'stats' | 'log';
 
 export default function App() {
   const [mode, setMode] = useState<AppMode>('tfl');
@@ -183,6 +185,9 @@ export default function App() {
         )}
         {mode === 'tfl' && autoFetching && <RefreshSheet onClose={onRefreshClose} />}
 
+        {/* Stats (TfL-24) */}
+        {mode === 'stats' && <StatsScreen journeys={journeys} assessments={assessments} claims={claims} />}
+
         {/* Audit log (TfL-18) */}
         {mode === 'log' && <AuditLogScreen />}
 
@@ -222,7 +227,13 @@ export default function App() {
               style={[styles.tab, mode === 'rail' && styles.tabActive]}
               onPress={() => { setMode('rail'); refreshRail(); }}
             >
-              <Text style={[styles.tabText, mode === 'rail' && styles.tabTextActive]}>National Rail</Text>
+              <Text style={[styles.tabText, mode === 'rail' && styles.tabTextActive]}>Rail</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.tab, mode === 'stats' && styles.tabActive]}
+              onPress={() => setMode('stats')}
+            >
+              <Text style={[styles.tabText, mode === 'stats' && styles.tabTextActive]}>Stats</Text>
             </Pressable>
             <Pressable
               style={[styles.tab, mode === 'log' && styles.tabActive]}

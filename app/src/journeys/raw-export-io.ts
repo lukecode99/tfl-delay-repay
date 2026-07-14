@@ -23,6 +23,18 @@ export async function hasRawStatements(): Promise<boolean> {
 }
 
 /**
+ * Read back the saved combined raw-statements blob (the same text the export
+ * share sheet ships) so the Stats tab can aggregate it — buses included, unlike
+ * the rail-only journeys table. Returns '' if no refresh has captured one yet.
+ */
+export async function readRawStatements(): Promise<string> {
+  const path = rawPath();
+  const info = await FileSystem.getInfoAsync(path);
+  if (!info.exists) return '';
+  return FileSystem.readAsStringAsync(path);
+}
+
+/**
  * Open the iOS share sheet with the saved raw-statements file so the user can
  * AirDrop / message / save it. Returns false if nothing has been captured yet
  * (the caller should tell the user to refresh from TfL first).
