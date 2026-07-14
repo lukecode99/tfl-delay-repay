@@ -25,6 +25,21 @@ export interface OriginProfile {
   maxSeenFare: number | null; // highest completed fare — sanity ceiling
 }
 
+// TfL claim rules (from tfl.gov.uk incomplete-journey refund page):
+//  • You have up to 8 WEEKS from the journey to claim an incomplete-journey
+//    max-fare refund → anything older is no longer claimable.
+//  • Most incomplete-journey max fares are auto-refunded; TfL asks you to
+//    WAIT AT LEAST 48 HOURS before applying, so a just-charged journey may
+//    still refund itself — don't nag before then.
+export const CLAIM_WINDOW_DAYS = 56; // 8 weeks
+export const AUTO_REFUND_WAIT_HOURS = 48;
+
+/** Where an overcharge sits relative to TfL's claim window. */
+export type ClaimStatus =
+  | 'claimable' // inside the 8-week window and past the 48h auto-refund wait
+  | 'pending-auto' // <48h old — TfL may still auto-refund it; hold off
+  | 'expired'; // older than 8 weeks — TfL will no longer refund
+
 /** A flagged incomplete journey that looks like a max-fare overcharge. */
 export interface OverchargeCandidate {
   journeyKey: string; // parse.journeyKey(journey)
@@ -36,6 +51,9 @@ export interface OverchargeCandidate {
   estimatedRefund: number; // charged − usualFare (the disputable gap)
   confidence: 'high' | 'medium' | 'low';
   reason: string; // human-readable justification for the flag
+  ageDays: number | null; // age at asOf (null if asOf not supplied)
+  claimStatus: ClaimStatus; // 'claimable' when actionable; see ClaimStatus
+  claimDeadline: string | null; // YYYY-MM-DD — last day to claim (journey + 8wk)
 }
 
 export interface DetectOptions {
@@ -45,13 +63,30 @@ export interface DetectOptions {
   minOverchargeGbp?: number; // default 1.0
   /** …and by at least this ratio (charged / usual). Guards small usual fares. */
   minOverchargeRatio?: number; // default 1.5
+  /** "Today" as YYYY-MM-DD, for the 8-week claim-window maths. Production
+   *  passes the device date; omit and every candidate is 'claimable' (age
+   *  unknown) so nothing is hidden when the reference date is absent. */
+  asOfISO?: string;
 }
 
-const DEFAULTS: Required<DetectOptions> = {
+const DEFAULTS: Required<Omit<DetectOptions, 'asOfISO'>> = {
   minTripsForPattern: 3,
   minOverchargeGbp: 1.0,
   minOverchargeRatio: 1.5,
 };
+
+/** Whole days between two YYYY-MM-DD dates (b − a), UTC-noon to dodge DST. */
+function daysBetween(aISO: string, bISO: string): number {
+  const a = Date.parse(`${aISO.slice(0, 10)}T12:00:00Z`);
+  const b = Date.parse(`${bISO.slice(0, 10)}T12:00:00Z`);
+  return Math.round((b - a) / 86_400_000);
+}
+
+/** Add days to a YYYY-MM-DD date, returning YYYY-MM-DD. */
+function addDays(iso: string, days: number): string {
+  const t = Date.parse(`${iso.slice(0, 10)}T12:00:00Z`) + days * 86_400_000;
+  return new Date(t).toISOString().slice(0, 10);
+}
 
 /** Median of a numeric list (sorted copy; average of the middle two if even). */
 function median(xs: number[]): number | null {
@@ -141,6 +176,20 @@ export function detectOvercharges(
     if (share >= 0.7 && trips >= 8) confidence = 'high';
     else if (share >= 0.5 && trips >= 4) confidence = 'medium';
 
+    // Claim window: deep history is pulled for pattern-learning, but only
+    // overcharges still inside TfL's 8-week window are worth actioning, and
+    // ones <48h old may auto-refund. Without asOf we can't age them, so they
+    // stay 'claimable' (never hidden on missing reference date).
+    let ageDays: number | null = null;
+    let claimStatus: ClaimStatus = 'claimable';
+    let claimDeadline: string | null = null;
+    if (opt.asOfISO) {
+      ageDays = daysBetween(j.date, opt.asOfISO);
+      claimDeadline = addDays(j.date, CLAIM_WINDOW_DAYS);
+      if (ageDays > CLAIM_WINDOW_DAYS) claimStatus = 'expired';
+      else if (ageDays * 24 < AUTO_REFUND_WAIT_HOURS) claimStatus = 'pending-auto';
+    }
+
     out.push({
       journeyKey: keyOf(j),
       date: j.date,
@@ -155,11 +204,20 @@ export function detectOvercharges(
         `£${round2(p.usualFare).toFixed(2)}` +
         (p.topDestination ? ` to ${p.topDestination}` : '') +
         ` (${Math.round(share * 100)}% of ${trips} trips).`,
+      ageDays,
+      claimStatus,
+      claimDeadline,
     });
   }
 
   out.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)); // newest first
   return out;
+}
+
+/** Only the overcharges still worth actioning — inside the 8-week window and
+ *  past the 48h auto-refund wait. This is what the banner should push. */
+export function claimableOvercharges(candidates: OverchargeCandidate[]): OverchargeCandidate[] {
+  return candidates.filter(c => c.claimStatus === 'claimable');
 }
 
 /** Total disputable value across candidates — for a home-screen banner. */

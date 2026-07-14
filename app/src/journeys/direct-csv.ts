@@ -76,16 +76,40 @@ export function cardIdsFromLog(logJson: string | null): string[] {
 }
 
 /**
- * Statement periods to fetch: current + previous month as TfL's
- * `<month>|<year>` tokens (month unpadded — the captured link used
- * `Period=5|2026` for May 2026). Accepts any `YYYY-MM...` prefix, so callers
- * can pass a local-time date string and stay off UTC month boundaries.
+ * How many months of statements a deep refresh pulls (TfL-22). Twelve months
+ * gives the incomplete-fare detector enough history to learn each origin's
+ * regular route AND surfaces older missing tap-outs the user was overcharged
+ * for — not just the last few weeks. TfL's DownloadJourneyCsv serves any past
+ * month from the same endpoint, so this is just more Period tokens.
+ */
+export const HISTORY_MONTHS = 12;
+
+/**
+ * The last `months` statement periods as TfL's `<month>|<year>` tokens
+ * (month unpadded — the captured link used `Period=5|2026` for May 2026),
+ * newest first. Accepts any `YYYY-MM...` prefix so callers can pass a
+ * local-time date string and stay off UTC month boundaries. Walks the
+ * calendar backwards so year boundaries are handled for any depth.
+ */
+export function lastNPeriods(nowISO: string, months: number): string[] {
+  let y = Number(nowISO.slice(0, 4));
+  let m = Number(nowISO.slice(5, 7));
+  const out: string[] = [];
+  for (let k = 0; k < Math.max(1, months); k++) {
+    out.push(`${m}|${y}`);
+    m -= 1;
+    if (m === 0) { m = 12; y -= 1; }
+  }
+  return out;
+}
+
+/**
+ * Statement periods to fetch: current + previous month. Retained as the
+ * shallow default (and for callers that only need the Delay Repay claim
+ * window); deep history uses lastNPeriods(nowISO, HISTORY_MONTHS).
  */
 export function currentAndPreviousPeriods(nowISO: string): string[] {
-  const y = Number(nowISO.slice(0, 4));
-  const m = Number(nowISO.slice(5, 7));
-  const prev = m === 1 ? `12|${y - 1}` : `${m - 1}|${y}`;
-  return [`${m}|${y}`, prev];
+  return lastNPeriods(nowISO, 2);
 }
 
 /** The journey-statement download endpoint for one card and period (TfL-19:

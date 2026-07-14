@@ -38,10 +38,11 @@ import { buildNetCaptureScript, describeCapture } from './claim-capture';
 import {
   buildDirectCsvScript,
   cardIdsFromLog,
-  currentAndPreviousPeriods,
   extractCardDisplayId,
+  HISTORY_MONTHS,
   isCsvDownloadUrl,
   isDirectCsvUrl,
+  lastNPeriods,
   looksLikeCsv,
 } from './direct-csv';
 import { getMeta, listCards, setMeta } from './db';
@@ -155,8 +156,11 @@ export default function RefreshSheet({ onClose }: Props) {
   // so a UTC month boundary can't shift which statements get fetched.
   const directScript = () => {
     const now = new Date();
-    return buildDirectCsvScript(currentAndPreviousPeriods(
-      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`),
+    // Deep history (TfL-22): pull the last HISTORY_MONTHS of statements, not
+    // just current+previous, so the incomplete-fare detector can learn regular
+    // routes and surface older missing tap-outs. Re-imports dedupe on the way in.
+    return buildDirectCsvScript(lastNPeriods(
+      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`, HISTORY_MONTHS),
       cardIdsFromLog(getMeta(CSV_LOG_KEY)));
   };
 

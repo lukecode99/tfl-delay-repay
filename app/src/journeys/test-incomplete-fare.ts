@@ -6,6 +6,8 @@ import {
   buildOriginProfiles,
   detectOvercharges,
   totalDisputableRefund,
+  claimableOvercharges,
+  CLAIM_WINDOW_DAYS,
 } from './incomplete-fare.ts';
 
 let n = 0;
@@ -117,6 +119,66 @@ test('journey with no charge cannot be an overcharge', () => {
     j({ date: '2026-07-01', destination: null, incomplete: true, charge: null }),
   ];
   assert.equal(detectOvercharges(journeys).length, 0);
+});
+
+// --- Claim-window awareness (TfL-22) ---
+
+test('without asOf, candidate is claimable with unknown age', () => {
+  const journeys = [
+    ...regularCommute(),
+    j({ date: '2026-07-01', destination: null, incomplete: true, charge: 8.9 }),
+  ];
+  const f = detectOvercharges(journeys)[0];
+  assert.equal(f.ageDays, null);
+  assert.equal(f.claimStatus, 'claimable');
+  assert.equal(f.claimDeadline, null);
+});
+
+test('overcharge older than 8 weeks is marked expired', () => {
+  const journeys = [
+    ...regularCommute(),
+    j({ date: '2026-04-01', destination: null, incomplete: true, charge: 8.9 }),
+  ];
+  // 2026-04-01 → 2026-07-14 is ~104 days, well past the 56-day window
+  const f = detectOvercharges(journeys, { asOfISO: '2026-07-14' })[0];
+  assert.equal(f.claimStatus, 'expired');
+  assert.ok(f.ageDays! > CLAIM_WINDOW_DAYS);
+  assert.equal(f.claimDeadline, '2026-05-27'); // 2026-04-01 + 56 days
+});
+
+test('overcharge under 48h old is pending-auto (hold off)', () => {
+  const journeys = [
+    ...regularCommute(),
+    j({ date: '2026-07-14', destination: null, incomplete: true, charge: 8.9 }),
+  ];
+  const f = detectOvercharges(journeys, { asOfISO: '2026-07-14' })[0];
+  assert.equal(f.ageDays, 0);
+  assert.equal(f.claimStatus, 'pending-auto');
+});
+
+test('overcharge inside the window and past 48h is claimable', () => {
+  const journeys = [
+    ...regularCommute(),
+    j({ date: '2026-07-01', destination: null, incomplete: true, charge: 8.9 }),
+  ];
+  const f = detectOvercharges(journeys, { asOfISO: '2026-07-14' })[0];
+  assert.equal(f.ageDays, 13);
+  assert.equal(f.claimStatus, 'claimable');
+  assert.equal(f.claimDeadline, '2026-08-26'); // 2026-07-01 + 56 days
+});
+
+test('claimableOvercharges filters out expired and pending-auto', () => {
+  const journeys = [
+    ...regularCommute(),
+    j({ date: '2026-04-01', tapInTime: '18:01', destination: null, incomplete: true, charge: 8.9 }), // expired
+    j({ date: '2026-07-01', tapInTime: '18:02', destination: null, incomplete: true, charge: 8.9 }), // claimable
+    j({ date: '2026-07-14', tapInTime: '18:03', destination: null, incomplete: true, charge: 8.9 }), // pending-auto
+  ];
+  const all = detectOvercharges(journeys, { asOfISO: '2026-07-14' });
+  assert.equal(all.length, 3);
+  const claimable = claimableOvercharges(all);
+  assert.equal(claimable.length, 1);
+  assert.equal(claimable[0].date, '2026-07-01');
 });
 
 console.log(`\n${n} tests passed`);

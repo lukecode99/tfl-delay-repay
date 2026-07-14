@@ -9,7 +9,7 @@ import type { AssessmentMap } from '../eligibility/use-assessments';
 import { formatGBP, groupByDay } from '../format';
 import type { StoredJourney } from '../journeys/db';
 import type { ImportOutcome } from '../journeys/import';
-import { detectOvercharges, totalDisputableRefund } from '../journeys/incomplete-fare';
+import { detectOvercharges, totalDisputableRefund, claimableOvercharges } from '../journeys/incomplete-fare';
 import { journeyKey } from '../journeys/parse';
 import { colors, spacing } from '../theme';
 
@@ -55,10 +55,19 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
   const eligibleCount = journeys.filter(j => assessments.get(j.id)?.status === 'eligible').length;
   const totals = claimTotals([...claims.values()]);
 
-  // TfL-21: missing tap-outs charged above the user's usual fare for that
+  // TfL-21/22: missing tap-outs charged above the user's usual fare for that
   // origin — a disputable max-fare overcharge. Learned from their own history.
-  const overcharges = React.useMemo(() => detectOvercharges(journeys), [journeys]);
+  // We pull deep history to learn routes, but only surface overcharges still
+  // inside TfL's 8-week claim window and past the 48h auto-refund wait.
+  const asOfISO = React.useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const allOvercharges = React.useMemo(
+    () => detectOvercharges(journeys, { asOfISO }),
+    [journeys, asOfISO],
+  );
+  const overcharges = React.useMemo(() => claimableOvercharges(allOvercharges), [allOvercharges]);
   const disputable = totalDisputableRefund(overcharges);
+  const pendingAutoCount = allOvercharges.filter(c => c.claimStatus === 'pending-auto').length;
+  const expiredCount = allOvercharges.filter(c => c.claimStatus === 'expired').length;
   const journeyByKey = React.useMemo(() => {
     const m = new Map<string, StoredJourney>();
     for (const j of journeys) m.set(journeyKey(j), j);
@@ -106,15 +115,27 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
         </Text>
       )}
 
-      {overcharges.length > 0 && (
+      {allOvercharges.length > 0 && (
         <View style={styles.disputeCard}>
           <Text style={styles.disputeTitle}>
-            ⚠ {overcharges.length} possible max-fare {overcharges.length === 1 ? 'overcharge' : 'overcharges'}
+            ⚠ {overcharges.length} claimable max-fare {overcharges.length === 1 ? 'overcharge' : 'overcharges'}
             {disputable > 0 ? ` · ${formatGBP(disputable)} disputable` : ''}
           </Text>
-          <Text style={styles.disputeHint}>
-            Missing tap-out charged above your usual fare for that route. Tap to review, then dispute with TfL.
-          </Text>
+          {overcharges.length > 0 && (
+            <Text style={styles.disputeHint}>
+              Missing tap-out charged above your usual fare for that route. Tap to review, then dispute with TfL.
+            </Text>
+          )}
+          {pendingAutoCount > 0 && (
+            <Text style={styles.disputeHint}>
+              {pendingAutoCount} more just charged — TfL usually auto-refunds these; give it 48h before claiming.
+            </Text>
+          )}
+          {expiredCount > 0 && (
+            <Text style={styles.disputeHint}>
+              {expiredCount} past TfL's 8-week claim window — no longer refundable.
+            </Text>
+          )}
           {overcharges.slice(0, 5).map(c => {
             const match = journeyByKey.get(c.journeyKey);
             return (

@@ -10,9 +10,11 @@ import {
   cardIdsFromLog,
   currentAndPreviousPeriods,
   extractCardDisplayId,
+  HISTORY_MONTHS,
   isCsvDownloadUrl,
   isDirectCsvUrl,
   isNewStatementsUrl,
+  lastNPeriods,
   looksLikeCsv,
   MAX_DIRECT_CARDS,
   MY_CARDS_URL,
@@ -77,6 +79,21 @@ ok(currentAndPreviousPeriods('2026-12-31').join(',') === '12|2026,11|2026',
   'periods: December stays inside the year');
 ok(currentAndPreviousPeriods('2026-05').join(',') === '5|2026,4|2026',
   'periods: a bare YYYY-MM prefix (local-time caller) works');
+
+// --- lastNPeriods: deep history window (TfL-22) ---
+ok(currentAndPreviousPeriods('2026-07-07').join(',') === lastNPeriods('2026-07-07', 2).join(','),
+  'lastNPeriods(now,2) is exactly the old current+previous helper');
+ok(lastNPeriods('2026-07-07', 12).join(',') ===
+  '7|2026,6|2026,5|2026,4|2026,3|2026,2|2026,1|2026,12|2025,11|2025,10|2025,9|2025,8|2025',
+  'lastNPeriods: 12 months walks back across the year boundary, newest first');
+ok(lastNPeriods('2026-07-07', 12).length === 12,
+  'lastNPeriods: returns exactly `months` tokens');
+ok(lastNPeriods('2026-02', 4).join(',') === '2|2026,1|2026,12|2025,11|2025',
+  'lastNPeriods: rolls the year for each month crossed, not just the first');
+ok(lastNPeriods('2026-07', 1).join(',') === '7|2026',
+  'lastNPeriods: a single-month window returns just the current period');
+ok(HISTORY_MONTHS >= 12,
+  'HISTORY_MONTHS pulls at least a year so route-learning + old missing tap-outs are covered');
 
 // --- URL construction: the captured endpoint's exact shape ---
 ok(buildCsvUrl('5|2026', CARD_A)
