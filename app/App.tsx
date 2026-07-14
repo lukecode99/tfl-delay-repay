@@ -21,6 +21,7 @@ import RailClaimWebScreen from './src/screens/RailClaimWebScreen';
 import AuditLogScreen from './src/screens/AuditLogScreen';
 import StatsScreen from './src/screens/StatsScreen';
 import { colors, spacing } from './src/theme';
+import { FEATURE_RAIL } from './src/config';
 
 // Journeys list → claim detail → guided claim WebView (TfL-5/6). Three
 // screens, state-switched — the app is shallow enough that a navigation
@@ -191,8 +192,8 @@ export default function App() {
         {/* Audit log (TfL-18) */}
         {mode === 'log' && <AuditLogScreen />}
 
-        {/* Rail screens */}
-        {mode === 'rail' && (
+        {/* Rail screens — hidden when FEATURE_RAIL is false */}
+        {FEATURE_RAIL && mode === 'rail' && (
           railSelected ? (
             <RailClaimWebScreen
               journey={railSelected}
@@ -223,12 +224,14 @@ export default function App() {
             >
               <Text style={[styles.tabText, mode === 'tfl' && styles.tabTextActive]}>TfL</Text>
             </Pressable>
-            <Pressable
-              style={[styles.tab, mode === 'rail' && styles.tabActive]}
-              onPress={() => { setMode('rail'); refreshRail(); }}
-            >
-              <Text style={[styles.tabText, mode === 'rail' && styles.tabTextActive]}>Rail</Text>
-            </Pressable>
+            {FEATURE_RAIL && (
+              <Pressable
+                style={[styles.tab, mode === 'rail' && styles.tabActive]}
+                onPress={() => { setMode('rail'); refreshRail(); }}
+              >
+                <Text style={[styles.tabText, mode === 'rail' && styles.tabTextActive]}>Rail</Text>
+              </Pressable>
+            )}
             <Pressable
               style={[styles.tab, mode === 'stats' && styles.tabActive]}
               onPress={() => setMode('stats')}

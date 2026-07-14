@@ -1,6 +1,6 @@
 // TfL-5/7: journey list grouped by day, eligible journeys badged with the
 // estimated refund, lifetime claim totals up top.
-import React from 'react';
+import React, { useState } from 'react';
 import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { shareRawStatements } from '../journeys/raw-export-io';
 import type { ClaimRecord } from '../claims/db';
@@ -52,7 +52,17 @@ function Badge({ assessment, claim }: { assessment: Assessment | undefined; clai
 }
 
 export default function JourneysScreen({ journeys, assessments, claims, lastImport, onImportPress, onSelect, onRefreshPress, refreshing, refreshNote }: Props) {
-  const sections = groupByDay(journeys);
+  // TfL-FILTER: client-side filter — Disrupted shows only assessed-eligible
+  // journeys (confirmed disruption + overage met threshold), All shows everything.
+  const [journeyFilter, setJourneyFilter] = useState<'disrupted' | 'all'>('disrupted');
+
+  const filteredJourneys = journeyFilter === 'disrupted'
+    ? journeys.filter(j => assessments.get(j.id)?.status === 'eligible')
+    : journeys;
+
+  const sections = groupByDay(filteredJourneys);
+
+  // Summary stats always reflect the full unfiltered list.
   const eligibleCount = journeys.filter(j => assessments.get(j.id)?.status === 'eligible').length;
   const totals = claimTotals([...claims.values()]);
 
@@ -179,12 +189,36 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
         </View>
       )}
 
+      {/* TfL-FILTER: Disrupted / All toggle */}
+      <View style={styles.filterRow}>
+        <Pressable
+          style={[styles.filterTab, journeyFilter === 'disrupted' && styles.filterTabActive]}
+          onPress={() => setJourneyFilter('disrupted')}
+        >
+          <Text style={[styles.filterTabText, journeyFilter === 'disrupted' && styles.filterTabTextActive]}>
+            Disrupted
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.filterTab, journeyFilter === 'all' && styles.filterTabActive]}
+          onPress={() => setJourneyFilter('all')}
+        >
+          <Text style={[styles.filterTabText, journeyFilter === 'all' && styles.filterTabTextActive]}>
+            All
+          </Text>
+        </Pressable>
+      </View>
+
       <SectionList
         sections={sections}
         keyExtractor={j => String(j.id)}
         style={styles.list}
         stickySectionHeadersEnabled={false}
-        ListEmptyComponent={<Text style={styles.empty}>No journeys imported yet.</Text>}
+        ListEmptyComponent={
+          <Text style={styles.empty}>
+            {journeyFilter === 'disrupted' ? 'No disrupted journeys found.' : 'No journeys imported yet.'}
+          </Text>
+        }
         renderSectionHeader={({ section }) => <Text style={styles.dayHeader}>{section.title}</Text>}
         renderItem={({ item }) => (
           <Pressable style={styles.row} onPress={() => onSelect(item)}>
@@ -234,6 +268,24 @@ const styles = StyleSheet.create({
   importHint: { color: colors.textDim, fontSize: 12, marginTop: spacing.xs },
   exportLink: { color: colors.accentBright, fontSize: 12, fontWeight: '600', marginTop: spacing.s },
   importSummary: { color: colors.text, fontSize: 13, marginTop: spacing.s },
+  filterRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderColor: colors.cardBorder,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 3,
+    marginTop: spacing.m,
+  },
+  filterTab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.s,
+    borderRadius: 8,
+  },
+  filterTabActive: { backgroundColor: colors.accentBright },
+  filterTabText: { color: colors.textDim, fontSize: 14, fontWeight: '600' },
+  filterTabTextActive: { color: '#fff', fontWeight: '700' },
   list: { flex: 1, marginTop: spacing.m },
   empty: { color: colors.textDim, fontSize: 14, marginTop: spacing.m },
   disputeCard: {
