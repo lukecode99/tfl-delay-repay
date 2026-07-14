@@ -1,7 +1,8 @@
 // TfL-5/7: journey list grouped by day, eligible journeys badged with the
 // estimated refund, lifetime claim totals up top.
 import React from 'react';
-import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { shareRawStatements } from '../journeys/raw-export-io';
 import type { ClaimRecord } from '../claims/db';
 import { claimTotals } from '../claims/stats';
 import type { Assessment } from '../eligibility/engine';
@@ -74,6 +75,18 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
     return m;
   }, [journeys]);
 
+  // TfL-23: share the raw TfL statements captured on the last refresh.
+  const onExportPress = React.useCallback(async () => {
+    try {
+      const shared = await shareRawStatements();
+      if (!shared) {
+        Alert.alert('Nothing to export yet', 'Tap "Refresh from TfL" first to pull your statements, then export.');
+      }
+    } catch (e) {
+      Alert.alert('Export failed', String(e));
+    }
+  }, []);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>TfL Delay Repay</Text>
@@ -104,6 +117,9 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
         Journeys update when you open the app — you can watch the TfL page as it works, and sign
         in right there if asked. You can also share a TfL CSV statement to this app from Files / Mail.
       </Text>
+      <Pressable onPress={onExportPress} hitSlop={8}>
+        <Text style={styles.exportLink}>⬆ Export raw statements (share the CSVs from your last refresh)</Text>
+      </Pressable>
       {refreshNote && <Text style={styles.importSummary}>{refreshNote}</Text>}
       {lastImport && (
         <Text style={styles.importSummary}>
@@ -216,6 +232,7 @@ const styles = StyleSheet.create({
   refreshButtonBusy: { opacity: 0.6 },
   refreshButtonText: { color: colors.accentBright, fontSize: 16, fontWeight: '700' },
   importHint: { color: colors.textDim, fontSize: 12, marginTop: spacing.xs },
+  exportLink: { color: colors.accentBright, fontSize: 12, fontWeight: '600', marginTop: spacing.s },
   importSummary: { color: colors.text, fontSize: 13, marginTop: spacing.s },
   list: { flex: 1, marginTop: spacing.m },
   empty: { color: colors.textDim, fontSize: 14, marginTop: spacing.m },

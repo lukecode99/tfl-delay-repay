@@ -47,6 +47,8 @@ import {
 } from './direct-csv';
 import { getMeta, listCards, setMeta } from './db';
 import { importCsvText, ImportOutcome } from './import';
+import { saveRawStatements } from './raw-export-io';
+import type { RawStatement } from './raw-export';
 import {
   canHandover,
   FETCH_MODE_KEY,
@@ -344,10 +346,14 @@ export default function RefreshSheet({ onClose }: Props) {
             // card id, so multiple cards stay separate (TfL-19).
             const existingCards = listCards();
             let inserted = 0;
+            const rawFiles: RawStatement[] = [];
             for (const f of files) {
               recordCsvHit('direct', String(f?.url ?? ''));
               const text = String(f?.text ?? '');
               const fileCard = String(f?.card ?? '').trim();
+              // Keep the raw text so the user can export the unparsed statements
+              // (TfL-23) — including rows the importer skips as non-rail.
+              rawFiles.push({ period: String(f?.period ?? ''), card: fileCard, text });
               const outcome = importCsvText(text, `${pickCardId(existingCards, fileCard || undefined)}.csv`);
               outcomeRef.current = mergeOutcome(outcomeRef.current, outcome);
               inserted += outcome.inserted;
@@ -360,6 +366,11 @@ export default function RefreshSheet({ onClose }: Props) {
                 : `${tag}: parsed ${outcome.parsed.journeys.length}, inserted ${outcome.inserted}, duplicates ${outcome.duplicates}`);
             }
             recordAudit('imported', `${inserted} new journeys`);
+            // Persist the raw statements for the Export CSV button (fire and
+            // forget — the import result must not wait on a share file).
+            saveRawStatements(rawFiles)
+              .then(nn => recordAudit('raw-export', `saved ${nn} raw statement(s)`))
+              .catch(e => recordAudit('raw-export', `save failed: ${String(e)}`));
             dispatch({ type: 'imported', inserted });
           } catch (e) {
             recordAudit('import-failed', String(e));
