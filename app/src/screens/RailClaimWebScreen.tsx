@@ -38,6 +38,8 @@ export default function RailClaimWebScreen({ journey, onDone }: Props) {
   const fields = useMemo(() => buildPrefillFields(journey), [journey]);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [fillNote, setFillNote] = useState<string | null>(null);
+  // Web-history back — operator portals are multi-page; same pattern as ClaimWebScreen.
+  const [canGoBack, setCanGoBack] = useState(false);
 
   const copy = async (f: PrefillField) => {
     await Clipboard.setStringAsync(f.value);
@@ -74,7 +76,10 @@ export default function RailClaimWebScreen({ journey, onDone }: Props) {
     <View style={styles.container}>
       <View style={styles.topBar}>
         <Pressable onPress={onDone} hitSlop={12}>
-          <Text style={styles.back}>‹ Back</Text>
+          <Text style={styles.back}>✕</Text>
+        </Pressable>
+        <Pressable onPress={() => webRef.current?.goBack()} hitSlop={12} disabled={!canGoBack}>
+          <Text style={[styles.back, !canGoBack && styles.backDisabled]}>‹ Back</Text>
         </Pressable>
         <Text style={styles.topTitle} numberOfLines={1}>File claim — {portalName}</Text>
         <Pressable style={styles.claimedButton} onPress={() => { claimRailJourney(journey.id); onDone(); }}>
@@ -100,6 +105,7 @@ export default function RailClaimWebScreen({ journey, onDone }: Props) {
         source={{ uri: claimUrl(journey) }}
         style={styles.web}
         onMessage={onMessage}
+        onNavigationStateChange={(nav: { canGoBack?: boolean }) => setCanGoBack(!!nav?.canGoBack)}
         sharedCookiesEnabled={false}
         incognito={false}
       />
@@ -114,6 +120,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.s },
   back: { color: colors.accentBright, fontSize: 17, marginRight: spacing.m },
+  backDisabled: { opacity: 0.35 },
   topTitle: { color: colors.text, fontSize: 15, fontWeight: '700', flex: 1 },
   claimedButton: {
     backgroundColor: colors.good,

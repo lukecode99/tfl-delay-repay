@@ -37,6 +37,9 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [fillNote, setFillNote] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string>(CLAIM_APPLY_URL);
+  // Web-history back: TfL's flow spans several pages (sign-in → cards → Apply)
+  // and a wrong tap previously meant closing and reopening the whole screen.
+  const [canGoBack, setCanGoBack] = useState(false);
   // TfL-22: after TfL's sign-in the OAuth flow returns to the contactless
   // Dashboard, not the card list we opened. Advance to MyCards once so login
   // never strands the user on the dashboard. One-shot — never loops.
@@ -117,7 +120,10 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
     <View style={styles.container}>
       <View style={styles.topBar}>
         <Pressable onPress={() => onDone(false)} hitSlop={12}>
-          <Text style={styles.back}>‹ Back</Text>
+          <Text style={styles.back}>✕</Text>
+        </Pressable>
+        <Pressable onPress={() => webRef.current?.goBack()} hitSlop={12} disabled={!canGoBack}>
+          <Text style={[styles.back, !canGoBack && styles.backDisabled]}>‹ Back</Text>
         </Pressable>
         <Text style={styles.topTitle} numberOfLines={1}>File claim on tfl.gov.uk</Text>
         <Pressable style={styles.claimedButton} onPress={() => { markClaimed(journey.id, assessment?.refundValue ?? null); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onDone(true); }}>
@@ -149,7 +155,8 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
         // in an iframe); the script's window flag stops double-patching.
         injectedJavaScript={buildNetCaptureScript()}
         injectedJavaScriptForMainFrameOnly={false}
-        onNavigationStateChange={(nav: { url?: string }) => {
+        onNavigationStateChange={(nav: { url?: string; canGoBack?: boolean }) => {
+          setCanGoBack(!!nav?.canGoBack);
           if (!nav?.url) return;
           const url = String(nav.url);
           recordAudit('claim-nav', url);
@@ -180,6 +187,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.s },
   back: { color: colors.accentBright, fontSize: 17, marginRight: spacing.m },
+  backDisabled: { opacity: 0.35 },
   topTitle: { color: colors.text, fontSize: 15, fontWeight: '700', flex: 1 },
   claimedButton: {
     backgroundColor: colors.good,
