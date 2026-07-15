@@ -1,10 +1,11 @@
-// TfL-5/7: journey list grouped by day, eligible journeys badged with the
-// estimated refund, lifetime claim totals up top.
-import React, { useState } from 'react';
-import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
-import { shareRawStatements } from '../journeys/raw-export-io';
+// Journeys tab (home v1.2 redesign): full journey list with lifecycle filter
+// chips. A journey carries a SET of status tags (eligible/claimed/awaiting/
+// received/rejected/missed can coexist) and chips match "has this tag".
+// The home screen deep-links here with a filter pre-applied.
+import React from 'react';
+import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import type { ClaimRecord } from '../claims/db';
-import { claimTotals } from '../claims/stats';
+import { claimDeadline } from '../eligibility/deadline';
 import type { Assessment } from '../eligibility/engine';
 import type { AssessmentMap } from '../eligibility/use-assessments';
 import { formatGBP, groupByDay } from '../format';
@@ -12,6 +13,10 @@ import type { StoredJourney } from '../journeys/db';
 import type { ImportOutcome } from '../journeys/import';
 import { detectOvercharges, totalDisputableRefund, claimableOvercharges } from '../journeys/incomplete-fare';
 import { journeyKey } from '../journeys/parse';
+import {
+  FILTER_LABELS, FILTER_ORDER, matchesFilter, statusTags,
+  type JourneyFilter, type StatusTag,
+} from '../journeys/status-tags';
 import { colors, spacing } from '../theme';
 
 interface Props {
@@ -21,13 +26,20 @@ interface Props {
   lastImport: ImportOutcome | null;
   onImportPress: () => void;
   onSelect: (journey: StoredJourney) => void;
-  // TfL-10: auto-fetch through the signed-in TfL session
   onRefreshPress: () => void;
   refreshing: boolean;
   refreshNote: string | null;
+  /** Filter pushed in by a home-screen stat tap. */
+  filter: JourneyFilter;
+  onFilterChange: (f: JourneyFilter) => void;
 }
 
-function Badge({ assessment, claim }: { assessment: Assessment | undefined; claim: ClaimRecord | undefined }) {
+function Badge({ assessment, claim, missed }: {
+  assessment: Assessment | undefined;
+  claim: ClaimRecord | undefined;
+  missed: boolean;
+}) {
+  if (missed) return <Text style={styles.badgeExpired}>Expired</Text>;
   if (claim?.status === 'paid') {
     return (
       <Text style={styles.badgeClaimed}>
@@ -51,29 +63,36 @@ function Badge({ assessment, claim }: { assessment: Assessment | undefined; clai
   return null; // not eligible / not assessable — keep rows quiet
 }
 
-export default function JourneysScreen({ journeys, assessments, claims, lastImport, onImportPress, onSelect, onRefreshPress, refreshing, refreshNote }: Props) {
-  // TfL-FILTER: client-side filter — Disrupted shows only assessed-eligible
-  // journeys (confirmed disruption + overage met threshold), All shows everything.
-  const [journeyFilter, setJourneyFilter] = useState<'disrupted' | 'all'>('disrupted');
+const todayISO = () => new Date().toISOString().slice(0, 10);
 
-  const filteredJourneys = journeyFilter === 'disrupted'
-    ? journeys.filter(j => assessments.get(j.id)?.status === 'eligible')
-    : journeys;
+export default function JourneysScreen({
+  journeys, assessments, claims, lastImport, onImportPress, onSelect,
+  onRefreshPress, refreshing, refreshNote, filter, onFilterChange,
+}: Props) {
+  const today = React.useMemo(todayISO, []);
 
+  // Tag every journey once per data change; chips and counts both read this.
+  const tagsById = React.useMemo(() => {
+    const m = new Map<number, Set<StatusTag>>();
+    for (const j of journeys) {
+      m.set(j.id, statusTags({
+        eligible: assessments.get(j.id)?.status === 'eligible',
+        claimStatus: claims.get(j.id)?.status ?? null,
+        daysLeft: claimDeadline(j.date, today).daysLeft,
+      }));
+    }
+    return m;
+  }, [journeys, assessments, claims, today]);
+
+  const filteredJourneys = journeys.filter(j => matchesFilter(tagsById.get(j.id) ?? new Set(), filter));
   const sections = groupByDay(filteredJourneys);
-
-  // Summary stats always reflect the full unfiltered list.
-  const eligibleCount = journeys.filter(j => assessments.get(j.id)?.status === 'eligible').length;
-  const totals = claimTotals([...claims.values()]);
+  const missedCount = filter === 'missed' ? filteredJourneys.length : 0;
 
   // TfL-21/22: missing tap-outs charged above the user's usual fare for that
   // origin — a disputable max-fare overcharge. Learned from their own history.
-  // We pull deep history to learn routes, but only surface overcharges still
-  // inside TfL's 8-week claim window and past the 48h auto-refund wait.
-  const asOfISO = React.useMemo(() => new Date().toISOString().slice(0, 10), []);
   const allOvercharges = React.useMemo(
-    () => detectOvercharges(journeys, { asOfISO }),
-    [journeys, asOfISO],
+    () => detectOvercharges(journeys, { asOfISO: today }),
+    [journeys, today],
   );
   const overcharges = React.useMemo(() => claimableOvercharges(allOvercharges), [allOvercharges]);
   const disputable = totalDisputableRefund(overcharges);
@@ -85,36 +104,11 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
     return m;
   }, [journeys]);
 
-  // TfL-23: share the raw TfL statements captured on the last refresh.
-  const onExportPress = React.useCallback(async () => {
-    try {
-      const shared = await shareRawStatements();
-      if (!shared) {
-        Alert.alert('Nothing to export yet', 'Tap "Refresh from TfL" first to pull your statements, then export.');
-      }
-    } catch (e) {
-      Alert.alert('Export failed', String(e));
-    }
-  }, []);
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>TfL Delay Repay</Text>
-      <Text style={styles.subtitle}>
-        {journeys.length} journeys
-        {eligibleCount > 0 ? ` · ${eligibleCount} likely eligible` : ''}
-      </Text>
-      {totals.claimedCount > 0 && (
-        <Text style={styles.totals}>
-          Claimed {formatGBP(totals.claimedValue)} · received {formatGBP(totals.paidValue)}
-          {totals.openCount > 0 ? ` · ${totals.openCount} awaiting TfL` : ''}
-        </Text>
-      )}
+      <Text style={styles.title}>Journeys</Text>
 
       <View style={styles.buttonRow}>
-        <Pressable style={[styles.importButton, styles.buttonRowItem]} onPress={onImportPress}>
-          <Text style={styles.importButtonText}>Import CSV</Text>
-        </Pressable>
         <Pressable
           style={[styles.refreshButton, styles.buttonRowItem, refreshing && styles.refreshButtonBusy]}
           onPress={onRefreshPress}
@@ -122,14 +116,10 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
         >
           <Text style={styles.refreshButtonText}>{refreshing ? 'Checking TfL…' : 'Refresh from TfL'}</Text>
         </Pressable>
+        <Pressable style={[styles.importButton, styles.buttonRowItem]} onPress={onImportPress}>
+          <Text style={styles.importButtonText}>Import CSV</Text>
+        </Pressable>
       </View>
-      <Text style={styles.importHint}>
-        Journeys update when you open the app — you can watch the TfL page as it works, and sign
-        in right there if asked. You can also share a TfL CSV statement to this app from Files / Mail.
-      </Text>
-      <Pressable onPress={onExportPress} hitSlop={8}>
-        <Text style={styles.exportLink}>⬆ Export raw statements (share the CSVs from your last refresh)</Text>
-      </Pressable>
       {refreshNote && <Text style={styles.importSummary}>{refreshNote}</Text>}
       {lastImport && (
         <Text style={styles.importSummary}>
@@ -189,25 +179,25 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
         </View>
       )}
 
-      {/* TfL-FILTER: Disrupted / All toggle */}
-      <View style={styles.filterRow}>
-        <Pressable
-          style={[styles.filterTab, journeyFilter === 'disrupted' && styles.filterTabActive]}
-          onPress={() => setJourneyFilter('disrupted')}
-        >
-          <Text style={[styles.filterTabText, journeyFilter === 'disrupted' && styles.filterTabTextActive]}>
-            Disrupted
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.filterTab, journeyFilter === 'all' && styles.filterTabActive]}
-          onPress={() => setJourneyFilter('all')}
-        >
-          <Text style={[styles.filterTabText, journeyFilter === 'all' && styles.filterTabTextActive]}>
-            All
-          </Text>
-        </Pressable>
+      {/* Lifecycle filter chips — wrap onto two rows */}
+      <View style={styles.chipRow}>
+        {FILTER_ORDER.map(f => (
+          <Pressable
+            key={f}
+            style={[styles.chip, filter === f && styles.chipActive]}
+            onPress={() => onFilterChange(f)}
+          >
+            <Text style={[styles.chipText, filter === f && styles.chipTextActive]}>
+              {FILTER_LABELS[f]}
+            </Text>
+          </Pressable>
+        ))}
       </View>
+      {filter === 'missed' && missedCount > 0 && (
+        <Text style={styles.missedCaption}>
+          {missedCount} MISSED · OVER 28 DAYS OLD — WINDOW CLOSED
+        </Text>
+      )}
 
       <SectionList
         sections={sections}
@@ -216,25 +206,31 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
         stickySectionHeadersEnabled={false}
         ListEmptyComponent={
           <Text style={styles.empty}>
-            {journeyFilter === 'disrupted' ? 'No disrupted journeys found.' : 'No journeys imported yet.'}
+            {filter === 'all' ? 'No journeys imported yet.' : `No ${FILTER_LABELS[filter].toLowerCase()} journeys.`}
           </Text>
         }
         renderSectionHeader={({ section }) => <Text style={styles.dayHeader}>{section.title}</Text>}
-        renderItem={({ item }) => (
-          <Pressable style={styles.row} onPress={() => onSelect(item)}>
-            <View style={styles.rowMain}>
-              <Text style={styles.route} numberOfLines={1}>
-                {item.origin} → {item.destination ?? '?'}
-              </Text>
-              <Text style={styles.meta}>
-                {item.tapInTime ?? '--:--'}–{item.tapOutTime ?? '--:--'}
-                {item.charge != null ? `  ·  ${formatGBP(item.charge)}` : ''}
-              </Text>
-            </View>
-            <Badge assessment={assessments.get(item.id)} claim={claims.get(item.id)} />
-            <Text style={styles.chevron}>›</Text>
-          </Pressable>
-        )}
+        renderItem={({ item }) => {
+          const missed = tagsById.get(item.id)?.has('missed') ?? false;
+          const a = assessments.get(item.id);
+          return (
+            <Pressable style={[styles.row, missed && styles.rowMissed]} onPress={() => onSelect(item)}>
+              {missed && <View style={styles.stripeMissed} />}
+              <View style={styles.rowMain}>
+                <Text style={styles.route} numberOfLines={1}>
+                  {item.origin} → {item.destination ?? '?'}
+                </Text>
+                <Text style={styles.meta}>
+                  {item.tapInTime ?? '--:--'}–{item.tapOutTime ?? '--:--'}
+                  {item.charge != null ? `  ·  ${formatGBP(item.charge)}` : ''}
+                  {missed && a?.refundValue != null ? `  ·  was worth ${formatGBP(a.refundValue)}` : ''}
+                </Text>
+              </View>
+              <Badge assessment={a} claim={claims.get(item.id)} missed={missed} />
+              <Text style={styles.chevron}>›</Text>
+            </Pressable>
+          );
+        }}
       />
     </View>
   );
@@ -242,20 +238,19 @@ export default function JourneysScreen({ journeys, assessments, claims, lastImpo
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  title: { color: colors.text, fontSize: 28, fontWeight: '700', marginBottom: spacing.xs },
-  subtitle: { color: colors.textDim, fontSize: 14, marginBottom: spacing.m },
-  totals: { color: colors.good, fontSize: 14, fontWeight: '700', marginTop: -spacing.s, marginBottom: spacing.m },
+  title: { color: colors.text, fontSize: 28, fontWeight: '800', marginBottom: spacing.m },
   buttonRow: { flexDirection: 'row' },
   buttonRowItem: { flex: 1 },
-  importButton: {
+  refreshButton: {
     backgroundColor: colors.accentBright,
     borderRadius: 12,
     padding: spacing.m,
     alignItems: 'center',
     marginRight: spacing.s,
   },
-  importButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  refreshButton: {
+  refreshButtonBusy: { opacity: 0.6 },
+  refreshButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  importButton: {
     backgroundColor: colors.card,
     borderColor: colors.accentBright,
     borderWidth: 1,
@@ -263,30 +258,30 @@ const styles = StyleSheet.create({
     padding: spacing.m,
     alignItems: 'center',
   },
-  refreshButtonBusy: { opacity: 0.6 },
-  refreshButtonText: { color: colors.accentBright, fontSize: 16, fontWeight: '700' },
-  importHint: { color: colors.textDim, fontSize: 12, marginTop: spacing.xs },
-  exportLink: { color: colors.accentBright, fontSize: 12, fontWeight: '600', marginTop: spacing.s },
+  importButtonText: { color: colors.accentBright, fontSize: 16, fontWeight: '700' },
   importSummary: { color: colors.text, fontSize: 13, marginTop: spacing.s },
-  filterRow: {
-    flexDirection: 'row',
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.m },
+  chip: {
     backgroundColor: colors.card,
     borderColor: colors.cardBorder,
     borderWidth: 1,
-    borderRadius: 10,
-    padding: 3,
-    marginTop: spacing.m,
-  },
-  filterTab: {
-    flex: 1,
-    alignItems: 'center',
+    borderRadius: 20,
     paddingVertical: spacing.s,
-    borderRadius: 8,
+    paddingHorizontal: spacing.m - 2,
+    marginRight: spacing.s,
+    marginBottom: spacing.s,
   },
-  filterTabActive: { backgroundColor: colors.accentBright },
-  filterTabText: { color: colors.textDim, fontSize: 14, fontWeight: '600' },
-  filterTabTextActive: { color: '#fff', fontWeight: '700' },
-  list: { flex: 1, marginTop: spacing.m },
+  chipActive: { backgroundColor: colors.accentBright, borderColor: colors.accentBright },
+  chipText: { color: colors.textDim, fontSize: 13, fontWeight: '600' },
+  chipTextActive: { color: '#fff', fontWeight: '700' },
+  missedCaption: {
+    color: colors.textDim,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    marginBottom: spacing.xs,
+  },
+  list: { flex: 1 },
   empty: { color: colors.textDim, fontSize: 14, marginTop: spacing.m },
   disputeCard: {
     backgroundColor: colors.card,
@@ -327,6 +322,8 @@ const styles = StyleSheet.create({
     padding: spacing.m,
     marginBottom: spacing.s,
   },
+  rowMissed: { opacity: 0.65 },
+  stripeMissed: { width: 4, alignSelf: 'stretch', borderRadius: 3, backgroundColor: colors.textDim, marginRight: spacing.m },
   rowMain: { flex: 1, marginRight: spacing.s },
   route: { color: colors.text, fontSize: 15, fontWeight: '600' },
   meta: { color: colors.textDim, fontSize: 12, marginTop: 2 },
@@ -334,6 +331,17 @@ const styles = StyleSheet.create({
   badgeClaimed: { color: colors.good, fontSize: 13, fontWeight: '700', marginRight: spacing.s },
   badgeRejected: { color: colors.bad, fontSize: 13, fontWeight: '700', marginRight: spacing.s },
   badgeWarn: { color: colors.warn, fontSize: 15, marginRight: spacing.s },
+  badgeExpired: {
+    color: colors.textDim,
+    fontSize: 11,
+    fontWeight: '700',
+    backgroundColor: colors.bg,
+    borderRadius: 20,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    overflow: 'hidden',
+    marginRight: spacing.s,
+  },
   badgeEligible: {
     backgroundColor: colors.good,
     borderRadius: 8,

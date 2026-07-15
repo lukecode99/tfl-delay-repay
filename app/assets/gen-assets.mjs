@@ -55,14 +55,27 @@ function writePng(file, w, h, pixelFn) {
 }
 
 const BG = [10, 14, 26];       // #0A0E1A
-const RING = [77, 107, 255];   // #4D6BFF
-const BAR = [242, 244, 250];   // #F2F4FA
+const RING = [77, 107, 255];   // #4D6BFF accentBright
+const BAR = [0, 25, 168];      // #0019A8 accent
+const HAND = [255, 255, 255];  // clock hands + centre dot
 
-// Ring + horizontal bar centred at (cx, cy), scaled by s (=size of the mark).
+function segDist(dx, dy, hx, hy) {
+  const len2 = hx * hx + hy * hy;
+  let t = (dx * hx + dy * hy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  const ex = dx - t * hx, ey = dy - t * hy;
+  return Math.sqrt(ex * ex + ey * ey);
+}
+
+// P1 roundel-clock (chosen 15-Jul-2026): purple ring, deep-blue bar,
+// white hour hand to 12 + minute hand to ~4, white centre dot.
 function mark(x, y, cx, cy, s) {
   const dx = x - cx, dy = y - cy;
   const d = Math.sqrt(dx * dx + dy * dy);
-  const barHalfH = s * 0.09, barHalfW = s * 0.52;
+  if (d < s * 0.0375) return HAND; // centre dot
+  if (segDist(dx, dy, 0, -s * 0.242) < s * 0.027) return HAND;        // hour hand -> 12
+  if (segDist(dx, dy, s * 0.179, s * 0.104) < s * 0.021) return HAND; // minute hand -> ~4
+  const barHalfH = s * 0.0875, barHalfW = s * 0.467;
   if (Math.abs(dy) < barHalfH && Math.abs(dx) < barHalfW) return BAR;
   if (d > s * 0.28 && d < s * 0.42) return RING;
   return BG;

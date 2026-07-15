@@ -13,7 +13,9 @@ import { getMeta, listJourneys, setMeta, StoredJourney } from './src/journeys/db
 import { ImportOutcome, importFromUrl, importViaPicker } from './src/journeys/import';
 import ClaimDetailScreen from './src/screens/ClaimDetailScreen';
 import ClaimWebScreen from './src/screens/ClaimWebScreen';
+import HomeScreen from './src/screens/HomeScreen';
 import JourneysScreen from './src/screens/JourneysScreen';
+import type { JourneyFilter } from './src/journeys/status-tags';
 import { getAllRailJourneys, type RailJourney } from './src/rail/db';
 import RailJourneysScreen from './src/screens/RailJourneysScreen';
 import RailJourneyEntryScreen from './src/screens/RailJourneyEntryScreen';
@@ -23,16 +25,22 @@ import StatsScreen from './src/screens/StatsScreen';
 import { colors, spacing } from './src/theme';
 import { FEATURE_RAIL } from './src/config';
 
-// Journeys list → claim detail → guided claim WebView (TfL-5/6). Three
-// screens, state-switched — the app is shallow enough that a navigation
+// Home → journeys list → claim detail → guided claim WebView (TfL-5/6).
+// State-switched screens — the app is shallow enough that a navigation
 // library would be dead weight.
+// Home v1.2: summary stats deep-link into Journeys with a filter pre-applied.
 // NR-1: Rail mode adds a parallel three-screen stack toggled by a tab bar.
 // TfL-18: Log tab shows the refresh audit trail (shareable as text).
 // TfL-24: Stats tab — spend charts + poor-service / claimed totals.
-type AppMode = 'tfl' | 'rail' | 'stats' | 'log';
+type AppMode = 'home' | 'journeys' | 'rail' | 'stats' | 'log';
 
 export default function App() {
-  const [mode, setMode] = useState<AppMode>('tfl');
+  const [mode, setMode] = useState<AppMode>('home');
+  const [journeysFilter, setJourneysFilter] = useState<JourneyFilter>('eligible');
+  const openJourneys = useCallback((f: JourneyFilter) => {
+    setJourneysFilter(f);
+    setMode('journeys');
+  }, []);
 
   // --- TfL state ---
   const [journeys, setJourneys] = useState<StoredJourney[]>([]);
@@ -155,8 +163,9 @@ export default function App() {
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" />
 
-        {/* TfL screens */}
-        {mode === 'tfl' && (
+        {/* TfL screens — claim detail/web render above BOTH home and journeys,
+            so home's Claim button opens the same flow as a journeys-row tap. */}
+        {(mode === 'home' || mode === 'journeys') && (
           selected && filing ? (
             <ClaimWebScreen
               journey={selected}
@@ -170,6 +179,19 @@ export default function App() {
               onBack={() => { setSelected(null); refresh(); }}
               onFileClaim={() => setFiling(true)}
             />
+          ) : mode === 'home' ? (
+            <HomeScreen
+              journeys={journeys}
+              assessments={assessments}
+              claims={claims}
+              lastImport={lastImport}
+              refreshing={autoFetching}
+              refreshNote={refreshNote}
+              onRefreshPress={() => startAutoFetch(true)}
+              onImportPress={onImportPress}
+              onSelect={setSelected}
+              onOpenJourneys={openJourneys}
+            />
           ) : (
             <JourneysScreen
               journeys={journeys}
@@ -181,10 +203,12 @@ export default function App() {
               onRefreshPress={() => startAutoFetch(true)}
               refreshing={autoFetching}
               refreshNote={refreshNote}
+              filter={journeysFilter}
+              onFilterChange={setJourneysFilter}
             />
           )
         )}
-        {mode === 'tfl' && autoFetching && <RefreshSheet onClose={onRefreshClose} />}
+        {(mode === 'home' || mode === 'journeys') && autoFetching && <RefreshSheet onClose={onRefreshClose} />}
 
         {/* Stats (TfL-24) */}
         {mode === 'stats' && <StatsScreen journeys={journeys} assessments={assessments} claims={claims} />}
@@ -219,10 +243,16 @@ export default function App() {
         {showTabs && (
           <View style={styles.tabBar}>
             <Pressable
-              style={[styles.tab, mode === 'tfl' && styles.tabActive]}
-              onPress={() => setMode('tfl')}
+              style={[styles.tab, mode === 'home' && styles.tabActive]}
+              onPress={() => setMode('home')}
             >
-              <Text style={[styles.tabText, mode === 'tfl' && styles.tabTextActive]}>TfL</Text>
+              <Text style={[styles.tabText, mode === 'home' && styles.tabTextActive]}>Home</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.tab, mode === 'journeys' && styles.tabActive]}
+              onPress={() => setMode('journeys')}
+            >
+              <Text style={[styles.tabText, mode === 'journeys' && styles.tabTextActive]}>Journeys</Text>
             </Pressable>
             {FEATURE_RAIL && (
               <Pressable
