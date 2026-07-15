@@ -20,6 +20,7 @@ import { getAllRailJourneys, type RailJourney } from './src/rail/db';
 import RailJourneysScreen from './src/screens/RailJourneysScreen';
 import RailJourneyEntryScreen from './src/screens/RailJourneyEntryScreen';
 import RailClaimWebScreen from './src/screens/RailClaimWebScreen';
+import AboutScreen from './src/screens/AboutScreen';
 import AuditLogScreen from './src/screens/AuditLogScreen';
 import StatsScreen from './src/screens/StatsScreen';
 import { colors, spacing } from './src/theme';
@@ -32,7 +33,8 @@ import { FEATURE_RAIL } from './src/config';
 // NR-1: Rail mode adds a parallel three-screen stack toggled by a tab bar.
 // TfL-18: Log tab shows the refresh audit trail (shareable as text).
 // TfL-24: Stats tab — spend charts + poor-service / claimed totals.
-type AppMode = 'home' | 'journeys' | 'rail' | 'stats' | 'log';
+// About tab: TfL-terms FAQ + not-affiliated / data-on-device statements.
+type AppMode = 'home' | 'journeys' | 'rail' | 'stats' | 'log' | 'about';
 
 export default function App() {
   const [mode, setMode] = useState<AppMode>('home');
@@ -216,6 +218,9 @@ export default function App() {
         {/* Audit log (TfL-18) */}
         {mode === 'log' && <AuditLogScreen />}
 
+        {/* About & FAQ */}
+        {mode === 'about' && <AboutScreen />}
+
         {/* Rail screens — hidden when FEATURE_RAIL is false */}
         {FEATURE_RAIL && mode === 'rail' && (
           railSelected ? (
@@ -273,6 +278,12 @@ export default function App() {
               onPress={() => setMode('log')}
             >
               <Text style={[styles.tabText, mode === 'log' && styles.tabTextActive]}>Log</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.tab, mode === 'about' && styles.tabActive]}
+              onPress={() => setMode('about')}
+            >
+              <Text style={[styles.tabText, mode === 'about' && styles.tabTextActive]}>About</Text>
             </Pressable>
           </View>
         )}
