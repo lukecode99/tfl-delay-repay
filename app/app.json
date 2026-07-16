@@ -19,6 +19,7 @@
       "bundleIdentifier": "com.nanoluke.tfldelayrepay",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["fetch"],
         "LSSupportsOpeningDocumentsInPlace": true,
         "CFBundleDocumentTypes": [
           {
