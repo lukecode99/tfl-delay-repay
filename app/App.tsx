@@ -1,8 +1,13 @@
+// Side-effect import: registers the background fetch task at module evaluation
+// time (required by expo-task-manager before any component mounts).
+import './src/notifications/background-task';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, AppState, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ClaimRecord, listClaims } from './src/claims/db';
+import { initLedger, refreshLedger } from './src/data/ledger-store';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 import { syncClaimReminders } from './src/claims/notify';
 import { planReminders } from './src/claims/reminders';
 import { claimDeadline } from './src/eligibility/deadline';
@@ -37,7 +42,8 @@ import { FEATURE_RAIL } from './src/config';
 // TfL-18: Log tab shows the refresh audit trail (shareable as text).
 // TfL-24: Stats tab — spend charts + poor-service / claimed totals.
 // About tab: TfL-terms FAQ + not-affiliated / data-on-device statements.
-type AppMode = 'home' | 'journeys' | 'rail' | 'stats' | 'log' | 'about';
+// TfL-PUSH: Notifications tab — delay alert subscriptions.
+type AppMode = 'home' | 'journeys' | 'rail' | 'stats' | 'log' | 'notifications' | 'about';
 
 // First-launch guide (16-Jul): shows once, then never again. Bump the key to
 // re-show after a flow change big enough that existing users need the tour.
@@ -50,6 +56,12 @@ export default function App() {
   const openJourneys = useCallback((f: JourneyFilter) => {
     setJourneysFilter(f);
     setMode('journeys');
+  }, []);
+
+  // --- TfL-LIVE: live ledger fetch ---
+  const [ledgerNote, setLedgerNote] = useState<string | null>(null);
+  useEffect(() => {
+    initLedger().then(r => { if (r.dataNote) setLedgerNote(r.dataNote); });
   }, []);
 
   // --- TfL state ---
@@ -144,7 +156,12 @@ export default function App() {
   // flips showWelcome and the fetch (step 1 of the guide) starts right after.
   useEffect(() => { if (!showWelcome) startAutoFetch(false); }, [startAutoFetch, showWelcome]);
   useEffect(() => {
-    const sub = AppState.addEventListener('change', s => { if (s === 'active') startAutoFetch(false); });
+    const sub = AppState.addEventListener('change', s => {
+      if (s === 'active') {
+        startAutoFetch(false);
+        refreshLedger(); // best-effort — throttled to 30 min
+      }
+    });
     return () => sub.remove();
   }, [startAutoFetch]);
 
@@ -247,6 +264,9 @@ export default function App() {
         {/* About & FAQ */}
         {mode === 'about' && <AboutScreen />}
 
+        {/* TfL-PUSH: delay notifications */}
+        {mode === 'notifications' && <NotificationsScreen journeys={journeys} />}
+
         {/* Rail screens — hidden when FEATURE_RAIL is false */}
         {FEATURE_RAIL && mode === 'rail' && (
           railSelected ? (
@@ -280,6 +300,7 @@ export default function App() {
               ...(FEATURE_RAIL ? [['rail', 'Rail']] : []),
               ['stats', 'Stats'],
               ['log', 'Log'],
+              ['notifications', 'Alerts'],
               ['about', 'About'],
             ] as [AppMode, string][]).map(([m, label]) => (
               <Pressable
