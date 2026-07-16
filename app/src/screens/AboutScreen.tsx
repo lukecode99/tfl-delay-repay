@@ -57,13 +57,20 @@ export default function AboutScreen() {
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: spacing.l }}>
       <Text style={styles.title}>About</Text>
       <Text style={styles.body}>
-        This app helps you notice Tube, DLR, Overground and Elizabeth line journeys that may
-        qualify for a TfL service delay refund, and walks you through claiming them from TfL —
-        before the 28-day window closes.
+        Every year, millions of pounds in TfL delay refunds go unclaimed — not because the delays
+        didn't happen, but because nobody has time to notice them, prove them and file before the
+        28-day window slams shut.
       </Text>
       <Text style={styles.body}>
-        It is an independent app, not affiliated with Transport for London. Your data stays on
-        your phone, and every claim is submitted by you, through TfL's own form.
+        This app does the noticing for you. It measures every Tube, DLR, Overground and Elizabeth
+        line journey in your own history against TfL's refund rules, flags the ones worth money —
+        including max-fare overcharges from missed tap-outs — and walks you through claiming them
+        while there's still time.
+      </Text>
+      <Text style={styles.body}>
+        Independent, private, and on your side: not affiliated with Transport for London, no
+        account with us, and your data never leaves your phone. Every claim is submitted by you,
+        through TfL's own form.
       </Text>
 
       <Text style={styles.sectionLabel}>FAQ</Text>

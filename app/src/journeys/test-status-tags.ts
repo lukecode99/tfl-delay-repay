@@ -46,6 +46,21 @@ test('ineligible journeys never tag missed', () => {
   assert.equal(t.size, 0);
 });
 
+test('overcharged tags overcharged AND eligible (even pending-auto)', () => {
+  const t = statusTags({ eligible: false, overcharged: true, claimStatus: null, daysLeft: 20 });
+  assert.deepEqual([...t].sort(), ['eligible', 'overcharged']);
+});
+
+test('overcharged alone never tags missed — missed is delay-claims only', () => {
+  const t = statusTags({ eligible: false, overcharged: true, claimStatus: null, daysLeft: -10 });
+  assert.deepEqual([...t].sort(), ['eligible', 'overcharged']);
+});
+
+test('overcharged omitted behaves as before', () => {
+  const t = statusTags({ eligible: true, claimStatus: null, daysLeft: 5 });
+  assert.deepEqual([...t].sort(), ['eligible']);
+});
+
 test('matchesFilter: all matches everything, tags match membership', () => {
   const t = statusTags({ eligible: true, claimStatus: 'rejected', daysLeft: -40 });
   assert.equal(matchesFilter(t, 'all'), true);

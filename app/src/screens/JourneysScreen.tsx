@@ -11,8 +11,7 @@ import type { AssessmentMap } from '../eligibility/use-assessments';
 import { formatGBP, groupByDay } from '../format';
 import type { StoredJourney } from '../journeys/db';
 import type { ImportOutcome } from '../journeys/import';
-import { detectOvercharges, totalDisputableRefund, claimableOvercharges } from '../journeys/incomplete-fare';
-import { journeyKey } from '../journeys/parse';
+import type { OverchargeCandidate } from '../journeys/incomplete-fare';
 import {
   FILTER_LABELS, FILTER_ORDER, matchesFilter, statusTags,
   type JourneyFilter, type StatusTag,
@@ -22,6 +21,8 @@ import { colors, spacing } from '../theme';
 interface Props {
   journeys: StoredJourney[];
   assessments: AssessmentMap;
+  /** Detected max-fare overcharges, keyed by journey id (computed in App). */
+  overchargeById: Map<number, OverchargeCandidate>;
   claims: Map<number, ClaimRecord>;
   lastImport: ImportOutcome | null;
   onImportPress: () => void;
@@ -34,10 +35,11 @@ interface Props {
   onFilterChange: (f: JourneyFilter) => void;
 }
 
-function Badge({ assessment, claim, missed }: {
+function Badge({ assessment, claim, missed, overcharge }: {
   assessment: Assessment | undefined;
   claim: ClaimRecord | undefined;
   missed: boolean;
+  overcharge: OverchargeCandidate | undefined;
 }) {
   if (missed) return <Text style={styles.badgeExpired}>Expired</Text>;
   if (claim?.status === 'paid') {
@@ -49,6 +51,9 @@ function Badge({ assessment, claim, missed }: {
   }
   if (claim?.status === 'rejected') return <Text style={styles.badgeRejected}>✗ rejected</Text>;
   if (claim) return <Text style={styles.badgeClaimed}>✓ claimed</Text>;
+  if (overcharge && overcharge.claimStatus !== 'expired') {
+    return <Text style={styles.badgeWarn}>⚠ +{formatGBP(overcharge.estimatedRefund)}</Text>;
+  }
   if (!assessment) return <Text style={styles.badgePending}>…</Text>;
   if (assessment.status === 'eligible') {
     const value = assessment.refundValue != null ? `≈${formatGBP(assessment.refundValue)}` : 'refund';
@@ -66,43 +71,31 @@ function Badge({ assessment, claim, missed }: {
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function JourneysScreen({
-  journeys, assessments, claims, lastImport, onImportPress, onSelect,
+  journeys, assessments, overchargeById, claims, lastImport, onImportPress, onSelect,
   onRefreshPress, refreshing, refreshNote, filter, onFilterChange,
 }: Props) {
   const today = React.useMemo(todayISO, []);
 
   // Tag every journey once per data change; chips and counts both read this.
+  // Overcharge detail lives on the journey's own detail screen (TfL-OVERCHARGE-UX)
+  // — discovery here is via the Overcharged/Eligible chips and the row badge.
   const tagsById = React.useMemo(() => {
     const m = new Map<number, Set<StatusTag>>();
     for (const j of journeys) {
+      const oc = overchargeById.get(j.id);
       m.set(j.id, statusTags({
         eligible: assessments.get(j.id)?.status === 'eligible',
+        overcharged: oc != null && oc.claimStatus !== 'expired',
         claimStatus: claims.get(j.id)?.status ?? null,
         daysLeft: claimDeadline(j.date, today).daysLeft,
       }));
     }
     return m;
-  }, [journeys, assessments, claims, today]);
+  }, [journeys, assessments, overchargeById, claims, today]);
 
   const filteredJourneys = journeys.filter(j => matchesFilter(tagsById.get(j.id) ?? new Set(), filter));
   const sections = groupByDay(filteredJourneys);
   const missedCount = filter === 'missed' ? filteredJourneys.length : 0;
-
-  // TfL-21/22: missing tap-outs charged above the user's usual fare for that
-  // origin — a disputable max-fare overcharge. Learned from their own history.
-  const allOvercharges = React.useMemo(
-    () => detectOvercharges(journeys, { asOfISO: today }),
-    [journeys, today],
-  );
-  const overcharges = React.useMemo(() => claimableOvercharges(allOvercharges), [allOvercharges]);
-  const disputable = totalDisputableRefund(overcharges);
-  const pendingAutoCount = allOvercharges.filter(c => c.claimStatus === 'pending-auto').length;
-  const expiredCount = allOvercharges.filter(c => c.claimStatus === 'expired').length;
-  const journeyByKey = React.useMemo(() => {
-    const m = new Map<string, StoredJourney>();
-    for (const j of journeys) m.set(journeyKey(j), j);
-    return m;
-  }, [journeys]);
 
   return (
     <View style={styles.container}>
@@ -129,54 +122,6 @@ export default function JourneysScreen({
           {lastImport.incomplete > 0 ? `, ${lastImport.incomplete} incomplete` : ''}
           {lastImport.parsed.skipped > 0 ? ` (${lastImport.parsed.skipped} non-rail rows ignored)` : ''}
         </Text>
-      )}
-
-      {allOvercharges.length > 0 && (
-        <View style={styles.disputeCard}>
-          <Text style={styles.disputeTitle}>
-            ⚠ {overcharges.length} claimable max-fare {overcharges.length === 1 ? 'overcharge' : 'overcharges'}
-            {disputable > 0 ? ` · ${formatGBP(disputable)} disputable` : ''}
-          </Text>
-          {overcharges.length > 0 && (
-            <Text style={styles.disputeHint}>
-              Missing tap-out charged above your usual fare for that route. Tap to review, then dispute with TfL.
-            </Text>
-          )}
-          {pendingAutoCount > 0 && (
-            <Text style={styles.disputeHint}>
-              {pendingAutoCount} more just charged — TfL usually auto-refunds these; give it 48h before claiming.
-            </Text>
-          )}
-          {expiredCount > 0 && (
-            <Text style={styles.disputeHint}>
-              {expiredCount} past TfL's 8-week claim window — no longer refundable.
-            </Text>
-          )}
-          {overcharges.slice(0, 5).map(c => {
-            const match = journeyByKey.get(c.journeyKey);
-            return (
-              <Pressable
-                key={c.journeyKey}
-                style={styles.disputeRow}
-                disabled={!match}
-                onPress={() => match && onSelect(match)}
-              >
-                <View style={styles.rowMain}>
-                  <Text style={styles.disputeRoute} numberOfLines={1}>
-                    {c.origin} → {c.likelyDestination ?? '?'}
-                  </Text>
-                  <Text style={styles.disputeMeta}>
-                    {c.date} · charged {formatGBP(c.charged)} vs usual {formatGBP(c.usualFare)} · {c.confidence}
-                  </Text>
-                </View>
-                <Text style={styles.disputeRefund}>+{formatGBP(c.estimatedRefund)}</Text>
-              </Pressable>
-            );
-          })}
-          {overcharges.length > 5 && (
-            <Text style={styles.disputeHint}>…and {overcharges.length - 5} more.</Text>
-          )}
-        </View>
       )}
 
       {/* Lifecycle filter chips — wrap onto two rows */}
@@ -226,7 +171,12 @@ export default function JourneysScreen({
                   {missed && a?.refundValue != null ? `  ·  was worth ${formatGBP(a.refundValue)}` : ''}
                 </Text>
               </View>
-              <Badge assessment={a} claim={claims.get(item.id)} missed={missed} />
+              <Badge
+                assessment={a}
+                claim={claims.get(item.id)}
+                missed={missed}
+                overcharge={overchargeById.get(item.id)}
+              />
               <Text style={styles.chevron}>›</Text>
             </Pressable>
           );
@@ -283,27 +233,6 @@ const styles = StyleSheet.create({
   },
   list: { flex: 1 },
   empty: { color: colors.textDim, fontSize: 14, marginTop: spacing.m },
-  disputeCard: {
-    backgroundColor: colors.card,
-    borderColor: colors.warn,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: spacing.m,
-    marginTop: spacing.m,
-  },
-  disputeTitle: { color: colors.warn, fontSize: 15, fontWeight: '800' },
-  disputeHint: { color: colors.textDim, fontSize: 12, marginTop: spacing.xs },
-  disputeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopColor: colors.cardBorder,
-    borderTopWidth: 1,
-    paddingTop: spacing.s,
-    marginTop: spacing.s,
-  },
-  disputeRoute: { color: colors.text, fontSize: 14, fontWeight: '600' },
-  disputeMeta: { color: colors.textDim, fontSize: 11, marginTop: 2 },
-  disputeRefund: { color: colors.good, fontSize: 14, fontWeight: '800', marginLeft: spacing.s },
   dayHeader: {
     color: colors.textDim,
     fontSize: 13,
@@ -330,7 +259,7 @@ const styles = StyleSheet.create({
   badgePending: { color: colors.textDim, fontSize: 15, marginRight: spacing.s },
   badgeClaimed: { color: colors.good, fontSize: 13, fontWeight: '700', marginRight: spacing.s },
   badgeRejected: { color: colors.bad, fontSize: 13, fontWeight: '700', marginRight: spacing.s },
-  badgeWarn: { color: colors.warn, fontSize: 15, marginRight: spacing.s },
+  badgeWarn: { color: colors.warn, fontSize: 13, fontWeight: '700', marginRight: spacing.s },
   badgeExpired: {
     color: colors.textDim,
     fontSize: 11,

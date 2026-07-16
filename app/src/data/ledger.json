@@ -1,11 +1,11 @@
 {
- "generatedAt": "2026-07-15T22:50:16.639Z",
- "sinceISO": "2026-03-17T22:50:16.611Z",
+ "generatedAt": "2026-07-16T11:14:47.984Z",
+ "sinceISO": "2026-03-18T11:14:47.940Z",
  "coverage": [
   {
    "from": "2026-07-14T21:45:00.784Z",
-   "to": "2026-07-15T22:50:00.515Z",
-   "polls": 302
+   "to": "2026-07-16T11:10:00.457Z",
+   "polls": 450
   }
  ],
  "spans": [
@@ -4576,7 +4576,7 @@
    "line": "bakerloo",
    "lineName": "Bakerloo",
    "from": "2026-07-15T17:10:00.434Z",
-   "to": "2026-07-15T22:50:00.515Z",
+   "to": "2026-07-16T00:15:00.568Z",
    "severity": 9,
    "description": "Minor Delays",
    "reason": "Bakerloo Line: Minor delays due to train cancellations. "
@@ -5782,7 +5782,7 @@
    "line": "windrush",
    "lineName": "Windrush",
    "from": "2026-07-15T22:20:00.579Z",
-   "to": "2026-07-15T22:50:00.515Z",
+   "to": "2026-07-16T00:20:00.431Z",
    "severity": 5,
    "description": "Part Closure",
    "reason": "WINDRUSH LINE: Tuesday 14 and Wednesday 15 June, after 2315 each evening, no service between Surrey Quays and Clapham Junction / Battersea Park. Use local bus route 35 (for Denmark Hill, Brixton, Clapham High Street and Clapham Junction); bus route 37 (for Peckham Rye, Brixton, Clapham High Street and Clapham Junction); and bus route 381 (for Surrey Quays, South Bermondsey, Queens Road Peckham and Peckham Rye). For Wandsworth Road, use Clapham High Street, which is a short walk away. Last through trains: Surrey Quays to Clapham Junction 2307 (Departs Dalston Junction at 2249); Clapham Junction to Dalston Junction 2330"
@@ -5809,7 +5809,7 @@
    "line": "metropolitan",
    "lineName": "Metropolitan",
    "from": "2026-07-15T22:30:00.524Z",
-   "to": "2026-07-15T22:50:00.515Z",
+   "to": "2026-07-15T23:00:06.184Z",
    "severity": 9,
    "description": "Minor Delays",
    "reason": "Metropolitan Line: Minor delays between Moor Park and Chesham due to train cancellations. The next southbound train will be at 23:30. GOOD SERVICE on the rest of the line. "
@@ -5903,6 +5903,1392 @@
    "severity": 3,
    "description": "Part Suspended",
    "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T22:55:00.313Z",
+   "to": "2026-07-15T22:55:00.313Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T22:55:00.313Z",
+   "to": "2026-07-15T22:55:00.313Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:00:06.184Z",
+   "to": "2026-07-15T23:00:06.184Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:00:06.184Z",
+   "to": "2026-07-15T23:00:06.184Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-15T23:05:00.506Z",
+   "to": "2026-07-15T23:20:00.590Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: Minor delays between Moor Park and Chesham due to train cancellations.  GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:05:00.506Z",
+   "to": "2026-07-15T23:05:00.506Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:05:00.506Z",
+   "to": "2026-07-15T23:05:00.506Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:10:00.409Z",
+   "to": "2026-07-15T23:10:00.409Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:10:00.409Z",
+   "to": "2026-07-15T23:10:00.409Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:15:00.251Z",
+   "to": "2026-07-15T23:15:00.251Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:15:00.251Z",
+   "to": "2026-07-15T23:15:00.251Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:20:00.590Z",
+   "to": "2026-07-15T23:20:00.590Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:20:00.590Z",
+   "to": "2026-07-15T23:20:00.590Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:25:00.444Z",
+   "to": "2026-07-15T23:25:00.444Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:25:00.444Z",
+   "to": "2026-07-15T23:25:00.444Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:30:00.561Z",
+   "to": "2026-07-15T23:30:00.561Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:30:00.561Z",
+   "to": "2026-07-15T23:30:00.561Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "waterloo-city",
+   "lineName": "Waterloo & City",
+   "from": "2026-07-15T23:35:00.157Z",
+   "to": "2026-07-16T04:55:00.520Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Waterloo and City Line: Service will resume at 06:00.\r\n "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:35:00.157Z",
+   "to": "2026-07-15T23:35:00.157Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:35:00.157Z",
+   "to": "2026-07-15T23:35:00.157Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:40:00.434Z",
+   "to": "2026-07-15T23:40:00.434Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:40:00.434Z",
+   "to": "2026-07-15T23:40:00.434Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:45:00.211Z",
+   "to": "2026-07-15T23:45:00.211Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:45:00.211Z",
+   "to": "2026-07-15T23:45:00.211Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:50:00.544Z",
+   "to": "2026-07-15T23:50:00.544Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:50:00.544Z",
+   "to": "2026-07-15T23:50:00.544Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:55:00.330Z",
+   "to": "2026-07-15T23:55:00.330Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-15T23:55:00.330Z",
+   "to": "2026-07-15T23:55:00.330Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-16T00:00:06.534Z",
+   "to": "2026-07-16T00:00:06.534Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-16T00:00:06.534Z",
+   "to": "2026-07-16T00:00:06.534Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-16T00:05:00.468Z",
+   "to": "2026-07-16T00:05:00.468Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-16T00:05:00.468Z",
+   "to": "2026-07-16T00:05:00.468Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-16T00:10:00.245Z",
+   "to": "2026-07-16T00:10:00.245Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-16T00:10:00.245Z",
+   "to": "2026-07-16T00:10:00.245Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-16T00:15:00.568Z",
+   "to": "2026-07-16T00:15:00.568Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-16T00:15:00.568Z",
+   "to": "2026-07-16T00:15:00.568Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Weaver Line: Until Thursday 16th July, there will be no service between Walthamstow Central and Chingford while we conduct urgent repairs to the track following a line side fire near Wood Street. Please use London Underground and London Buses to complete your journey. SEVERE DELAYS on the rest of the line. "
+  },
+  {
+   "line": "bakerloo",
+   "lineName": "Bakerloo",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Bakerloo Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "central",
+   "lineName": "Central",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Central Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "circle",
+   "lineName": "Circle",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Circle Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "district",
+   "lineName": "District",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "District Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "dlr",
+   "lineName": "DLR",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Docklands Light Railway: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "elizabeth",
+   "lineName": "Elizabeth line",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "hammersmith-city",
+   "lineName": "Hammersmith & City",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:25:00.397Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Hammersmith and City Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "jubilee",
+   "lineName": "Jubilee",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Jubilee Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "liberty",
+   "lineName": "Liberty",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Liberty Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "lioness",
+   "lineName": "Lioness",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Lioness Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Metropolitan Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "mildmay",
+   "lineName": "Mildmay",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Mildmay Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "northern",
+   "lineName": "Northern",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Northern Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "piccadilly",
+   "lineName": "Piccadilly",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Piccadilly Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "suffragette",
+   "lineName": "Suffragette",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Suffragette Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "victoria",
+   "lineName": "Victoria",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Victoria Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Weaver Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "windrush",
+   "lineName": "Windrush",
+   "from": "2026-07-16T00:20:00.431Z",
+   "to": "2026-07-16T00:20:00.431Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Windrush Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "windrush",
+   "lineName": "Windrush",
+   "from": "2026-07-16T00:25:00.180Z",
+   "to": "2026-07-16T00:25:00.180Z",
+   "severity": 5,
+   "description": "Part Closure",
+   "reason": "WINDRUSH LINE: Tuesday 14 and Wednesday 15 June, after 2315 each evening, no service between Surrey Quays and Clapham Junction / Battersea Park. Use local bus route 35 (for Denmark Hill, Brixton, Clapham High Street and Clapham Junction); bus route 37 (for Peckham Rye, Brixton, Clapham High Street and Clapham Junction); and bus route 381 (for Surrey Quays, South Bermondsey, Queens Road Peckham and Peckham Rye). For Wandsworth Road, use Clapham High Street, which is a short walk away. Last through trains: Surrey Quays to Clapham Junction 2307 (Departs Dalston Junction at 2249); Clapham Junction to Dalston Junction 2330"
+  },
+  {
+   "line": "windrush",
+   "lineName": "Windrush",
+   "from": "2026-07-16T00:25:00.180Z",
+   "to": "2026-07-16T03:15:00.252Z",
+   "severity": 20,
+   "description": "Service Closed",
+   "reason": "Windrush Line: Service will resume later this morning.\r\n "
+  },
+  {
+   "line": "weaver",
+   "lineName": "Weaver",
+   "from": "2026-07-16T03:55:00.271Z",
+   "to": "2026-07-16T11:10:00.457Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Weaver Line: Minor Delays due to a line side fire near Wood Street on Sunday. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T04:30:00.922Z",
+   "to": "2026-07-16T04:35:00.420Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate while we fix a track fault at Neasden. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T04:40:00.208Z",
+   "to": "2026-07-16T04:40:00.208Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate while we fix a track fault at Neasden. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T04:40:00.208Z",
+   "to": "2026-07-16T04:40:00.208Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate while we fix a track fault at Neasden. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T04:45:00.455Z",
+   "to": "2026-07-16T04:45:00.455Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate while we fix a track fault at Neasden. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T04:45:00.455Z",
+   "to": "2026-07-16T04:45:00.455Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate while we fix a track fault at Neasden. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "jubilee",
+   "lineName": "Jubilee",
+   "from": "2026-07-16T04:50:00.238Z",
+   "to": "2026-07-16T04:50:00.238Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Jubilee Line: No service between Wembley Park and Stanmore northbound only while we fix a track failure at Neasden. GOOD SERVICE on the rest of the line.  "
+  },
+  {
+   "line": "jubilee",
+   "lineName": "Jubilee",
+   "from": "2026-07-16T04:55:00.520Z",
+   "to": "2026-07-16T04:55:00.520Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Jubilee Line: No service between Wembley Park and Stanmore northbound only while we fix a track failure at Neasden. Tickets are being accepted on London Buses, Mildmay line, DLR, Elizabeth line, C2C, Southeastern and Thameslink. GOOD SERVICE on the rest of the line.  "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T04:55:00.520Z",
+   "to": "2026-07-16T04:55:00.520Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate while we fix a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T04:55:00.520Z",
+   "to": "2026-07-16T04:55:00.520Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate while we fix a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "jubilee",
+   "lineName": "Jubilee",
+   "from": "2026-07-16T05:00:06.565Z",
+   "to": "2026-07-16T05:00:06.565Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Jubilee Line: No service between Wembley Park and Stanmore northbound only while we fix a track fault at Neasden. Tickets are being accepted on London Buses, Mildmay line, DLR, Elizabeth line, C2C, Southeastern and Thameslink. GOOD SERVICE on the rest of the line.  "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:00:06.565Z",
+   "to": "2026-07-16T05:00:06.565Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate while we fix a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:00:06.565Z",
+   "to": "2026-07-16T05:00:06.565Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate while we fix a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:05:00.144Z",
+   "to": "2026-07-16T05:05:00.144Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate while we fix a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:05:00.144Z",
+   "to": "2026-07-16T05:05:00.144Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate while we fix a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "jubilee",
+   "lineName": "Jubilee",
+   "from": "2026-07-16T05:10:00.420Z",
+   "to": "2026-07-16T06:15:01.296Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Jubilee Line: Minor delays due to a track fault at Neasden.   "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:10:00.420Z",
+   "to": "2026-07-16T05:10:00.420Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate while we fix a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:10:00.420Z",
+   "to": "2026-07-16T05:10:00.420Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate while we fix a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:15:00.241Z",
+   "to": "2026-07-16T05:15:00.241Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate while we fix a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:15:00.241Z",
+   "to": "2026-07-16T05:15:00.241Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate while we fix a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:20:00.524Z",
+   "to": "2026-07-16T05:20:00.524Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:20:00.524Z",
+   "to": "2026-07-16T05:20:00.524Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:25:00.340Z",
+   "to": "2026-07-16T05:25:00.340Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:25:00.340Z",
+   "to": "2026-07-16T05:25:00.340Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:30:00.889Z",
+   "to": "2026-07-16T05:30:00.889Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:30:00.889Z",
+   "to": "2026-07-16T05:30:00.889Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:35:00.409Z",
+   "to": "2026-07-16T05:35:00.409Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:35:00.409Z",
+   "to": "2026-07-16T05:35:00.409Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Harrow-on-the-Hill and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:40:00.253Z",
+   "to": "2026-07-16T05:40:00.253Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:40:00.253Z",
+   "to": "2026-07-16T05:40:00.253Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:45:00.578Z",
+   "to": "2026-07-16T05:45:00.578Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:45:00.578Z",
+   "to": "2026-07-16T05:45:00.578Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:50:00.401Z",
+   "to": "2026-07-16T05:50:00.401Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:50:00.401Z",
+   "to": "2026-07-16T05:50:00.401Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:55:00.227Z",
+   "to": "2026-07-16T05:55:00.227Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T05:55:00.227Z",
+   "to": "2026-07-16T05:55:00.227Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:00:06.450Z",
+   "to": "2026-07-16T06:00:06.450Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:00:06.450Z",
+   "to": "2026-07-16T06:00:06.450Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:05:00.328Z",
+   "to": "2026-07-16T06:05:00.328Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:05:00.328Z",
+   "to": "2026-07-16T06:05:00.328Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:10:00.187Z",
+   "to": "2026-07-16T06:10:00.187Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:10:00.187Z",
+   "to": "2026-07-16T06:10:00.187Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:15:01.296Z",
+   "to": "2026-07-16T06:15:01.296Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:15:01.296Z",
+   "to": "2026-07-16T06:15:01.296Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:20:00.301Z",
+   "to": "2026-07-16T06:20:00.301Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:20:00.301Z",
+   "to": "2026-07-16T06:20:00.301Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:25:00.144Z",
+   "to": "2026-07-16T06:25:00.144Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:25:00.144Z",
+   "to": "2026-07-16T06:25:00.144Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:30:00.799Z",
+   "to": "2026-07-16T06:30:00.799Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:30:00.799Z",
+   "to": "2026-07-16T06:30:00.799Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:35:00.326Z",
+   "to": "2026-07-16T06:35:00.326Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:35:00.326Z",
+   "to": "2026-07-16T06:35:00.326Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:40:00.116Z",
+   "to": "2026-07-16T06:40:00.116Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:40:00.116Z",
+   "to": "2026-07-16T06:40:00.116Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "central",
+   "lineName": "Central",
+   "from": "2026-07-16T06:45:07.418Z",
+   "to": "2026-07-16T08:00:05.842Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Central Line: Minor delays between White City and Ealing Broadway/West Ruislip, and between Leytonstone and Epping/Hainault via Newbury Park due to train cancellations. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:45:07.418Z",
+   "to": "2026-07-16T06:45:07.418Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:45:07.418Z",
+   "to": "2026-07-16T06:45:07.418Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:50:01.624Z",
+   "to": "2026-07-16T06:50:01.624Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:50:01.624Z",
+   "to": "2026-07-16T06:50:01.624Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:55:00.450Z",
+   "to": "2026-07-16T06:55:00.450Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T06:55:00.450Z",
+   "to": "2026-07-16T06:55:00.450Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:00:36.449Z",
+   "to": "2026-07-16T07:00:36.449Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:00:36.449Z",
+   "to": "2026-07-16T07:00:36.449Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:05:00.155Z",
+   "to": "2026-07-16T07:05:00.155Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:05:00.155Z",
+   "to": "2026-07-16T07:05:00.155Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "victoria",
+   "lineName": "Victoria",
+   "from": "2026-07-16T07:05:00.155Z",
+   "to": "2026-07-16T08:50:00.286Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Victoria Line: Minor delays due to train cancellations. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:10:00.442Z",
+   "to": "2026-07-16T07:10:00.442Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:10:00.442Z",
+   "to": "2026-07-16T07:10:00.442Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:15:00.232Z",
+   "to": "2026-07-16T07:15:00.232Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:15:00.232Z",
+   "to": "2026-07-16T07:15:00.232Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:20:00.558Z",
+   "to": "2026-07-16T07:20:00.558Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:20:00.558Z",
+   "to": "2026-07-16T07:20:00.558Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:25:00.452Z",
+   "to": "2026-07-16T07:25:00.452Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:25:00.452Z",
+   "to": "2026-07-16T07:25:00.452Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:30:00.519Z",
+   "to": "2026-07-16T07:30:00.519Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:30:00.519Z",
+   "to": "2026-07-16T07:30:00.519Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:35:00.468Z",
+   "to": "2026-07-16T07:35:00.468Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:35:00.468Z",
+   "to": "2026-07-16T07:35:00.468Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Wembley Park and Aldgate due to a track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink. MINOR DELAYS on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T07:40:00.398Z",
+   "to": "2026-07-16T10:30:00.634Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Metropolitan Line: Severe delays due to an earlier track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "bakerloo",
+   "lineName": "Bakerloo",
+   "from": "2026-07-16T08:45:00.541Z",
+   "to": "2026-07-16T08:50:00.286Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Bakerloo Line: Minor delays between Elephant & Castle and Queen's Park while we fix a track fault at Waterloo. GOOD service on the rest of the line. "
+  },
+  {
+   "line": "bakerloo",
+   "lineName": "Bakerloo",
+   "from": "2026-07-16T08:55:00.585Z",
+   "to": "2026-07-16T09:15:00.403Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Bakerloo Line: Severe delays while we fix a track fault at Waterloo. Tickets will be accepted on London Buses, Lioness line, London Northwestern and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "bakerloo",
+   "lineName": "Bakerloo",
+   "from": "2026-07-16T09:20:00.180Z",
+   "to": "2026-07-16T10:20:00.148Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Bakerloo Line: Severe delays due to an earlier track fault at Waterloo. Tickets will be accepted on London Buses, Lioness line, London Northwestern and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "jubilee",
+   "lineName": "Jubilee",
+   "from": "2026-07-16T09:50:00.362Z",
+   "to": "2026-07-16T09:50:00.362Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Jubilee Line: Minor delays between Stratford and North Greenwich while we fix a points failure at Stratford. GOOD SERVICE on the rest of the line.  "
+  },
+  {
+   "line": "jubilee",
+   "lineName": "Jubilee",
+   "from": "2026-07-16T09:55:00.179Z",
+   "to": "2026-07-16T10:00:08.094Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Jubilee Line: Minor delays while we fix a points failure at Stratford.  "
+  },
+  {
+   "line": "northern",
+   "lineName": "Northern",
+   "from": "2026-07-16T10:05:00.228Z",
+   "to": "2026-07-16T11:10:00.457Z",
+   "severity": 9,
+   "description": "Minor Delays",
+   "reason": "Northern Line: Minor delays between Morden and Kennington northbound only due to an earlier faulty train at South Wimbledon. GOOD SERVICE on the rest of the line. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T10:35:00.543Z",
+   "to": "2026-07-16T10:35:00.543Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Metropolitan Line: No service between Moor Park and Watford, and SEVERE DELAYS on the rest of the line due to an earlier track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T10:35:00.543Z",
+   "to": "2026-07-16T10:35:00.543Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Moor Park and Watford, and SEVERE DELAYS on the rest of the line due to an earlier track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T10:40:00.294Z",
+   "to": "2026-07-16T10:40:00.294Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Metropolitan Line: No service between Moor Park and Watford, and SEVERE DELAYS on the rest of the line due to an earlier track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T10:40:00.294Z",
+   "to": "2026-07-16T10:40:00.294Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Moor Park and Watford, and SEVERE DELAYS on the rest of the line due to an earlier track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T10:45:00.166Z",
+   "to": "2026-07-16T10:45:00.166Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Metropolitan Line: No service between Moor Park and Watford, and SEVERE DELAYS on the rest of the line due to an earlier track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T10:45:00.166Z",
+   "to": "2026-07-16T10:45:00.166Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Moor Park and Watford, and SEVERE DELAYS on the rest of the line due to an earlier track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T10:50:00.566Z",
+   "to": "2026-07-16T10:50:00.566Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Metropolitan Line: No service between Moor Park and Watford, and SEVERE DELAYS on the rest of the line due to an earlier track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T10:50:00.566Z",
+   "to": "2026-07-16T10:50:00.566Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Moor Park and Watford, and SEVERE DELAYS on the rest of the line due to an earlier track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T10:55:00.351Z",
+   "to": "2026-07-16T10:55:00.351Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Metropolitan Line: No service between Moor Park and Watford, and SEVERE DELAYS on the rest of the line due to an earlier track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T10:55:00.351Z",
+   "to": "2026-07-16T10:55:00.351Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Moor Park and Watford, and SEVERE DELAYS on the rest of the line due to an earlier track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T11:00:06.905Z",
+   "to": "2026-07-16T11:00:06.905Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Metropolitan Line: No service between Moor Park and Watford, and SEVERE DELAYS on the rest of the line due to an earlier track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T11:00:06.905Z",
+   "to": "2026-07-16T11:00:06.905Z",
+   "severity": 3,
+   "description": "Part Suspended",
+   "reason": "Metropolitan Line: No service between Moor Park and Watford, and SEVERE DELAYS on the rest of the line due to an earlier track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink via any reasonable route. "
+  },
+  {
+   "line": "metropolitan",
+   "lineName": "Metropolitan",
+   "from": "2026-07-16T11:05:00.128Z",
+   "to": "2026-07-16T11:10:00.457Z",
+   "severity": 6,
+   "description": "Severe Delays",
+   "reason": "Metropolitan Line: Severe delays due to an earlier track fault at Neasden. Tickets are being accepted on London Buses, Lioness line, London Northwestern Railway, Chiltern Railway and Thameslink via any reasonable route. "
   }
  ]
 }

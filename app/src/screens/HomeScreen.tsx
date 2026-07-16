@@ -11,6 +11,7 @@ import type { AssessmentMap } from '../eligibility/use-assessments';
 import { formatGBP } from '../format';
 import type { StoredJourney } from '../journeys/db';
 import type { ImportOutcome } from '../journeys/import';
+import type { OverchargeCandidate } from '../journeys/incomplete-fare';
 import { shareRawStatements } from '../journeys/raw-export-io';
 import { statusTags, type JourneyFilter } from '../journeys/status-tags';
 import { colors, spacing } from '../theme';
@@ -18,6 +19,8 @@ import { colors, spacing } from '../theme';
 interface Props {
   journeys: StoredJourney[];
   assessments: AssessmentMap;
+  /** Detected max-fare overcharges, keyed by journey id (computed in App). */
+  overchargeById: Map<number, OverchargeCandidate>;
   claims: Map<number, ClaimRecord>;
   lastImport: ImportOutcome | null;
   refreshing: boolean;
@@ -31,7 +34,7 @@ interface Props {
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function HomeScreen({
-  journeys, assessments, claims, lastImport, refreshing, refreshNote,
+  journeys, assessments, overchargeById, claims, lastImport, refreshing, refreshNote,
   onRefreshPress, onImportPress, onSelect, onOpenJourneys,
 }: Props) {
   const today = React.useMemo(todayISO, []);
@@ -42,18 +45,22 @@ export default function HomeScreen({
     const attn: StoredJourney[] = [];
     for (const j of journeys) {
       const isEligible = assessments.get(j.id)?.status === 'eligible';
-      if (isEligible) eligible++;
+      const oc = overchargeById.get(j.id);
       const { daysLeft } = claimDeadline(j.date, today);
       const tags = statusTags({
         eligible: isEligible,
+        overcharged: oc != null && oc.claimStatus !== 'expired',
         claimStatus: claims.get(j.id)?.status ?? null,
         daysLeft,
       });
+      // Count from tags so the headline matches the Eligible chip exactly —
+      // live overcharges count as eligible money too.
+      if (tags.has('eligible')) eligible++;
       if (tags.has('missed')) missed++;
       else if (isEligible && !tags.has('claimed')) attn.push(j);
     }
     return { eligibleCount: eligible, missedCount: missed, attention: attn };
-  }, [journeys, assessments, claims, today]);
+  }, [journeys, assessments, overchargeById, claims, today]);
 
   const onExportPress = React.useCallback(async () => {
     try {

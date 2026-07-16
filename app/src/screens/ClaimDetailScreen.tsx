@@ -2,17 +2,24 @@
 // duration, disruption from the ledger, refund value, days left to claim.
 import React, { useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { getClaim, reopenClaim, setClaimOutcome, unmarkClaimed } from '../claims/db';
 import { claimDeadline } from '../eligibility/deadline';
 import type { Assessment } from '../eligibility/engine';
 import { formatDay, formatGBP } from '../format';
 import type { StoredJourney } from '../journeys/db';
+import type { OverchargeCandidate } from '../journeys/incomplete-fare';
 import { colors, lineColors, spacing } from '../theme';
+
+// Incomplete-journey overcharges are corrected through the contactless account
+// (a different route from the service-delay-refund form used by onFileClaim).
+const TFL_CONTACTLESS_URL = 'https://contactless.tfl.gov.uk/';
 
 interface Props {
   journey: StoredJourney;
   assessment: Assessment | undefined;
+  /** Detected max-fare overcharge for this journey, if any (TfL-OVERCHARGE-UX). */
+  overcharge?: OverchargeCandidate;
   onBack: () => void;
   onFileClaim: () => void;
 }
@@ -40,7 +47,7 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function ClaimDetailScreen({ journey, assessment: a, onBack, onFileClaim }: Props) {
+export default function ClaimDetailScreen({ journey, assessment: a, overcharge, onBack, onFileClaim }: Props) {
   const [claim, setClaim] = useState(() => getClaim(journey.id));
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -79,6 +86,47 @@ export default function ClaimDetailScreen({ journey, assessment: a, onBack, onFi
             {a.status === 'not-eligible' ? 'Not eligible' : 'Can’t assess'}
           </Text>
           <Text style={styles.bannerBody}>{REASON_TEXT[a.reasonCode] ?? a.reasonCode}</Text>
+        </View>
+      )}
+
+      {/* Max-fare overcharge (TfL-OVERCHARGE-UX) — moved here from the
+          Journeys-list banner; the Overcharged chip is now the way in. */}
+      {overcharge && (
+        <View style={[styles.card, styles.overchargeCard]}>
+          <Text style={[styles.cardTitle, { color: colors.warn }]}>⚠ Max-fare overcharge</Text>
+          <Row label="Charged (no tap-out)" value={formatGBP(overcharge.charged)} />
+          <Row
+            label={`Your usual fare${overcharge.likelyDestination ? ` to ${overcharge.likelyDestination}` : ''}`}
+            value={formatGBP(overcharge.usualFare)}
+          />
+          <Row label="Disputable" value={`+${formatGBP(overcharge.estimatedRefund)}`} />
+          <Text style={styles.dimText}>{overcharge.reason}</Text>
+          {overcharge.claimStatus === 'pending-auto' && (
+            <Text style={styles.overchargeNote}>
+              Charged under 48 hours ago — TfL usually auto-refunds these. Check your card first;
+              if it hasn't appeared after 48 hours, claim below.
+            </Text>
+          )}
+          {overcharge.claimStatus === 'expired' && (
+            <Text style={styles.overchargeNote}>
+              Past TfL's 8-week window — this one is no longer refundable.
+            </Text>
+          )}
+          {overcharge.claimStatus !== 'expired' && (
+            <>
+              {overcharge.claimDeadline && (
+                <Text style={styles.overchargeNote}>
+                  Claim by {formatDay(overcharge.claimDeadline)} (8 weeks after travel).
+                </Text>
+              )}
+              <Pressable
+                style={styles.disputeButton}
+                onPress={() => Linking.openURL(TFL_CONTACTLESS_URL).catch(() => { /* browser declined */ })}
+              >
+                <Text style={styles.disputeButtonText}>Correct this fare on TfL contactless</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       )}
 
@@ -254,6 +302,16 @@ const styles = StyleSheet.create({
   reason: { color: colors.text, fontSize: 14, marginTop: spacing.xs, lineHeight: 20 },
   loggedAt: { color: colors.textDim, fontSize: 12, marginTop: spacing.s },
   dimText: { color: colors.textDim, fontSize: 13, lineHeight: 18 },
+  overchargeCard: { borderColor: colors.warn },
+  overchargeNote: { color: colors.warn, fontSize: 13, lineHeight: 18, marginTop: spacing.s },
+  disputeButton: {
+    backgroundColor: colors.warn,
+    borderRadius: 10,
+    padding: spacing.s + 3,
+    alignItems: 'center',
+    marginTop: spacing.s,
+  },
+  disputeButtonText: { color: '#231A00', fontSize: 14, fontWeight: '800' },
   daysLeft: { color: colors.good, fontSize: 20, fontWeight: '800', marginBottom: spacing.xs },
   fileButton: {
     backgroundColor: colors.accentBright,

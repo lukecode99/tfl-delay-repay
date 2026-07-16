@@ -15,7 +15,10 @@ import ClaimDetailScreen from './src/screens/ClaimDetailScreen';
 import ClaimWebScreen from './src/screens/ClaimWebScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import JourneysScreen from './src/screens/JourneysScreen';
+import WelcomeScreen from './src/screens/WelcomeScreen';
 import type { JourneyFilter } from './src/journeys/status-tags';
+import { detectOvercharges, type OverchargeCandidate } from './src/journeys/incomplete-fare';
+import { journeyKey } from './src/journeys/parse';
 import { getAllRailJourneys, type RailJourney } from './src/rail/db';
 import RailJourneysScreen from './src/screens/RailJourneysScreen';
 import RailJourneyEntryScreen from './src/screens/RailJourneyEntryScreen';
@@ -36,8 +39,13 @@ import { FEATURE_RAIL } from './src/config';
 // About tab: TfL-terms FAQ + not-affiliated / data-on-device statements.
 type AppMode = 'home' | 'journeys' | 'rail' | 'stats' | 'log' | 'about';
 
+// First-launch guide (16-Jul): shows once, then never again. Bump the key to
+// re-show after a flow change big enough that existing users need the tour.
+const WELCOME_SEEN_KEY = 'welcome-seen-v1';
+
 export default function App() {
   const [mode, setMode] = useState<AppMode>('home');
+  const [showWelcome, setShowWelcome] = useState(() => getMeta(WELCOME_SEEN_KEY) == null);
   const [journeysFilter, setJourneysFilter] = useState<JourneyFilter>('eligible');
   const openJourneys = useCallback((f: JourneyFilter) => {
     setJourneysFilter(f);
@@ -51,6 +59,19 @@ export default function App() {
   const [claims, setClaims] = useState<Map<number, ClaimRecord>>(new Map());
   const [lastImport, setLastImport] = useState<ImportOutcome | null>(null);
   const assessments = useAssessments(journeys);
+
+  // TfL-OVERCHARGE-UX: detect max-fare overcharges once, keyed by journey id,
+  // so the Journeys chips, Home stats and the claim-detail card all agree.
+  const overchargeById = React.useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const byKey = new Map(detectOvercharges(journeys, { asOfISO: today }).map(c => [c.journeyKey, c]));
+    const m = new Map<number, OverchargeCandidate>();
+    for (const j of journeys) {
+      const c = byKey.get(journeyKey(j));
+      if (c) m.set(j.id, c);
+    }
+    return m;
+  }, [journeys]);
 
   const refresh = useCallback(() => {
     setJourneys(listJourneys(200));
@@ -119,7 +140,9 @@ export default function App() {
     });
   }, []);
 
-  useEffect(() => { startAutoFetch(false); }, [startAutoFetch]);
+  // Hold the launch auto-fetch while the first-run guide is up — dismissing it
+  // flips showWelcome and the fetch (step 1 of the guide) starts right after.
+  useEffect(() => { if (!showWelcome) startAutoFetch(false); }, [startAutoFetch, showWelcome]);
   useEffect(() => {
     const sub = AppState.addEventListener('change', s => { if (s === 'active') startAutoFetch(false); });
     return () => sub.remove();
@@ -178,6 +201,7 @@ export default function App() {
             <ClaimDetailScreen
               journey={selected}
               assessment={assessments.get(selected.id)}
+              overcharge={overchargeById.get(selected.id)}
               onBack={() => { setSelected(null); refresh(); }}
               onFileClaim={() => setFiling(true)}
             />
@@ -185,6 +209,7 @@ export default function App() {
             <HomeScreen
               journeys={journeys}
               assessments={assessments}
+              overchargeById={overchargeById}
               claims={claims}
               lastImport={lastImport}
               refreshing={autoFetching}
@@ -198,6 +223,7 @@ export default function App() {
             <JourneysScreen
               journeys={journeys}
               assessments={assessments}
+              overchargeById={overchargeById}
               claims={claims}
               lastImport={lastImport}
               onImportPress={onImportPress}
@@ -244,47 +270,42 @@ export default function App() {
           )
         )}
 
-        {/* Mode toggle tab bar */}
+        {/* Mode toggle tab bar. numberOfLines + adjustsFontSizeToFit keep every
+            label on one line — "Journeys" was wrapping onto two rows. */}
         {showTabs && (
           <View style={styles.tabBar}>
-            <Pressable
-              style={[styles.tab, mode === 'home' && styles.tabActive]}
-              onPress={() => setMode('home')}
-            >
-              <Text style={[styles.tabText, mode === 'home' && styles.tabTextActive]}>Home</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.tab, mode === 'journeys' && styles.tabActive]}
-              onPress={() => setMode('journeys')}
-            >
-              <Text style={[styles.tabText, mode === 'journeys' && styles.tabTextActive]}>Journeys</Text>
-            </Pressable>
-            {FEATURE_RAIL && (
+            {([
+              ['home', 'Home'],
+              ['journeys', 'Journeys'],
+              ...(FEATURE_RAIL ? [['rail', 'Rail']] : []),
+              ['stats', 'Stats'],
+              ['log', 'Log'],
+              ['about', 'About'],
+            ] as [AppMode, string][]).map(([m, label]) => (
               <Pressable
-                style={[styles.tab, mode === 'rail' && styles.tabActive]}
-                onPress={() => { setMode('rail'); refreshRail(); }}
+                key={m}
+                style={[styles.tab, mode === m && styles.tabActive]}
+                onPress={() => { setMode(m); if (m === 'rail') refreshRail(); }}
               >
-                <Text style={[styles.tabText, mode === 'rail' && styles.tabTextActive]}>Rail</Text>
+                <Text
+                  style={[styles.tabText, mode === m && styles.tabTextActive]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                >
+                  {label}
+                </Text>
               </Pressable>
-            )}
-            <Pressable
-              style={[styles.tab, mode === 'stats' && styles.tabActive]}
-              onPress={() => setMode('stats')}
-            >
-              <Text style={[styles.tabText, mode === 'stats' && styles.tabTextActive]}>Stats</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.tab, mode === 'log' && styles.tabActive]}
-              onPress={() => setMode('log')}
-            >
-              <Text style={[styles.tabText, mode === 'log' && styles.tabTextActive]}>Log</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.tab, mode === 'about' && styles.tabActive]}
-              onPress={() => setMode('about')}
-            >
-              <Text style={[styles.tabText, mode === 'about' && styles.tabTextActive]}>About</Text>
-            </Pressable>
+            ))}
+          </View>
+        )}
+
+        {/* First-run guide overlays everything until dismissed */}
+        {showWelcome && (
+          <View style={[StyleSheet.absoluteFill, styles.welcomeOverlay]}>
+            <WelcomeScreen
+              onDone={() => { setMeta(WELCOME_SEEN_KEY, new Date().toISOString()); setShowWelcome(false); }}
+            />
           </View>
         )}
       </SafeAreaView>
@@ -308,6 +329,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   tabActive: { backgroundColor: colors.card },
-  tabText: { color: colors.textDim, fontSize: 14, fontWeight: '600' },
+  tabText: { color: colors.textDim, fontSize: 13, fontWeight: '600' },
   tabTextActive: { color: colors.accentBright, fontWeight: '800' },
+  welcomeOverlay: { backgroundColor: colors.bg, padding: spacing.l },
 });

@@ -4,16 +4,17 @@
 // node-testable (see test-status-tags.ts).
 import type { ClaimStatus } from '../claims/db';
 
-export type StatusTag = 'eligible' | 'claimed' | 'awaiting' | 'received' | 'rejected' | 'missed';
+export type StatusTag = 'eligible' | 'overcharged' | 'claimed' | 'awaiting' | 'received' | 'rejected' | 'missed';
 export type JourneyFilter = 'all' | StatusTag;
 
 export const FILTER_ORDER: JourneyFilter[] = [
-  'all', 'eligible', 'claimed', 'awaiting', 'received', 'rejected', 'missed',
+  'all', 'eligible', 'overcharged', 'claimed', 'awaiting', 'received', 'rejected', 'missed',
 ];
 
 export const FILTER_LABELS: Record<JourneyFilter, string> = {
   all: 'All',
   eligible: 'Eligible',
+  overcharged: 'Overcharged',
   claimed: 'Claimed',
   awaiting: 'Awaiting',
   received: 'Received',
@@ -23,13 +24,18 @@ export const FILTER_LABELS: Record<JourneyFilter, string> = {
 
 export interface TagInput {
   eligible: boolean; // assessment verdict (if assessed)
+  /** Detected max-fare overcharge still inside TfL's 8-week window (claimable
+   *  OR pending-auto — recoverable money either way, so it also counts as
+   *  eligible even while the 48h auto-refund wait runs). */
+  overcharged?: boolean;
   claimStatus: ClaimStatus | null; // null = never claimed
   daysLeft: number | null; // claim-window days left; negative = window closed
 }
 
-export function statusTags({ eligible, claimStatus, daysLeft }: TagInput): Set<StatusTag> {
+export function statusTags({ eligible, overcharged, claimStatus, daysLeft }: TagInput): Set<StatusTag> {
   const tags = new Set<StatusTag>();
-  if (eligible) tags.add('eligible');
+  if (eligible || overcharged) tags.add('eligible');
+  if (overcharged) tags.add('overcharged');
   if (claimStatus != null) tags.add('claimed');
   if (claimStatus === 'claimed') tags.add('awaiting');
   if (claimStatus === 'paid') tags.add('received');
