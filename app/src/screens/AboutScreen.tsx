@@ -84,6 +84,15 @@ export default function AboutScreen() {
       <Pressable onPress={() => Linking.openURL(TFL_REFUND_URL).catch(() => { /* browser declined */ })}>
         <Text style={styles.link}>Read TfL's service delay refund terms ›</Text>
       </Pressable>
+
+      <Text style={styles.sectionLabel}>Background activity</Text>
+      <Text style={styles.answer}>
+        If you enable delay notifications, the app periodically checks for active disruptions on
+        your subscribed lines in the background using iOS background fetch. This check runs at most
+        once per hour, uses no location data, and sends no information to any server — all
+        processing happens on your device. You can disable this at any time from the Notifications
+        tab or from Settings › General › Background App Refresh.
+      </Text>
     </ScrollView>
   );
 }
