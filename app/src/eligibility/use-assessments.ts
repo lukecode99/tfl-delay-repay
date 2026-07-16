@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Assessment } from './engine';
 import { assessParsedJourney, AssessDeps } from './assess';
 import { makeSqliteTimingCache } from './adapters';
-import { bundledLookup } from './ledger';
+import { getLiveLookup } from '../data/ledger-store';
 import { openJourneyDb, StoredJourney } from '../journeys/db';
 
 let deps: AssessDeps | null = null;
@@ -15,7 +15,9 @@ function getDeps(): AssessDeps {
     deps = {
       fetchJson: (url: string) => fetch(url).then(r => r.json()),
       cache: makeSqliteTimingCache(openJourneyDb()),
-      lookup: bundledLookup,
+      // Wrapper delegates to the live lookup so assessments always use the
+      // latest fetched ledger without invalidating the deps singleton.
+      lookup: (lines, from, to) => getLiveLookup()(lines, from, to),
     };
   }
   return deps;
