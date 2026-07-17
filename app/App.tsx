@@ -1,6 +1,7 @@
-// Side-effect import: registers the background fetch task at module evaluation
+// Side-effect imports: register background fetch tasks at module evaluation
 // time (required by expo-task-manager before any component mounts).
 import './src/notifications/background-task';
+import './src/disruptions/background-task';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, Linking, Pressable, StyleSheet, Text, View } from 'react-native';

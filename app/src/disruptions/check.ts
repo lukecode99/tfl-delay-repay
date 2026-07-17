@@ -1,8 +1,8 @@
-// Foreground-only disruption checker (PUSH-SLOTS batch).
+// Foreground disruption checker for PUSH-SLOTS.
 // Called from App.tsx on AppState 'active'. Fires an immediate local
 // notification when a new disruption episode appears on a subscribed line
-// during the user's usual travel window.
-// Background-fetch is NOT enabled here — it requires Luke's explicit approval.
+// during the user's usual travel window. Background-fetch counterpart lives
+// in disruptions/background-task.ts and shares the same dedup store.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { loadProfiles, nowSlot, todayDow, type PushSlotProfile } from './push-slots';

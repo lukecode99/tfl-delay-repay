@@ -1,7 +1,8 @@
 // PUSH-SLOTS: subscription profile management screen.
 // Each profile = one TfL line + usual departure window (day-of-week + 30-min
 // slots) + origin/destination for display. Users add profiles manually; the
-// app fires a foreground disruption check and weekly slot-start reminders.
+// app fires a foreground disruption check and a background task schedules
+// accurate daily departure-time reminders.
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -24,7 +25,11 @@ import {
   slotRangeLabel,
   type PushSlotProfile,
 } from '../disruptions/push-slots';
-import { syncSlotReminders } from '../disruptions/check';
+import {
+  registerPushSlotsTask,
+  scheduleNext24h,
+  unregisterPushSlotsTask,
+} from '../disruptions/background-task';
 import type { AssessmentMap } from '../eligibility/use-assessments';
 import type { StoredJourney } from '../journeys/db';
 import { colors, lineColors, spacing } from '../theme';
@@ -251,7 +256,14 @@ export default function PushSlotsScreen({ onBack }: Props) {
   const persist = useCallback(async (next: PushSlotProfile[]) => {
     setProfiles(next);
     await saveProfiles(next);
-    await syncSlotReminders(next).catch(() => {});
+    // Schedule accurate 24h reminders immediately; background task refreshes them hourly.
+    await scheduleNext24h(next).catch(() => {});
+    const anyEnabled = next.some(p => p.enabled && p.line);
+    if (anyEnabled) {
+      await registerPushSlotsTask().catch(() => {});
+    } else {
+      await unregisterPushSlotsTask().catch(() => {});
+    }
   }, []);
 
   const handleToggle = useCallback(
@@ -268,10 +280,9 @@ export default function PushSlotsScreen({ onBack }: Props) {
     async (id: string) => {
       await removeProfile(id);
       const next = profiles.filter(p => p.id !== id);
-      setProfiles(next);
-      await syncSlotReminders(next).catch(() => {});
+      await persist(next);
     },
-    [profiles],
+    [profiles, persist],
   );
 
   const handleDaysChange = useCallback(
