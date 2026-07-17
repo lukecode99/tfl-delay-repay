@@ -2,7 +2,7 @@
 // chips. A journey carries a SET of status tags (eligible/claimed/awaiting/
 // received/rejected/missed can coexist) and chips match "has this tag".
 // The home screen deep-links here with a filter pre-applied.
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import type { ClaimRecord } from '../claims/db';
 import { claimDeadline } from '../eligibility/deadline';
@@ -70,11 +70,18 @@ function Badge({ assessment, claim, missed, overcharge }: {
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
+function cutoff13Mo(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 13);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function JourneysScreen({
   journeys, assessments, overchargeById, claims, lastImport, onImportPress, onSelect,
   onRefreshPress, refreshing, refreshNote, filter, onFilterChange,
 }: Props) {
   const today = React.useMemo(todayISO, []);
+  const [showAll, setShowAll] = useState(false);
 
   // Tag every journey once per data change; chips and counts both read this.
   // Overcharge detail lives on the journey's own detail screen (TfL-OVERCHARGE-UX)
@@ -93,7 +100,10 @@ export default function JourneysScreen({
     return m;
   }, [journeys, assessments, overchargeById, claims, today]);
 
-  const filteredJourneys = journeys.filter(j => matchesFilter(tagsById.get(j.id) ?? new Set(), filter));
+  const cutoff = React.useMemo(cutoff13Mo, []);
+  const visibleJourneys = showAll ? journeys : journeys.filter(j => j.date >= cutoff);
+  const hiddenCount = journeys.length - visibleJourneys.length;
+  const filteredJourneys = visibleJourneys.filter(j => matchesFilter(tagsById.get(j.id) ?? new Set(), filter));
   const sections = groupByDay(filteredJourneys);
   const missedCount = filter === 'missed' ? filteredJourneys.length : 0;
 
@@ -121,6 +131,9 @@ export default function JourneysScreen({
           {lastImport.duplicates > 0 ? `, ${lastImport.duplicates} duplicates skipped` : ''}
           {lastImport.incomplete > 0 ? `, ${lastImport.incomplete} incomplete` : ''}
           {lastImport.parsed.skipped > 0 ? ` (${lastImport.parsed.skipped} non-rail rows ignored)` : ''}
+          {lastImport.autoMatchedRefunds > 0
+            ? ` · ${lastImport.autoMatchedRefunds} refund${lastImport.autoMatchedRefunds === 1 ? '' : 's'} matched`
+            : ''}
         </Text>
       )}
 
@@ -153,6 +166,13 @@ export default function JourneysScreen({
           <Text style={styles.empty}>
             {filter === 'all' ? 'No journeys imported yet.' : `No ${FILTER_LABELS[filter].toLowerCase()} journeys.`}
           </Text>
+        }
+        ListFooterComponent={
+          !showAll && hiddenCount > 0 ? (
+            <Pressable style={styles.showOlderBtn} onPress={() => setShowAll(true)}>
+              <Text style={styles.showOlderText}>Show {hiddenCount} older journey{hiddenCount === 1 ? '' : 's'}</Text>
+            </Pressable>
+          ) : null
         }
         renderSectionHeader={({ section }) => <Text style={styles.dayHeader}>{section.title}</Text>}
         renderItem={({ item }) => {
@@ -282,4 +302,10 @@ const styles = StyleSheet.create({
   badgeEligibleText: { color: '#04220F', fontSize: 13, fontWeight: '800' },
   badgeConfidence: { color: '#04220F', fontSize: 9, fontWeight: '600', textTransform: 'uppercase' },
   chevron: { color: colors.textDim, fontSize: 20 },
+  showOlderBtn: {
+    alignItems: 'center',
+    padding: spacing.m,
+    marginTop: spacing.s,
+  },
+  showOlderText: { color: colors.accentBright, fontSize: 14, fontWeight: '600' },
 });

@@ -14,9 +14,16 @@ export interface ParsedJourney {
   rawAction: string; // original Journey/Action text, for display/debugging
 }
 
+export interface ParsedRefund {
+  date: string; // YYYY-MM-DD
+  credit: number; // positive £ amount
+  rawAction: string;
+}
+
 export interface ParseResult {
   journeys: ParsedJourney[];
-  skipped: number; // non-journey rows (top-ups, refunds, bus journeys…)
+  refunds: ParsedRefund[]; // Delay Repay credit rows
+  skipped: number; // non-journey rows (top-ups, bus journeys…)
   malformed: number; // rows that looked like journeys but didn't parse
 }
 
@@ -90,7 +97,7 @@ const NO_TOUCH = /no touch[- ](in|out)/i;
  */
 export function parseStatement(text: string, defaultCard = 'unknown'): ParseResult {
   const rows = csvRows(text);
-  const result: ParseResult = { journeys: [], skipped: 0, malformed: 0 };
+  const result: ParseResult = { journeys: [], refunds: [], skipped: 0, malformed: 0 };
   const headerIdx = rows.findIndex(r => {
     const lower = r.map(c => c.toLowerCase());
     return lower.some(c => c.includes('date')) && lower.some(c => c.includes('journey'));
@@ -106,6 +113,7 @@ export function parseStatement(text: string, defaultCard = 'unknown'): ParseResu
     time: col('time'), // combined "08:55 - 09:22" column (contactless web export)
     action: col('journey'),
     charge: col('charge', 'amount', 'fare'),
+    credit: col('credit'),
     note: col('note'),
     card: col('card'),
   };
@@ -115,9 +123,20 @@ export function parseStatement(text: string, defaultCard = 'unknown'): ParseResu
     if (!action) { result.skipped++; continue; }
     const date = ci.date >= 0 ? parseDate(r[ci.date] || '') : null;
 
+    // Delay Repay credit rows: TfL credits refunds as "Delay Repay" or
+    // "Service delay refund" actions with a Credit column amount.
+    if (/delay.?repay|service.?delay.?refund/i.test(action)) {
+      if (date) {
+        const credit = parseCharge(ci.credit >= 0 ? r[ci.credit] : undefined)
+                    ?? parseCharge(ci.charge >= 0 ? r[ci.charge] : undefined);
+        if (credit && credit > 0) result.refunds.push({ date, credit, rawAction: action });
+        else result.skipped++;
+      } else result.skipped++;
+      continue;
+    }
+
     // Only "X to Y" rows are rail journeys; everything else (Auto top-up,
-    // "Bus journey, route 73", season tickets, refunds) is out of scope —
-    // Delay Repay doesn't apply to buses.
+    // "Bus journey, route 73", season tickets) is out of scope.
     const m = action.match(/^(.+?) to (.+)$/i);
     if (!m || /^bus journey/i.test(action)) { result.skipped++; continue; }
     if (!date) { result.malformed++; continue; }

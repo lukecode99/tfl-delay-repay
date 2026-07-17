@@ -111,4 +111,22 @@ const CONTACTLESS_WEB = `Date,Time,Journey,Charge (GBP),Capped,Notes
   ok(journeyKey(other) !== journeyKey(a[0]), 'journeyKey: card is part of the key');
 }
 
+// --- parseStatement: Delay Repay credit rows (REFUND-DISPLAY) -----------
+const WITH_REFUND = `Date,Start Time,End Time,Journey/Action,Charge,Credit,Balance,Note
+04-Jul-2026,08:15,08:55,Finchley Road to Bank,3.10,,15.00,
+08-Jul-2026,,,Delay Repay,,2.30,17.30,Service delay refund
+09-Jul-2026,,,Auto top-up,,20.00,37.30,
+`;
+{ const r = parseStatement(WITH_REFUND);
+  ok(r.journeys.length === 1, 'refund: journey row parsed');
+  ok(r.refunds.length === 1, 'refund: Delay Repay credit row extracted');
+  ok(r.refunds[0].credit === 2.30, 'refund: credit amount parsed');
+  ok(r.refunds[0].date === '2026-07-08', 'refund: refund date parsed');
+  ok(r.refunds[0].rawAction === 'Delay Repay', 'refund: rawAction preserved');
+  ok(r.skipped === 1, 'refund: top-up still goes to skipped'); }
+{ const r = parseStatement(`Date,Journey/Action,Charge,Credit\n01-Jun-2026,Service delay refund,,3.40\n`);
+  ok(r.refunds.length === 1 && r.refunds[0].credit === 3.40, 'refund: "Service delay refund" variant detected'); }
+{ const r = parseStatement(`Date,Journey/Action,Charge,Credit\n01-Jun-2026,Delay Repay,,\n`);
+  ok(r.refunds.length === 0 && r.skipped === 1, 'refund: row with empty credit goes to skipped'); }
+
 console.log(`\nAll ${passed} assertions passed.`);

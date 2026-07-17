@@ -2,19 +2,21 @@
 // time (required by expo-task-manager before any component mounts).
 import './src/notifications/background-task';
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import * as Notifications from 'expo-notifications';
 import { ClaimRecord, listClaims } from './src/claims/db';
 import { initLedger, refreshLedger } from './src/data/ledger-store';
-import NotificationsScreen from './src/screens/NotificationsScreen';
+import { checkDisruptions } from './src/disruptions/check';
+import PushSlotsScreen from './src/screens/PushSlotsScreen';
 import { syncClaimReminders } from './src/claims/notify';
 import { planReminders } from './src/claims/reminders';
 import { claimDeadline } from './src/eligibility/deadline';
 import { useAssessments } from './src/eligibility/use-assessments';
 import { LAST_AUTOFETCH_KEY, shouldAutoFetch } from './src/journeys/autofetch';
 import RefreshSheet, { RefreshResult } from './src/journeys/RefreshSheet';
-import { getMeta, listJourneys, setMeta, StoredJourney } from './src/journeys/db';
+import { getMeta, listAllJourneys, listJourneys, setMeta, StoredJourney } from './src/journeys/db';
 import { ImportOutcome, importFromUrl, importViaPicker } from './src/journeys/import';
 import ClaimDetailScreen from './src/screens/ClaimDetailScreen';
 import ClaimWebScreen from './src/screens/ClaimWebScreen';
@@ -68,6 +70,7 @@ export default function App() {
   const [journeys, setJourneys] = useState<StoredJourney[]>([]);
   const [selected, setSelected] = useState<StoredJourney | null>(null);
   const [filing, setFiling] = useState(false);
+  const pendingNotifJourneyId = useRef<number | null>(null);
   const [claims, setClaims] = useState<Map<number, ClaimRecord>>(new Map());
   const [lastImport, setLastImport] = useState<ImportOutcome | null>(null);
   const assessments = useAssessments(journeys);
@@ -85,11 +88,43 @@ export default function App() {
     return m;
   }, [journeys]);
 
+  // HOME-LAUNCH: tap a claim-deadline notification → deep-link to journey detail
+  const handleNotificationResponse = useCallback(
+    (response: Notifications.NotificationResponse) => {
+      const journeyId = response.notification.request.content.data?.journeyId as number | undefined;
+      if (journeyId == null) return;
+      const j = journeys.find(x => x.id === journeyId);
+      if (j) { setSelected(j); setMode('journeys'); }
+      else { pendingNotifJourneyId.current = journeyId; }
+    },
+    [journeys],
+  );
+
+  // Handle notification tap on cold start
+  useEffect(() => {
+    Notifications.getLastNotificationResponseAsync().then(response => {
+      if (response) handleNotificationResponse(response);
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle notification tap while foregrounded
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+    return () => sub.remove();
+  }, [handleNotificationResponse]);
+
   const refresh = useCallback(() => {
-    setJourneys(listJourneys(200));
+    setJourneys(listAllJourneys());
     setClaims(new Map(listClaims().map(c => [c.journeyId, c])));
   }, []);
   useEffect(refresh, [refresh]);
+
+  // Resolve a notification tap that arrived before journeys were loaded
+  useEffect(() => {
+    if (pendingNotifJourneyId.current == null || journeys.length === 0) return;
+    const j = journeys.find(x => x.id === pendingNotifJourneyId.current);
+    if (j) { setSelected(j); setMode('journeys'); pendingNotifJourneyId.current = null; }
+  }, [journeys]);
 
   // Claim-deadline reminders (TfL-7): T−5 and T−1 local notifications for
   // eligible unclaimed journeys. Debounced — assessments trickle in one
@@ -160,6 +195,7 @@ export default function App() {
       if (s === 'active') {
         startAutoFetch(false);
         refreshLedger(); // best-effort — throttled to 30 min
+        checkDisruptions().catch(() => {}); // foreground-only disruption check
       }
     });
     return () => sub.remove();
@@ -264,8 +300,14 @@ export default function App() {
         {/* About & FAQ */}
         {mode === 'about' && <AboutScreen />}
 
-        {/* TfL-PUSH: delay notifications */}
-        {mode === 'notifications' && <NotificationsScreen journeys={journeys} />}
+        {/* TfL-PUSH: delay alert slot subscriptions */}
+        {mode === 'notifications' && (
+          <PushSlotsScreen
+            journeys={journeys}
+            assessments={assessments}
+            onBack={() => setMode('home')}
+          />
+        )}
 
         {/* Rail screens — hidden when FEATURE_RAIL is false */}
         {FEATURE_RAIL && mode === 'rail' && (

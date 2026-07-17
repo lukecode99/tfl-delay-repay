@@ -52,24 +52,33 @@ export function insertJourneys(journeys: ParsedJourney[]): ImportSummary {
   return insertJourneysCore(openJourneyDb(), journeys, new Date().toISOString());
 }
 
+const ROW_TO_JOURNEY = (r: any): StoredJourney => ({
+  id: r.id,
+  card: r.card,
+  date: r.date,
+  tapInTime: r.tap_in_time,
+  tapOutTime: r.tap_out_time,
+  origin: r.origin,
+  destination: r.destination,
+  charge: r.charge,
+  incomplete: !!r.incomplete,
+  rawAction: r.raw_action,
+  importedAt: r.imported_at,
+});
+
 export function listJourneys(limit = 200): StoredJourney[] {
   const d = openJourneyDb();
-  const rows = d.getAllSync<any>(
+  return d.getAllSync<any>(
     `SELECT * FROM journeys ORDER BY date DESC, tap_in_time DESC LIMIT ?`, limit,
-  );
-  return rows.map(r => ({
-    id: r.id,
-    card: r.card,
-    date: r.date,
-    tapInTime: r.tap_in_time,
-    tapOutTime: r.tap_out_time,
-    origin: r.origin,
-    destination: r.destination,
-    charge: r.charge,
-    incomplete: !!r.incomplete,
-    rawAction: r.raw_action,
-    importedAt: r.imported_at,
-  }));
+  ).map(ROW_TO_JOURNEY);
+}
+
+/** Load all journeys from the DB (no row cap). Used for the 13-month UI filter. */
+export function listAllJourneys(): StoredJourney[] {
+  const d = openJourneyDb();
+  return d.getAllSync<any>(
+    `SELECT * FROM journeys ORDER BY date DESC, tap_in_time DESC`,
+  ).map(ROW_TO_JOURNEY);
 }
 
 export function journeyCount(): number {
