@@ -4,6 +4,7 @@
 // Slot index math: slot 0 = 00:00–00:30, slot N = N*30min–(N+1)*30min, max 47.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { StoredJourney } from '../journeys/db';
+import type { JourneyCluster } from '../notifications/cluster';
 
 const STORAGE_KEY = 'push-slots-v1';
 const PHASE1_KEY = 'tfl-push-subscriptions-v1'; // cleared on first load
@@ -133,6 +134,21 @@ export async function updateProfile(profile: PushSlotProfile): Promise<void> {
 export async function removeProfile(id: string): Promise<void> {
   const profiles = await loadProfiles();
   await saveProfiles(profiles.filter(p => p.id !== id));
+}
+
+// --- Cluster → profile ---
+
+/** Build a PushSlotProfile pre-filled from a JourneyCluster (for ALERT-SUGGEST one-tap add). */
+export function clusterToProfile(cluster: JourneyCluster): PushSlotProfile {
+  return {
+    id: `profile-${Date.now()}-${cluster.dayOfWeek}`,
+    line: cluster.lines[0] ?? '',
+    origin: cluster.origin,
+    destination: cluster.destination ?? '',
+    slots: slotsFromUsualTime(cluster.avgTapIn),
+    days: [cluster.dayOfWeek],
+    enabled: true,
+  };
 }
 
 // --- Inference from journey history ---

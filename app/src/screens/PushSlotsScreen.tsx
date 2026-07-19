@@ -1,23 +1,30 @@
 // PUSH-SLOTS: subscription profile management screen.
 // Each profile = one TfL line + usual departure window (day-of-week + 30-min
-// slots) + origin/destination for display. Users add profiles manually; the
-// app fires a foreground disruption check and a background task schedules
-// accurate daily departure-time reminders.
-import React, { useCallback, useEffect, useState } from 'react';
+// slots) + origin/destination for display. Users add profiles manually or
+// accept suggestions from their journey history; the app fires a foreground
+// disruption check and a background task schedules accurate daily departure-
+// time reminders.
+//
+// ALERT-ENTRY: origin/destination collected via searchable station picker (not
+// free-text Alert.prompt). Time collected via 30-min bucket scroller.
+// ALERT-SUGGEST: top-3 clusters from journey history shown above profiles.
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
+  FlatList,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import {
   ALL_LINES,
   DOW_LABELS,
+  clusterToProfile,
   loadProfiles,
   removeProfile,
   saveProfiles,
@@ -30,9 +37,29 @@ import {
   scheduleNext24h,
   unregisterPushSlotsTask,
 } from '../disruptions/background-task';
+import { clusterJourneys, type JourneyCluster } from '../notifications/cluster';
 import type { AssessmentMap } from '../eligibility/use-assessments';
 import type { StoredJourney } from '../journeys/db';
 import { colors, lineColors, spacing } from '../theme';
+import stationsData from '../data/stations.json';
+
+interface StationEntry {
+  id: string;
+  name: string;
+  fullName: string;
+  lines: string[];
+}
+
+const STATION_LIST = (stationsData.stations as StationEntry[]);
+
+// 48 half-hour labels: "00:00", "00:30", ..., "23:30"
+const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
+  const h = Math.floor(i / 2);
+  const m = (i % 2) * 30;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+});
+
+const DEFAULT_SLOT = 17; // 08:30
 
 interface Props {
   journeys: StoredJourney[];
@@ -136,7 +163,122 @@ function ProfileCard({
   );
 }
 
-// --- Add profile modal ---
+// --- Station picker (ALERT-ENTRY) ---
+
+function StationPicker({
+  lineId,
+  title,
+  onPick,
+  onBack,
+}: {
+  lineId: string;
+  title: string;
+  onPick: (name: string) => void;
+  onBack: () => void;
+}) {
+  const [query, setQuery] = useState('');
+
+  const stations = useMemo(() => {
+    const base = STATION_LIST
+      .filter(s => s.lines.includes(lineId))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (!query.trim()) return base;
+    const q = query.toLowerCase();
+    return base.filter(s =>
+      s.name.toLowerCase().includes(q) || s.fullName.toLowerCase().includes(q),
+    );
+  }, [lineId, query]);
+
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={styles.pickerNav}>
+        <Pressable onPress={onBack}>
+          <Text style={styles.pickerNavBtn}>‹ Back</Text>
+        </Pressable>
+        <Text style={styles.pickerNavTitle}>{title}</Text>
+      </View>
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search stations…"
+        placeholderTextColor={colors.textDim}
+        value={query}
+        onChangeText={setQuery}
+        autoFocus
+      />
+      <FlatList
+        data={stations}
+        keyExtractor={s => s.id}
+        keyboardShouldPersistTaps="handled"
+        renderItem={({ item }) => (
+          <Pressable style={styles.stationRow} onPress={() => onPick(item.name)}>
+            <Text style={styles.stationName}>{item.name}</Text>
+            {item.fullName !== item.name && (
+              <Text style={styles.stationFull}>{item.fullName}</Text>
+            )}
+          </Pressable>
+        )}
+        ListEmptyComponent={
+          <Text style={styles.pickerEmpty}>No stations found</Text>
+        }
+      />
+    </View>
+  );
+}
+
+// --- Time picker (ALERT-ENTRY) ---
+
+function TimePicker({
+  selected,
+  onSelect,
+  onBack,
+  onConfirm,
+}: {
+  selected: number;
+  onSelect: (slot: number) => void;
+  onBack: () => void;
+  onConfirm: () => void;
+}) {
+  const flatRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    const idx = Math.max(0, selected - 3);
+    setTimeout(() => flatRef.current?.scrollToIndex({ index: idx, animated: false }), 80);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={styles.pickerNav}>
+        <Pressable onPress={onBack}>
+          <Text style={styles.pickerNavBtn}>‹ Back</Text>
+        </Pressable>
+        <Text style={styles.pickerNavTitle}>Usual departure time</Text>
+        <Pressable onPress={onConfirm} style={styles.confirmBtn}>
+          <Text style={styles.confirmBtnText}>Add →</Text>
+        </Pressable>
+      </View>
+      <FlatList
+        ref={flatRef}
+        data={TIME_SLOTS}
+        keyExtractor={(_, i) => String(i)}
+        getItemLayout={(_, i) => ({ length: 52, offset: 52 * i, index: i })}
+        renderItem={({ item, index }) => (
+          <Pressable
+            style={[styles.timeSlotRow, selected === index && styles.timeSlotRowSelected]}
+            onPress={() => onSelect(index)}
+          >
+            <Text style={[styles.timeSlotText, selected === index && styles.timeSlotTextSelected]}>
+              {item}
+            </Text>
+          </Pressable>
+        )}
+      />
+    </View>
+  );
+}
+
+// --- Add profile modal (ALERT-ENTRY) ---
+
+type ModalStep = 'line' | 'origin' | 'destination' | 'time';
 
 interface AddModalProps {
   visible: boolean;
@@ -145,75 +287,51 @@ interface AddModalProps {
 }
 
 function AddProfileModal({ visible, onClose, onAdd }: AddModalProps) {
-  const [step, setStep] = useState<'line' | 'details'>('line');
+  const [step, setStep] = useState<ModalStep>('line');
   const [selectedLine, setSelectedLine] = useState('');
+  const [selectedOrigin, setSelectedOrigin] = useState('');
+  const [selectedDestination, setSelectedDestination] = useState('');
+  const [selectedSlot, setSelectedSlot] = useState(DEFAULT_SLOT);
 
   const reset = () => {
     setStep('line');
     setSelectedLine('');
+    setSelectedOrigin('');
+    setSelectedDestination('');
+    setSelectedSlot(DEFAULT_SLOT);
   };
 
-  const handleClose = () => {
+  const handleClose = () => { reset(); onClose(); };
+
+  const handleConfirm = () => {
+    const h = Math.floor(selectedSlot / 2);
+    const m = (selectedSlot % 2) * 30;
+    const hhmm = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    const profile: PushSlotProfile = {
+      id: `profile-${Date.now()}`,
+      line: selectedLine,
+      origin: selectedOrigin,
+      destination: selectedDestination,
+      slots: slotsFromUsualTime(hhmm),
+      days: [1, 2, 3, 4, 5],
+      enabled: true,
+    };
     reset();
-    onClose();
+    onAdd(profile);
   };
 
-  const handleLinePick = (lineId: string) => {
-    setSelectedLine(lineId);
-    setStep('details');
-    // Prompt for origin
-    Alert.prompt(
-      'Origin station',
-      'Where do you usually board?',
-      (origin?: string) => {
-        if (!origin?.trim()) { reset(); onClose(); return; }
-        // Prompt for destination
-        Alert.prompt(
-          'Destination station',
-          'Where do you usually get off?',
-          (destination?: string) => {
-            if (!destination?.trim()) { reset(); onClose(); return; }
-            // Prompt for usual departure time
-            Alert.prompt(
-              'Usual departure time',
-              'HH:MM (e.g. 08:30)',
-              (time?: string) => {
-                const match = (time ?? '').match(/^(\d{1,2}):(\d{2})$/);
-                if (!match) {
-                  Alert.alert('Invalid time', 'Please enter a time like 08:30.');
-                  reset(); onClose(); return;
-                }
-                const hh = match[1].padStart(2, '0');
-                const mm = match[2];
-                const profile: PushSlotProfile = {
-                  id: `profile-${Date.now()}`,
-                  line: lineId,
-                  origin: origin.trim(),
-                  destination: destination.trim(),
-                  slots: slotsFromUsualTime(`${hh}:${mm}`),
-                  days: [1, 2, 3, 4, 5], // weekdays by default
-                  enabled: true,
-                };
-                reset();
-                onAdd(profile);
-              },
-              'plain-text',
-              '',
-              'numbers-and-punctuation',
-            );
-          },
-        );
-      },
-    );
+  const stepTitle: Record<ModalStep, string> = {
+    line: 'Pick a line',
+    origin: 'Origin station',
+    destination: 'Destination station',
+    time: 'Departure time',
   };
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <View style={styles.modalContainer}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>
-            {step === 'line' ? 'Pick a line' : 'Add details'}
-          </Text>
+          <Text style={styles.modalTitle}>{stepTitle[step]}</Text>
           <Pressable onPress={handleClose}>
             <Text style={styles.modalClose}>Cancel</Text>
           </Pressable>
@@ -227,7 +345,7 @@ function AddProfileModal({ visible, onClose, onAdd }: AddModalProps) {
                 <Pressable
                   key={l.id}
                   style={[styles.lineChip, { borderColor: color }]}
-                  onPress={() => handleLinePick(l.id)}
+                  onPress={() => { setSelectedLine(l.id); setStep('origin'); }}
                 >
                   <View style={[styles.lineColorDot, { backgroundColor: color }]} />
                   <Text style={styles.lineChipText}>{l.name}</Text>
@@ -236,14 +354,78 @@ function AddProfileModal({ visible, onClose, onAdd }: AddModalProps) {
             })}
           </ScrollView>
         )}
+
+        {step === 'origin' && (
+          <StationPicker
+            lineId={selectedLine}
+            title="Where do you board?"
+            onPick={name => { setSelectedOrigin(name); setStep('destination'); }}
+            onBack={() => setStep('line')}
+          />
+        )}
+
+        {step === 'destination' && (
+          <StationPicker
+            lineId={selectedLine}
+            title="Where do you get off?"
+            onPick={name => { setSelectedDestination(name); setStep('time'); }}
+            onBack={() => setStep('origin')}
+          />
+        )}
+
+        {step === 'time' && (
+          <TimePicker
+            selected={selectedSlot}
+            onSelect={setSelectedSlot}
+            onBack={() => setStep('destination')}
+            onConfirm={handleConfirm}
+          />
+        )}
       </View>
     </Modal>
   );
 }
 
+// --- Suggestion card (ALERT-SUGGEST) ---
+
+function SuggestionCard({
+  cluster,
+  onAdd,
+}: {
+  cluster: JourneyCluster;
+  onAdd: () => void;
+}) {
+  const lineId = cluster.lines[0] ?? '';
+  const lineEntry = ALL_LINES.find(l => l.id === lineId);
+  const lineColor = lineColors[lineId] ?? colors.textDim;
+
+  return (
+    <View style={styles.suggestCard}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.suggestRoute}>
+          {cluster.origin} → {cluster.destination ?? '?'}
+        </Text>
+        <Text style={styles.suggestMeta}>
+          {DOW_LABELS[cluster.dayOfWeek]}s · {cluster.avgTapIn}
+          {lineEntry ? ` · ${lineEntry.name}` : ''}
+          {' '}({cluster.count} journeys)
+        </Text>
+        {lineEntry && (
+          <View style={[styles.lineBadge, { backgroundColor: lineColor }]}>
+            <Text style={styles.lineBadgeText}>{lineEntry.name}</Text>
+          </View>
+        )}
+      </View>
+      <Pressable style={styles.suggestAddBtn} onPress={onAdd}>
+        <Text style={styles.suggestAddBtnText}>+ Add</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 // --- Main screen ---
 
-export default function PushSlotsScreen({ onBack }: Props) {
+export default function PushSlotsScreen({ journeys, onBack }: Props) {
   const [profiles, setProfiles] = useState<PushSlotProfile[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [permGranted, setPermGranted] = useState<boolean | null>(null);
@@ -253,10 +435,15 @@ export default function PushSlotsScreen({ onBack }: Props) {
     loadProfiles().then(setProfiles);
   }, []);
 
+  // ALERT-SUGGEST: top-3 clusters by frequency
+  const suggestions = useMemo(
+    () => clusterJourneys(journeys).slice(0, 3),
+    [journeys],
+  );
+
   const persist = useCallback(async (next: PushSlotProfile[]) => {
     setProfiles(next);
     await saveProfiles(next);
-    // Schedule accurate 24h reminders immediately; background task refreshes them hourly.
     await scheduleNext24h(next).catch(() => {});
     const anyEnabled = next.some(p => p.enabled && p.line);
     if (anyEnabled) {
@@ -302,6 +489,13 @@ export default function PushSlotsScreen({ onBack }: Props) {
     [profiles, persist],
   );
 
+  const handleSuggestAdd = useCallback(
+    (cluster: JourneyCluster) => {
+      handleAdd(clusterToProfile(cluster));
+    },
+    [handleAdd],
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -321,7 +515,17 @@ export default function PushSlotsScreen({ onBack }: Props) {
       )}
 
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.l }}>
-        {profiles.length === 0 ? (
+        {/* ALERT-SUGGEST: suggestions from journey history */}
+        {suggestions.length > 0 && (
+          <View style={styles.suggestSection}>
+            <Text style={styles.suggestSectionTitle}>Suggested from your journeys</Text>
+            {suggestions.map((s, i) => (
+              <SuggestionCard key={i} cluster={s} onAdd={() => handleSuggestAdd(s)} />
+            ))}
+          </View>
+        )}
+
+        {profiles.length === 0 && suggestions.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No alert profiles yet</Text>
             <Text style={styles.emptyBody}>
@@ -329,6 +533,11 @@ export default function PushSlotsScreen({ onBack }: Props) {
               appears during your usual travel time, you'll get an immediate
               notification next time you open the app.
             </Text>
+            {journeys.length === 0 && (
+              <Text style={styles.emptyHint}>
+                Import your TfL journey history to see suggested alert profiles.
+              </Text>
+            )}
             <Pressable style={styles.emptyAddBtn} onPress={() => setShowAdd(true)}>
               <Text style={styles.emptyAddBtnText}>Set up first alert</Text>
             </Pressable>
@@ -410,7 +619,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
-    marginBottom: spacing.l,
+    marginBottom: spacing.m,
+  },
+  emptyHint: {
+    color: colors.textDim,
+    fontSize: 13,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: spacing.m,
   },
   emptyAddBtn: {
     backgroundColor: colors.accentBright,
@@ -419,6 +635,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.l,
   },
   emptyAddBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  // Modal
   modalContainer: { flex: 1, backgroundColor: colors.bg, padding: spacing.l },
   modalHeader: {
     flexDirection: 'row',
@@ -441,4 +658,89 @@ const styles = StyleSheet.create({
   },
   lineColorDot: { width: 10, height: 10, borderRadius: 5 },
   lineChipText: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  // Station picker
+  pickerNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.m,
+    gap: spacing.s,
+  },
+  pickerNavBtn: { color: colors.accentBright, fontSize: 16, fontWeight: '600', marginRight: spacing.s },
+  pickerNavTitle: { flex: 1, color: colors.text, fontSize: 16, fontWeight: '700' },
+  searchInput: {
+    backgroundColor: colors.card,
+    borderColor: colors.cardBorder,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: spacing.m,
+    paddingVertical: spacing.s,
+    color: colors.text,
+    fontSize: 15,
+    marginBottom: spacing.s,
+  },
+  stationRow: {
+    paddingVertical: spacing.s,
+    paddingHorizontal: spacing.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.cardBorder,
+  },
+  stationName: { color: colors.text, fontSize: 15, fontWeight: '500' },
+  stationFull: { color: colors.textDim, fontSize: 12, marginTop: 1 },
+  pickerEmpty: { color: colors.textDim, textAlign: 'center', paddingTop: spacing.xl, fontSize: 14 },
+  // Time picker
+  confirmBtn: {
+    backgroundColor: colors.accentBright,
+    borderRadius: 8,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.m,
+  },
+  confirmBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  timeSlotRow: {
+    height: 52,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.m,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.cardBorder,
+  },
+  timeSlotRowSelected: { backgroundColor: colors.accentBright },
+  timeSlotText: { color: colors.text, fontSize: 18 },
+  timeSlotTextSelected: { color: '#fff', fontWeight: '700' },
+  // Suggestions
+  suggestSection: { marginBottom: spacing.l },
+  suggestSectionTitle: {
+    color: colors.textDim,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: spacing.s,
+  },
+  suggestCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderColor: colors.cardBorder,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: spacing.m,
+    marginBottom: spacing.s,
+    gap: spacing.s,
+  },
+  suggestRoute: { color: colors.text, fontSize: 14, fontWeight: '600', marginBottom: 3 },
+  suggestMeta: { color: colors.textDim, fontSize: 12 },
+  lineBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 6,
+    paddingHorizontal: spacing.s,
+    paddingVertical: 2,
+    marginTop: spacing.xs,
+  },
+  lineBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  suggestAddBtn: {
+    backgroundColor: colors.accentBright,
+    borderRadius: 8,
+    paddingVertical: spacing.s,
+    paddingHorizontal: spacing.m,
+  },
+  suggestAddBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 });
