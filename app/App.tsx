@@ -21,6 +21,7 @@ import { getMeta, listAllJourneys, listJourneys, setMeta, StoredJourney } from '
 import { ImportOutcome, importFromUrl, importViaPicker } from './src/journeys/import';
 import ClaimDetailScreen from './src/screens/ClaimDetailScreen';
 import ClaimWebScreen from './src/screens/ClaimWebScreen';
+import OverchargeWebScreen from './src/screens/OverchargeWebScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import JourneysScreen from './src/screens/JourneysScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
@@ -174,6 +175,7 @@ export default function App() {
   // user can watch (and sign in on, if the session has expired).
   const [autoFetching, setAutoFetching] = useState(false);
   const [refreshNote, setRefreshNote] = useState<string | null>(null);
+  const [overchargeFiling, setOverchargeFiling] = useState(false);
 
   const startAutoFetch = useCallback((manual: boolean) => {
     setAutoFetching(current => {
@@ -188,19 +190,18 @@ export default function App() {
     });
   }, []);
 
-  // Hold the launch auto-fetch while the first-run guide is up — dismissing it
-  // flips showWelcome and the fetch (step 1 of the guide) starts right after.
-  useEffect(() => { if (!showWelcome) startAutoFetch(false); }, [startAutoFetch, showWelcome]);
+  // HOME-LAUNCH: RefreshSheet opens ONLY on an explicit user tap (onRefreshPress →
+  // startAutoFetch(true)). Cold-start and foreground-resume no longer auto-open it.
+  // Silent ledger + disruption checks still run on foreground — they have no UI.
   useEffect(() => {
     const sub = AppState.addEventListener('change', s => {
       if (s === 'active') {
-        startAutoFetch(false);
         refreshLedger(); // best-effort — throttled to 30 min
         checkDisruptions().catch(() => {}); // foreground-only disruption check
       }
     });
     return () => sub.remove();
-  }, [startAutoFetch]);
+  }, []);
 
   const onRefreshClose = useCallback((r: RefreshResult) => {
     setAutoFetching(false);
@@ -245,7 +246,13 @@ export default function App() {
         {/* TfL screens — claim detail/web render above BOTH home and journeys,
             so home's Claim button opens the same flow as a journeys-row tap. */}
         {(mode === 'home' || mode === 'journeys') && (
-          selected && filing ? (
+          selected && overchargeFiling ? (
+            <OverchargeWebScreen
+              journey={selected}
+              overcharge={overchargeById.get(selected.id)}
+              onDone={() => setOverchargeFiling(false)}
+            />
+          ) : selected && filing ? (
             <ClaimWebScreen
               journey={selected}
               assessment={assessments.get(selected.id)}
@@ -256,8 +263,9 @@ export default function App() {
               journey={selected}
               assessment={assessments.get(selected.id)}
               overcharge={overchargeById.get(selected.id)}
-              onBack={() => { setSelected(null); refresh(); }}
+              onBack={() => { setSelected(null); setOverchargeFiling(false); refresh(); }}
               onFileClaim={() => setFiling(true)}
+              onCorrectFare={() => setOverchargeFiling(true)}
             />
           ) : mode === 'home' ? (
             <HomeScreen

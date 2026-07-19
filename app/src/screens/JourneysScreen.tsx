@@ -3,7 +3,7 @@
 // received/rejected/missed can coexist) and chips match "has this tag".
 // The home screen deep-links here with a filter pre-applied.
 import React, { useState } from 'react';
-import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import type { ClaimRecord } from '../claims/db';
 import { claimDeadline } from '../eligibility/deadline';
 import type { Assessment } from '../eligibility/engine';
@@ -12,6 +12,7 @@ import { formatGBP, groupByDay } from '../format';
 import type { StoredJourney } from '../journeys/db';
 import type { ImportOutcome } from '../journeys/import';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
+import { shareRawStatements } from '../journeys/raw-export-io';
 import {
   FILTER_LABELS, FILTER_ORDER, matchesFilter, statusTags,
   type JourneyFilter, type StatusTag,
@@ -82,6 +83,17 @@ export default function JourneysScreen({
 }: Props) {
   const today = React.useMemo(todayISO, []);
   const [showAll, setShowAll] = useState(false);
+
+  const onExportPress = React.useCallback(async () => {
+    try {
+      const shared = await shareRawStatements();
+      if (!shared) {
+        Alert.alert('Nothing to export yet', 'Tap "Refresh from TfL" first to pull your statements, then export.');
+      }
+    } catch (e) {
+      Alert.alert('Export failed', String(e));
+    }
+  }, []);
 
   // Tag every journey once per data change; chips and counts both read this.
   // Overcharge detail lives on the journey's own detail screen (TfL-OVERCHARGE-UX)
@@ -202,6 +214,10 @@ export default function JourneysScreen({
           );
         }}
       />
+
+      <Pressable style={styles.exportBtn} onPress={onExportPress}>
+        <Text style={styles.exportBtnText}>⬆ Export statements</Text>
+      </Pressable>
     </View>
   );
 }
@@ -308,4 +324,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.s,
   },
   showOlderText: { color: colors.accentBright, fontSize: 14, fontWeight: '600' },
+  exportBtn: {
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderColor: colors.cardBorder,
+    borderWidth: 1,
+    borderRadius: 11,
+    paddingVertical: spacing.s + 3,
+    marginTop: spacing.s,
+  },
+  exportBtnText: { color: colors.accentBright, fontSize: 14, fontWeight: '600' },
 });

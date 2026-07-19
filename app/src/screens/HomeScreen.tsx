@@ -3,7 +3,7 @@
 // refresh/import actions, and a "needs attention" list of eligible unclaimed
 // journeys still inside the claim window.
 import React from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ClaimRecord } from '../claims/db';
 import { claimTotals } from '../claims/stats';
 import { claimDeadline } from '../eligibility/deadline';
@@ -12,7 +12,6 @@ import { formatGBP } from '../format';
 import type { StoredJourney } from '../journeys/db';
 import type { ImportOutcome } from '../journeys/import';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
-import { shareRawStatements } from '../journeys/raw-export-io';
 import { statusTags, type JourneyFilter } from '../journeys/status-tags';
 import { colors, spacing } from '../theme';
 
@@ -62,17 +61,6 @@ export default function HomeScreen({
     return { eligibleCount: eligible, missedCount: missed, attention: attn };
   }, [journeys, assessments, overchargeById, claims, today]);
 
-  const onExportPress = React.useCallback(async () => {
-    try {
-      const shared = await shareRawStatements();
-      if (!shared) {
-        Alert.alert('Nothing to export yet', 'Tap "Refresh from TfL" first to pull your statements, then export.');
-      }
-    } catch (e) {
-      Alert.alert('Export failed', String(e));
-    }
-  }, []);
-
   const stat = (label: string, value: string, filter: JourneyFilter, valueStyle?: object) => (
     <Pressable style={styles.stat} onPress={() => onOpenJourneys(filter)}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -113,9 +101,6 @@ export default function HomeScreen({
       <View style={styles.linkRow}>
         <Pressable style={styles.link} onPress={onImportPress}>
           <Text style={styles.linkText}>⬇ Import CSV</Text>
-        </Pressable>
-        <Pressable style={styles.link} onPress={onExportPress}>
-          <Text style={styles.linkText}>⬆ Export statements</Text>
         </Pressable>
       </View>
 

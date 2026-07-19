@@ -2,7 +2,7 @@
 // duration, disruption from the ledger, refund value, days left to claim.
 import React, { useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { getClaim, reopenClaim, setClaimOutcome, unmarkClaimed } from '../claims/db';
 import { claimDeadline } from '../eligibility/deadline';
 import type { Assessment } from '../eligibility/engine';
@@ -11,10 +11,6 @@ import type { StoredJourney } from '../journeys/db';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
 import { colors, lineColors, spacing } from '../theme';
 
-// Incomplete-journey overcharges are corrected through the contactless account
-// (a different route from the service-delay-refund form used by onFileClaim).
-const TFL_CONTACTLESS_URL = 'https://contactless.tfl.gov.uk/';
-
 interface Props {
   journey: StoredJourney;
   assessment: Assessment | undefined;
@@ -22,6 +18,8 @@ interface Props {
   overcharge?: OverchargeCandidate;
   onBack: () => void;
   onFileClaim: () => void;
+  /** Opens the in-app contactless WebView to correct a max-fare / incomplete-journey charge. */
+  onCorrectFare: () => void;
 }
 
 const REASON_TEXT: Record<string, string> = {
@@ -47,7 +45,7 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function ClaimDetailScreen({ journey, assessment: a, overcharge, onBack, onFileClaim }: Props) {
+export default function ClaimDetailScreen({ journey, assessment: a, overcharge, onBack, onFileClaim, onCorrectFare }: Props) {
   const [claim, setClaim] = useState(() => getClaim(journey.id));
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -121,7 +119,7 @@ export default function ClaimDetailScreen({ journey, assessment: a, overcharge, 
               )}
               <Pressable
                 style={styles.disputeButton}
-                onPress={() => Linking.openURL(TFL_CONTACTLESS_URL).catch(() => { /* browser declined */ })}
+                onPress={onCorrectFare}
               >
                 <Text style={styles.disputeButtonText}>Correct this fare on TfL contactless</Text>
               </Pressable>
