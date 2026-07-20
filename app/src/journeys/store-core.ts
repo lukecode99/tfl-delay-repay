@@ -1,7 +1,7 @@
 // Journey store core (TfL-8) — schema, insert and legacy-import migration as
 // pure functions over a minimal db handle, so the SQL is testable under plain
 // node (node:sqlite adapter in test-db.ts) while db.ts binds it to expo-sqlite.
-import type { ParsedJourney } from './parse';
+import type { ParsedJourney, ParsedRefund } from './parse';
 
 /** The subset of expo-sqlite's SQLiteDatabase this module needs. */
 export interface DbLike {
@@ -99,6 +99,56 @@ export function setMetaCore(d: DbLike, key: string, value: string): void {
     'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
     key, value,
   );
+}
+
+// --- Refund persistence (TfL-RECEIVED-FIX) ---
+
+export interface RefundInsertSummary {
+  inserted: number;
+  duplicates: number;
+}
+
+export function ensureRefundSchema(d: DbLike): void {
+  d.execSync(`
+    CREATE TABLE IF NOT EXISTS refunds (
+      id INTEGER PRIMARY KEY,
+      date TEXT NOT NULL,
+      amount REAL NOT NULL,
+      raw_action TEXT NOT NULL,
+      card TEXT NOT NULL,
+      period TEXT NOT NULL DEFAULT '',
+      imported_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_refunds_dedupe
+      ON refunds (date, card, raw_action, CAST(ROUND(amount * 100) AS INTEGER));
+  `);
+}
+
+export function insertRefundsCore(
+  d: DbLike,
+  refunds: ParsedRefund[],
+  card: string,
+  period: string,
+  now: string,
+): RefundInsertSummary {
+  const summary: RefundInsertSummary = { inserted: 0, duplicates: 0 };
+  if (!refunds.length) return summary;
+  d.withTransactionSync(() => {
+    for (const r of refunds) {
+      const res = d.runSync(
+        `INSERT OR IGNORE INTO refunds (date, amount, raw_action, card, period, imported_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        r.date, r.credit, r.rawAction, card, period, now,
+      );
+      if (res.changes > 0) summary.inserted++;
+      else summary.duplicates++;
+    }
+  });
+  return summary;
+}
+
+export function totalRefundsCore(d: DbLike): number {
+  return d.getFirstSync<{ total: number }>('SELECT COALESCE(SUM(amount), 0) AS total FROM refunds')?.total ?? 0;
 }
 
 export function insertJourneysCore(d: DbLike, journeys: ParsedJourney[], now: string): ImportSummary {

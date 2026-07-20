@@ -20,11 +20,18 @@ export interface ParsedRefund {
   rawAction: string;
 }
 
+export interface DiagnosticSkip {
+  date: string;
+  credit: number;
+  rawAction: string;
+}
+
 export interface ParseResult {
   journeys: ParsedJourney[];
   refunds: ParsedRefund[]; // Delay Repay credit rows
   skipped: number; // non-journey rows (top-ups, bus journeys…)
   malformed: number; // rows that looked like journeys but didn't parse
+  diagnosticSkips: DiagnosticSkip[]; // skipped rows that carried a credit amount but had unrecognised action
 }
 
 /** Minimal CSV reader with quoted-field support. */
@@ -97,7 +104,7 @@ const NO_TOUCH = /no touch[- ](in|out)/i;
  */
 export function parseStatement(text: string, defaultCard = 'unknown'): ParseResult {
   const rows = csvRows(text);
-  const result: ParseResult = { journeys: [], refunds: [], skipped: 0, malformed: 0 };
+  const result: ParseResult = { journeys: [], refunds: [], skipped: 0, malformed: 0, diagnosticSkips: [] };
   const headerIdx = rows.findIndex(r => {
     const lower = r.map(c => c.toLowerCase());
     return lower.some(c => c.includes('date')) && lower.some(c => c.includes('journey'));
@@ -138,7 +145,14 @@ export function parseStatement(text: string, defaultCard = 'unknown'): ParseResu
     // Only "X to Y" rows are rail journeys; everything else (Auto top-up,
     // "Bus journey, route 73", season tickets) is out of scope.
     const m = action.match(/^(.+?) to (.+)$/i);
-    if (!m || /^bus journey/i.test(action)) { result.skipped++; continue; }
+    if (!m || /^bus journey/i.test(action)) {
+      if (date && ci.credit >= 0) {
+        const diagCredit = parseCharge(r[ci.credit]);
+        if (diagCredit && diagCredit > 0) result.diagnosticSkips.push({ date, credit: diagCredit, rawAction: action });
+      }
+      result.skipped++;
+      continue;
+    }
     if (!date) { result.malformed++; continue; }
 
     const origin = m[1].trim();

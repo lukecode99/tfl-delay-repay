@@ -5,18 +5,22 @@
 // the key from the TfL-3 card spec — so re-importing an overlapping statement
 // inserts only the new rows.
 import * as SQLite from 'expo-sqlite';
-import { ParsedJourney } from './parse';
+import type { ParsedJourney, ParsedRefund } from './parse';
 import {
   ensureJourneySchema,
   ensureMetaSchema,
+  ensureRefundSchema,
   getMetaCore,
   insertJourneysCore,
+  insertRefundsCore,
   migrateLegacyImportRows,
   setMetaCore,
+  totalRefundsCore,
   type ImportSummary,
+  type RefundInsertSummary,
 } from './store-core';
 
-export type { ImportSummary } from './store-core';
+export type { ImportSummary, RefundInsertSummary } from './store-core';
 
 export interface StoredJourney extends ParsedJourney {
   id: number;
@@ -30,6 +34,7 @@ export function openJourneyDb(): SQLite.SQLiteDatabase {
   db = SQLite.openDatabaseSync('journeys.db');
   ensureJourneySchema(db);
   ensureMetaSchema(db);
+  ensureRefundSchema(db);
   migrateLegacyImportRows(db); // idempotent TfL-8 cleanup of pre-hotfix rows
   return db;
 }
@@ -50,6 +55,14 @@ export function listCards(): string[] {
 
 export function insertJourneys(journeys: ParsedJourney[]): ImportSummary {
   return insertJourneysCore(openJourneyDb(), journeys, new Date().toISOString());
+}
+
+export function insertRefunds(refunds: ParsedRefund[], card: string, period = ''): RefundInsertSummary {
+  return insertRefundsCore(openJourneyDb(), refunds, card, period, new Date().toISOString());
+}
+
+export function totalReceivedRefunds(): number {
+  return totalRefundsCore(openJourneyDb());
 }
 
 const ROW_TO_JOURNEY = (r: any): StoredJourney => ({

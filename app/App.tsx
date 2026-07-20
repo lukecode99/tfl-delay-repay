@@ -17,7 +17,7 @@ import { claimDeadline } from './src/eligibility/deadline';
 import { useAssessments } from './src/eligibility/use-assessments';
 import { LAST_AUTOFETCH_KEY, shouldAutoFetch } from './src/journeys/autofetch';
 import RefreshSheet, { RefreshResult } from './src/journeys/RefreshSheet';
-import { getMeta, listAllJourneys, listJourneys, setMeta, StoredJourney } from './src/journeys/db';
+import { getMeta, listAllJourneys, listJourneys, setMeta, StoredJourney, totalReceivedRefunds } from './src/journeys/db';
 import { ImportOutcome, importFromUrl, importViaPicker } from './src/journeys/import';
 import ClaimDetailScreen from './src/screens/ClaimDetailScreen';
 import ClaimWebScreen from './src/screens/ClaimWebScreen';
@@ -75,6 +75,7 @@ export default function App() {
   const pendingNotifJourneyId = useRef<number | null>(null);
   const [claims, setClaims] = useState<Map<number, ClaimRecord>>(new Map());
   const [lastImport, setLastImport] = useState<ImportOutcome | null>(null);
+  const [receivedTotal, setReceivedTotal] = useState<number>(() => totalReceivedRefunds());
   const assessments = useAssessments(journeys);
 
   // TfL-OVERCHARGE-UX: detect max-fare overcharges once, keyed by journey id,
@@ -118,6 +119,7 @@ export default function App() {
   const refresh = useCallback(() => {
     setJourneys(listAllJourneys());
     setClaims(new Map(listClaims().map(c => [c.journeyId, c])));
+    setReceivedTotal(totalReceivedRefunds());
   }, []);
   useEffect(refresh, [refresh]);
 
@@ -274,6 +276,7 @@ export default function App() {
               overchargeById={overchargeById}
               claims={claims}
               lastImport={lastImport}
+              receivedTotal={receivedTotal}
               refreshing={autoFetching}
               refreshNote={refreshNote}
               onRefreshPress={() => startAutoFetch(true)}

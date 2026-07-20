@@ -22,6 +22,7 @@ interface Props {
   overchargeById: Map<number, OverchargeCandidate>;
   claims: Map<number, ClaimRecord>;
   lastImport: ImportOutcome | null;
+  receivedTotal: number;
   refreshing: boolean;
   refreshNote: string | null;
   onRefreshPress: () => void;
@@ -33,7 +34,7 @@ interface Props {
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function HomeScreen({
-  journeys, assessments, overchargeById, claims, lastImport, refreshing, refreshNote,
+  journeys, assessments, overchargeById, claims, lastImport, receivedTotal, refreshing, refreshNote,
   onRefreshPress, onImportPress, onSelect, onOpenJourneys,
 }: Props) {
   const today = React.useMemo(todayISO, []);
@@ -82,7 +83,7 @@ export default function HomeScreen({
         <View style={styles.statRow}>
           {stat('Claimed', formatGBP(totals.claimedValue), 'claimed', { color: colors.good })}
           <View style={styles.sep} />
-          {stat('Received', formatGBP(totals.paidValue), 'received')}
+          {stat('Received', formatGBP(receivedTotal), 'received')}
           <View style={styles.sep} />
           {stat('Awaiting', String(totals.openCount), 'awaiting', { color: colors.warn })}
           <View style={styles.sep} />
@@ -107,10 +108,7 @@ export default function HomeScreen({
       {refreshNote && <Text style={styles.note}>{refreshNote}</Text>}
       {lastImport && (
         <Text style={styles.note}>
-          {lastImport.fileName}: {lastImport.inserted} new
-          {lastImport.upgraded > 0 ? `, ${lastImport.upgraded} fixed` : ''}
-          {lastImport.duplicates > 0 ? `, ${lastImport.duplicates} duplicates skipped` : ''}
-          {lastImport.incomplete > 0 ? `, ${lastImport.incomplete} incomplete` : ''}
+          {`${lastImport.filesChecked} statement${lastImport.filesChecked === 1 ? '' : 's'} checked: ${lastImport.inserted} new, ${lastImport.duplicates} duplicate${lastImport.duplicates === 1 ? '' : 's'}`}
         </Text>
       )}
 

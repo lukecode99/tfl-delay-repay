@@ -38,15 +38,18 @@ import { buildNetCaptureScript, describeCapture } from './claim-capture';
 import {
   buildDirectCsvScript,
   cardIdsFromLog,
+  DEEP_PULL_META_KEY,
   extractCardDisplayId,
   HISTORY_MONTHS,
   isCsvDownloadUrl,
   isDirectCsvUrl,
   lastNPeriods,
   looksLikeCsv,
+  periodsForRefresh,
 } from './direct-csv';
-import { getMeta, listCards, setMeta } from './db';
+import { getMeta, insertRefunds, listCards, setMeta } from './db';
 import { importCsvText, ImportOutcome } from './import';
+import { parseStatement } from './parse';
 import { saveRawStatements } from './raw-export-io';
 import type { RawStatement } from './raw-export';
 import {
@@ -158,12 +161,11 @@ export default function RefreshSheet({ onClose }: Props) {
   // so a UTC month boundary can't shift which statements get fetched.
   const directScript = () => {
     const now = new Date();
-    // Deep history (TfL-22): pull the last HISTORY_MONTHS of statements, not
-    // just current+previous, so the incomplete-fare detector can learn regular
-    // routes and surface older missing tap-outs. Re-imports dedupe on the way in.
-    return buildDirectCsvScript(lastNPeriods(
-      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`, HISTORY_MONTHS),
-      cardIdsFromLog(getMeta(CSV_LOG_KEY)));
+    const nowISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    // Deep pull on first import (no meta marker); routine = current+previous month.
+    // Incomplete-fare route-learning always reads the full DB so keeps its 12-month view.
+    const deepPullDone = getMeta(DEEP_PULL_META_KEY) !== null;
+    return buildDirectCsvScript(periodsForRefresh(nowISO, deepPullDone), cardIdsFromLog(getMeta(CSV_LOG_KEY)));
   };
 
   const injectHarvest = () => {
@@ -263,6 +265,8 @@ export default function RefreshSheet({ onClose }: Props) {
     upgraded: a.upgraded + b.upgraded,
     duplicates: a.duplicates + b.duplicates,
     incomplete: a.incomplete + b.incomplete,
+    filesChecked: a.filesChecked + b.filesChecked,
+    refundsInserted: a.refundsInserted + b.refundsInserted,
     parsed: { ...b.parsed, skipped: a.parsed.skipped + b.parsed.skipped },
   } : b);
 
@@ -351,20 +355,45 @@ export default function RefreshSheet({ onClose }: Props) {
               recordCsvHit('direct', String(f?.url ?? ''));
               const text = String(f?.text ?? '');
               const fileCard = String(f?.card ?? '').trim();
+              const filePeriod = String(f?.period ?? '');
               // Keep the raw text so the user can export the unparsed statements
               // (TfL-23) — including rows the importer skips as non-rail.
-              rawFiles.push({ period: String(f?.period ?? ''), card: fileCard, text });
-              const outcome = importCsvText(text, `${pickCardId(existingCards, fileCard || undefined)}.csv`);
+              rawFiles.push({ period: filePeriod, card: fileCard, text });
+              const outcome = importCsvText(text, `${pickCardId(existingCards, fileCard || undefined)}.csv`, filePeriod);
               outcomeRef.current = mergeOutcome(outcomeRef.current, outcome);
               inserted += outcome.inserted;
               // Per-file audit (TfL-19): a zero-parse file logs its header
               // line — that's how the billing-vs-journey mixup stayed
               // invisible through three builds.
-              const tag = `${fileCard.slice(0, 8) || '????????'}… ${String(f?.period ?? '?')}`;
+              const tag = `${fileCard.slice(0, 8) || '????????'}… ${filePeriod || '?'}`;
               recordAudit('direct-file', outcome.parsed.journeys.length === 0
                 ? `${tag}: 0 journeys (skipped ${outcome.parsed.skipped}) — header "${(text.split(/\r?\n/)[0] ?? '').slice(0, 120)}"`
                 : `${tag}: parsed ${outcome.parsed.journeys.length}, inserted ${outcome.inserted}, duplicates ${outcome.duplicates}`);
+              if (outcome.parsed.diagnosticSkips.length > 0) {
+                recordAudit('refund-candidates', outcome.parsed.diagnosticSkips
+                  .map(s => `${s.date} "${s.rawAction}" £${s.credit.toFixed(2)}`).join('; '));
+              }
             }
+            // Record deep-pull completion so subsequent refreshes use 2-month routine scope.
+            setMeta(DEEP_PULL_META_KEY, 'done');
+            // Process billing CSVs (non-fatal) — extract refund credits only.
+            const billingFiles = Array.isArray(msg.billingFiles) ? msg.billingFiles : [];
+            let billingRefunds = 0;
+            for (const bf of billingFiles) {
+              try {
+                const btext = String(bf?.text ?? '');
+                const bcard = String(bf?.card ?? '').trim() || 'unknown';
+                const bperiod = String(bf?.period ?? '');
+                if (looksLikeCsv(btext)) {
+                  const bparsed = parseStatement(btext, bcard);
+                  if (bparsed.refunds.length > 0) {
+                    const { inserted: ri } = insertRefunds(bparsed.refunds, bcard, bperiod);
+                    billingRefunds += ri;
+                  }
+                }
+              } catch { /* non-fatal */ }
+            }
+            if (billingFiles.length > 0) recordAudit('billing-csv', `${billingFiles.length} files, ${billingRefunds} new refunds`);
             recordAudit('imported', `${inserted} new journeys`);
             // Persist the raw statements for the Export CSV button (fire and
             // forget — the import result must not wait on a share file).

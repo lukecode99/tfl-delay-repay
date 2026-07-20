@@ -85,6 +85,21 @@ export function cardIdsFromLog(logJson: string | null): string[] {
 export const HISTORY_MONTHS = 12;
 
 /**
+ * Meta key written after the first successful deep pull. Subsequent refreshes
+ * check for its presence: absent → 12-month deep pull; present → 2-month
+ * routine pull (current + previous month only).
+ */
+export const DEEP_PULL_META_KEY = 'deep-pull-done-v1';
+
+/**
+ * Returns the statement periods to fetch for a given refresh. Deep pull (first
+ * import / no completed marker) fetches HISTORY_MONTHS; routine fetches 2.
+ */
+export function periodsForRefresh(nowISO: string, deepPullDone: boolean): string[] {
+  return deepPullDone ? lastNPeriods(nowISO, 2) : lastNPeriods(nowISO, HISTORY_MONTHS);
+}
+
+/**
  * The last `months` statement periods as TfL's `<month>|<year>` tokens
  * (month unpadded — the captured link used `Period=5|2026` for May 2026),
  * newest first. Accepts any `YYYY-MM...` prefix so callers can pass a
@@ -275,8 +290,24 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
       // report deterministic. A failed month is skipped, not fatal.
       var next = function (k) {
         if (k >= jobs.length) {
-          if (files.length) { report({ type: 'direct-csv', status: 'csv', files: files }); }
-          else { report({ type: 'direct-csv', status: 'failed', message: 'no statement CSV came back' }); }
+          // Billing CSV pass (non-fatal — for refund credit data only).
+          var billingFiles = [];
+          var billingNext = function (bk) {
+            if (bk >= jobs.length) {
+              if (files.length) { report({ type: 'direct-csv', status: 'csv', files: files, billingFiles: billingFiles }); }
+              else { report({ type: 'direct-csv', status: 'failed', message: 'no statement CSV came back' }); }
+              return;
+            }
+            var bjob = jobs[bk];
+            var burl = '${NEW_STATEMENTS_URL}/DownloadBillingCsv?Period='
+              + encodeURIComponent(bjob.period) + '&CardDisplayId=' + encodeURIComponent(bjob.card);
+            win.fetch(burl, { credentials: 'include' })
+              .then(function (res) { return res.ok ? res.text() : ''; })
+              .then(function (t) { if (isCsv(t)) { billingFiles.push({ text: t, card: bjob.card, period: bjob.period, url: burl }); } })
+              .catch(function () { })
+              .then(function () { billingNext(bk + 1); });
+          };
+          billingNext(0);
           return;
         }
         var job = jobs[k];

@@ -4,15 +4,17 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { autoMatchRefunds } from '../claims/auto-match';
 import { parseStatement, ParseResult } from './parse';
-import { ImportSummary, insertJourneys } from './db';
+import { ImportSummary, insertJourneys, insertRefunds } from './db';
 
 export interface ImportOutcome extends ImportSummary {
   parsed: ParseResult;
   fileName: string;
+  filesChecked: number;       // how many statement files were processed (merged across cards)
   autoMatchedRefunds: number; // claims auto-marked paid from CSV credit rows
+  refundsInserted: number;    // new refund credit rows persisted this import
 }
 
-export function importCsvText(text: string, fileName: string): ImportOutcome {
+export function importCsvText(text: string, fileName: string, period = ''): ImportOutcome {
   // Card id defaults to the statement filename (contactless exports are
   // per-card), keeping the dedupe key stable across re-imports of the
   // same statement while separating different cards.
@@ -20,7 +22,8 @@ export function importCsvText(text: string, fileName: string): ImportOutcome {
   const parsed = parseStatement(text, card);
   const summary = insertJourneys(parsed.journeys);
   const autoMatchedRefunds = autoMatchRefunds(parsed.refunds);
-  return { ...summary, parsed, fileName, autoMatchedRefunds };
+  const { inserted: refundsInserted } = insertRefunds(parsed.refunds, card, period);
+  return { ...summary, parsed, fileName, filesChecked: 1, autoMatchedRefunds, refundsInserted };
 }
 
 /** In-app "Import statement" button → document picker. Returns null if cancelled. */
