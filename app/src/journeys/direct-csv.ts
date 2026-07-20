@@ -92,6 +92,16 @@ export const HISTORY_MONTHS = 12;
 export const DEEP_PULL_META_KEY = 'deep-pull-done-v1';
 
 /**
+ * Per-mode deep-pull completion key. Contactless reuses the original key for
+ * backwards compat with existing installs; Oyster and Both get distinct keys
+ * so switching mode always triggers a fresh deep pull for the new mode.
+ * Oyster history is capped at ~8 weeks by TfL, so its deep pull is cheap.
+ */
+export function deepPullMetaKeyFor(mode: 'contactless' | 'oyster' | 'both'): string {
+  return mode === 'contactless' ? DEEP_PULL_META_KEY : `${DEEP_PULL_META_KEY}-${mode}`;
+}
+
+/**
  * Returns the statement periods to fetch for a given refresh. Deep pull (first
  * import / no completed marker) fetches HISTORY_MONTHS; routine fetches 2.
  */

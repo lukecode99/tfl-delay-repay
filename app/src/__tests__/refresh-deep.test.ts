@@ -1,5 +1,6 @@
 // Tests for TfL-REFRESH-DEEP: deep-pull one-time gate and period selection.
-import { periodsForRefresh, lastNPeriods, HISTORY_MONTHS, DEEP_PULL_META_KEY } from '../journeys/direct-csv';
+// TfL-MODE-SWITCH: per-mode deep pull key.
+import { periodsForRefresh, lastNPeriods, HISTORY_MONTHS, DEEP_PULL_META_KEY, deepPullMetaKeyFor } from '../journeys/direct-csv';
 
 describe('periodsForRefresh', () => {
   it('returns HISTORY_MONTHS periods when deep pull not done', () => {
@@ -65,5 +66,32 @@ describe('lastNPeriods', () => {
     const periods = lastNPeriods('2026-01', 2);
     expect(periods[0]).toBe('1|2026');
     expect(periods[1]).toBe('12|2025');
+  });
+});
+
+describe('deepPullMetaKeyFor', () => {
+  it('contactless returns the legacy key for backwards compat', () => {
+    expect(deepPullMetaKeyFor('contactless')).toBe(DEEP_PULL_META_KEY);
+  });
+
+  it('oyster returns a mode-specific key distinct from the legacy key', () => {
+    expect(deepPullMetaKeyFor('oyster')).not.toBe(DEEP_PULL_META_KEY);
+    expect(deepPullMetaKeyFor('oyster')).toContain('oyster');
+  });
+
+  it('both returns a mode-specific key distinct from the legacy key', () => {
+    expect(deepPullMetaKeyFor('both')).not.toBe(DEEP_PULL_META_KEY);
+    expect(deepPullMetaKeyFor('both')).toContain('both');
+  });
+
+  it('oyster and both keys are distinct from each other', () => {
+    expect(deepPullMetaKeyFor('oyster')).not.toBe(deepPullMetaKeyFor('both'));
+  });
+
+  it('all three keys are non-empty strings', () => {
+    (['contactless', 'oyster', 'both'] as const).forEach(m => {
+      expect(typeof deepPullMetaKeyFor(m)).toBe('string');
+      expect(deepPullMetaKeyFor(m).length).toBeGreaterThan(0);
+    });
   });
 });

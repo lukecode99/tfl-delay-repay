@@ -38,6 +38,7 @@ import { buildNetCaptureScript, describeCapture } from './claim-capture';
 import {
   buildDirectCsvScript,
   cardIdsFromLog,
+  deepPullMetaKeyFor,
   DEEP_PULL_META_KEY,
   extractCardDisplayId,
   HISTORY_MONTHS,
@@ -164,7 +165,7 @@ export default function RefreshSheet({ onClose }: Props) {
     const nowISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     // Deep pull on first import (no meta marker); routine = current+previous month.
     // Incomplete-fare route-learning always reads the full DB so keeps its 12-month view.
-    const deepPullDone = getMeta(DEEP_PULL_META_KEY) !== null;
+    const deepPullDone = getMeta(deepPullMetaKeyFor(mode ?? 'contactless')) !== null;
     return buildDirectCsvScript(periodsForRefresh(nowISO, deepPullDone), cardIdsFromLog(getMeta(CSV_LOG_KEY)));
   };
 
@@ -375,7 +376,8 @@ export default function RefreshSheet({ onClose }: Props) {
               }
             }
             // Record deep-pull completion so subsequent refreshes use 2-month routine scope.
-            setMeta(DEEP_PULL_META_KEY, 'done');
+            // Mode-specific key so switching mode triggers a fresh pull for the new mode.
+            setMeta(deepPullMetaKeyFor(mode ?? 'contactless'), 'done');
             // Process billing CSVs (non-fatal) — extract refund credits only.
             const billingFiles = Array.isArray(msg.billingFiles) ? msg.billingFiles : [];
             let billingRefunds = 0;
@@ -491,6 +493,9 @@ export default function RefreshSheet({ onClose }: Props) {
             <Text style={[styles.modeChipText, capture && styles.modeChipTextActive]}>Manual</Text>
           </Pressable>
         </View>
+        {!capture && (mode === 'oyster' || mode === 'both') ? (
+          <Text style={styles.modeNote}>Oyster history is limited to ~8 weeks on TfL's site.</Text>
+        ) : null}
         {capture ? (
           <>
             <View style={styles.captureBar}>
@@ -543,8 +548,9 @@ export default function RefreshSheet({ onClose }: Props) {
             <Text style={styles.chooserTitle}>How do you travel?</Text>
             <Text style={styles.chooserBody}>
               Pick where your journeys live so the refresh opens the right
-              history — contactless bank cards, an Oyster card, or both. You
-              can change this any time above.
+              history — contactless bank cards, or an Oyster card (up to ~8
+              weeks of history), or both. You can change this any time using
+              the buttons above.
             </Text>
           </View>
         ) : (
@@ -625,6 +631,7 @@ const styles = StyleSheet.create({
   modeChipActive: { backgroundColor: colors.card, borderColor: colors.accentBright },
   modeChipText: { color: colors.textDim, fontSize: 13 },
   modeChipTextActive: { color: colors.text, fontWeight: '600' },
+  modeNote: { color: colors.textDim, fontSize: 11, paddingHorizontal: spacing.l, paddingBottom: spacing.s },
   chooser: { flex: 1, paddingHorizontal: spacing.l, paddingTop: spacing.l },
   chooserTitle: { color: colors.text, fontSize: 18, fontWeight: '700', marginBottom: spacing.s },
   chooserBody: { color: colors.textDim, fontSize: 14, lineHeight: 20 },
