@@ -41,7 +41,7 @@ function parseTime(hhmm: string | null): number | null {
 function minutesToHHMM(minutes: number): string {
   const clamped = ((minutes % 1440) + 1440) % 1440;
   const h = Math.floor(clamped / 60);
-  const m = clamped % 60;
+  const m = Math.floor(clamped % 60);
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 

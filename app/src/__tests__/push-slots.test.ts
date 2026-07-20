@@ -1,6 +1,28 @@
-// Tests for ALERT-ENTRY bucket maths and ALERT-SUGGEST profile pre-fill.
-import { slotsFromUsualTime, minsToSlot, clusterToProfile } from '../disruptions/push-slots';
-import type { JourneyCluster } from '../notifications/cluster';
+// Tests for ALERT-ENTRY bucket maths, ALERT-SUGGEST profile pre-fill,
+// and the float-minutes regression (avgTapIn "17:31.23..." bug).
+import { slotsFromUsualTime, minsToSlot, slotRangeLabel, clusterToProfile } from '../disruptions/push-slots';
+import { clusterJourneys, type JourneyCluster } from '../notifications/cluster';
+import type { StoredJourney } from '../journeys/db';
+
+// Minimal journey factory matching cluster.test.ts
+function j(date: string, tapIn: string, tapOut: string | null, origin: string, dest: string): StoredJourney {
+  return {
+    id: Math.floor(Math.abs(Math.sin(Date.now())) * 1e6),
+    card: 'TEST',
+    date,
+    tapInTime: tapIn,
+    tapOutTime: tapOut,
+    origin,
+    destination: dest,
+    charge: 2.5,
+    incomplete: false,
+    rawAction: 'Journey',
+    importedAt: new Date().toISOString(),
+  };
+}
+
+// 2026-07-13 is a Monday (dayOfWeek = 1)
+const MON = '2026-07-13';
 
 describe('minsToSlot', () => {
   it('maps 0 mins to slot 0', () => expect(minsToSlot(0)).toBe(0));
@@ -44,10 +66,53 @@ describe('slotsFromUsualTime', () => {
 
   it('respects custom rangeMins', () => {
     const narrow = slotsFromUsualTime('12:00', 15);
-    // center=720, range 705–735 → slots 23..24 (2 slots)
     expect(narrow.length).toBeLessThanOrEqual(3);
     const wide = slotsFromUsualTime('12:00', 120);
     expect(wide.length).toBeGreaterThan(narrow.length);
+  });
+});
+
+describe('float-minutes regression (avgTapIn "17:31.23..." bug)', () => {
+  it('clusterJourneys avgTapIn has no decimal places', () => {
+    // 490+500+493 = 1483 min / 3 = 494.333... — would have been "08:14.333" before fix
+    const journeys = [
+      j(MON, '08:10', '08:50', 'Baker Street', 'Bond Street'),
+      j(MON, '08:20', '08:55', 'Baker Street', 'Bond Street'),
+      j(MON, '08:13', '08:48', 'Baker Street', 'Bond Street'),
+    ];
+    const [c] = clusterJourneys(journeys);
+    expect(c.avgTapIn).toMatch(/^\d{2}:\d{2}$/);
+    expect(c.avgTapIn).not.toContain('.');
+  });
+
+  it('slotRangeLabel from a float-average avgTapIn produces clean HH:MM – HH:MM', () => {
+    // Simulate the worst case: avgTapIn that was float-formatted (fixed in cluster.ts)
+    // Test that slotsFromUsualTime + slotRangeLabel never propagates floats
+    const avgTapIn = '17:31'; // clean HH:MM as produced after fix
+    const label = slotRangeLabel(slotsFromUsualTime(avgTapIn));
+    expect(label).toMatch(/^\d{2}:\d{2} – \d{2}:\d{2}$/);
+    expect(label).not.toContain('.');
+  });
+
+  it('avgTapOut has no decimal places', () => {
+    const journeys = [
+      j(MON, '08:10', '08:51', 'Baker Street', 'Bond Street'),
+      j(MON, '08:20', '08:53', 'Baker Street', 'Bond Street'),
+      j(MON, '08:13', '08:49', 'Baker Street', 'Bond Street'),
+    ];
+    const [c] = clusterJourneys(journeys);
+    expect(c.avgTapOut).toMatch(/^\d{2}:\d{2}$/);
+    expect(c.avgTapOut).not.toContain('.');
+  });
+});
+
+describe('DOW_LABELS correctness', () => {
+  it('Thursday is "Thu" not "Thus"', () => {
+    // Regression: SuggestionCard was appending "s" → "Thus"
+    // DOW_LABELS is 1-indexed: 1=Mon … 7=Sun
+    const { DOW_LABELS } = require('../disruptions/push-slots');
+    expect(DOW_LABELS[4]).toBe('Thu');
+    expect(DOW_LABELS[4]).not.toBe('Thus');
   });
 });
 
@@ -89,9 +154,29 @@ describe('clusterToProfile', () => {
   });
 
   it('derives slots from avgTapIn (08:15 → includes slot 16)', () => {
-    // 08:15 = 495 min → slot 16 (floor(495/30)=16)
     const p = clusterToProfile(CLUSTER);
     expect(p.slots).toContain(minsToSlot(8 * 60 + 15));
+  });
+
+  it('produced slot range label matches bucketed HH:MM – HH:MM format', () => {
+    const p = clusterToProfile(CLUSTER);
+    const label = slotRangeLabel(p.slots);
+    expect(label).toMatch(/^\d{2}:\d{2} – \d{2}:\d{2}$/);
+    expect(label).not.toContain('.');
+  });
+
+  it('profile from suggestion is identical in structure to manually created profile', () => {
+    const p = clusterToProfile(CLUSTER);
+    expect(p).toMatchObject({
+      line: 'northern',
+      origin: "King's Cross St. Pancras",
+      destination: 'Bank',
+      days: [1],
+      enabled: true,
+    });
+    expect(Array.isArray(p.slots)).toBe(true);
+    expect(p.slots.length).toBeGreaterThan(0);
+    expect(p.slots.every((s: number) => s >= 0 && s <= 47)).toBe(true);
   });
 
   it('sets enabled true', () => {

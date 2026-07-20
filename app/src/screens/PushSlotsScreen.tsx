@@ -387,6 +387,8 @@ function AddProfileModal({ visible, onClose, onAdd }: AddModalProps) {
 }
 
 // --- Suggestion card (ALERT-SUGGEST) ---
+// Mirrors ProfileCard layout: line-colour accent bar, line name title,
+// origin→destination, bucketed slot range, read-only day pills, "+ Add".
 
 function SuggestionCard({
   cluster,
@@ -397,28 +399,38 @@ function SuggestionCard({
 }) {
   const lineId = cluster.lines[0] ?? '';
   const lineEntry = ALL_LINES.find(l => l.id === lineId);
-  const lineColor = lineColors[lineId] ?? colors.textDim;
+  const lineColor = lineColors[lineId] ?? colors.accentBright;
+  const lineText = lineEntry?.name ?? (lineId || 'Unknown');
+  const slots = slotsFromUsualTime(cluster.avgTapIn);
 
   return (
-    <View style={styles.suggestCard}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.suggestRoute}>
-          {cluster.origin} → {cluster.destination ?? '?'}
-        </Text>
-        <Text style={styles.suggestMeta}>
-          {DOW_LABELS[cluster.dayOfWeek]}s · {cluster.avgTapIn}
-          {lineEntry ? ` · ${lineEntry.name}` : ''}
-          {' '}({cluster.count} journeys)
-        </Text>
-        {lineEntry && (
-          <View style={[styles.lineBadge, { backgroundColor: lineColor }]}>
-            <Text style={styles.lineBadgeText}>{lineEntry.name}</Text>
-          </View>
-        )}
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={[styles.lineIndicator, { backgroundColor: lineColor }]} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cardTitle}>{lineText} line</Text>
+          <Text style={styles.cardSub}>
+            {cluster.origin} → {cluster.destination ?? '?'}
+          </Text>
+          <Text style={styles.cardSub}>{slotRangeLabel(slots)}</Text>
+        </View>
+        <Pressable style={styles.addBtn} onPress={onAdd}>
+          <Text style={styles.addBtnText}>+ Add</Text>
+        </Pressable>
       </View>
-      <Pressable style={styles.suggestAddBtn} onPress={onAdd}>
-        <Text style={styles.suggestAddBtnText}>+ Add</Text>
-      </Pressable>
+      <View style={styles.dayRow}>
+        {[1, 2, 3, 4, 5, 6, 7].map(d => (
+          <DayChip
+            key={d}
+            dow={d}
+            active={d === cluster.dayOfWeek}
+            onPress={() => {}}
+          />
+        ))}
+      </View>
+      <Text style={[styles.cardSub, styles.suggestCount]}>
+        from {cluster.count} journeys
+      </Text>
     </View>
   );
 }
@@ -705,7 +717,7 @@ const styles = StyleSheet.create({
   timeSlotRowSelected: { backgroundColor: colors.accentBright },
   timeSlotText: { color: colors.text, fontSize: 18 },
   timeSlotTextSelected: { color: '#fff', fontWeight: '700' },
-  // Suggestions
+  // Suggestions section header
   suggestSection: { marginBottom: spacing.l },
   suggestSectionTitle: {
     color: colors.textDim,
@@ -715,32 +727,5 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: spacing.s,
   },
-  suggestCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderColor: colors.cardBorder,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: spacing.m,
-    marginBottom: spacing.s,
-    gap: spacing.s,
-  },
-  suggestRoute: { color: colors.text, fontSize: 14, fontWeight: '600', marginBottom: 3 },
-  suggestMeta: { color: colors.textDim, fontSize: 12 },
-  lineBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: 6,
-    paddingHorizontal: spacing.s,
-    paddingVertical: 2,
-    marginTop: spacing.xs,
-  },
-  lineBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  suggestAddBtn: {
-    backgroundColor: colors.accentBright,
-    borderRadius: 8,
-    paddingVertical: spacing.s,
-    paddingHorizontal: spacing.m,
-  },
-  suggestAddBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  suggestCount: { marginTop: spacing.xs },
 });
