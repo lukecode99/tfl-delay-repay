@@ -10,6 +10,7 @@ import * as Notifications from 'expo-notifications';
 import { getLiveSnapshot } from '../data/ledger-store';
 import { loadSubscriptions, shouldNotify } from './subscriptions';
 import type { DayWindow } from './subscriptions';
+import { formatDisruptionAlert } from './disruption-format';
 
 export const BACKGROUND_TASK_ID = 'tfl-delay-check';
 
@@ -72,10 +73,11 @@ TaskManager.defineTask(BACKGROUND_TASK_ID, async () => {
         const notify = await shouldNotify(span.line, disruptionKey);
         if (!notify) continue;
 
+        const { title, body } = formatDisruptionAlert(span, now);
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: `TfL disruption: ${span.lineName}`,
-            body: span.description,
+            title,
+            body,
             data: { line: span.line, spanFrom: span.from },
           },
           trigger: null, // fire immediately
