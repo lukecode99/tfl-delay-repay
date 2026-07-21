@@ -8,7 +8,10 @@ import { Alert, AppState, Linking, Pressable, StyleSheet, Text, View } from 'rea
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { ClaimRecord, listClaims } from './src/claims/db';
-import { initLedger, refreshLedger } from './src/data/ledger-store';
+import { initLedger, refreshLedger, getLiveSnapshot } from './src/data/ledger-store';
+import type { LedgerSnapshot } from './src/eligibility/ledger-json';
+import { loadProfiles } from './src/disruptions/push-slots';
+import StatusBoardScreen from './src/screens/StatusBoardScreen';
 import { checkDisruptions } from './src/disruptions/check';
 import PushSlotsScreen from './src/screens/PushSlotsScreen';
 import { syncClaimReminders } from './src/claims/notify';
@@ -47,7 +50,7 @@ import { FEATURE_RAIL } from './src/config';
 // TfL-24: Stats tab — spend charts + poor-service / claimed totals.
 // About tab: TfL-terms FAQ + not-affiliated / data-on-device statements.
 // TfL-PUSH: Notifications tab — delay alert subscriptions.
-type AppMode = 'home' | 'journeys' | 'rail' | 'stats' | 'log' | 'notifications' | 'about';
+type AppMode = 'home' | 'journeys' | 'rail' | 'stats' | 'log' | 'notifications' | 'about' | 'status';
 
 // First-launch guide (16-Jul): shows once, then never again. Bump the key to
 // re-show after a flow change big enough that existing users need the tour.
@@ -62,10 +65,19 @@ export default function App() {
     setMode('journeys');
   }, []);
 
-  // --- TfL-LIVE: live ledger fetch ---
+  // --- TfL-LIVE: live ledger fetch + status strip data ---
   const [ledgerNote, setLedgerNote] = useState<string | null>(null);
+  const [snapshot, setSnapshot] = useState<LedgerSnapshot | null>(() => getLiveSnapshot());
+  const [yourLineIds, setYourLineIds] = useState<string[]>([]);
+
   useEffect(() => {
-    initLedger().then(r => { if (r.dataNote) setLedgerNote(r.dataNote); });
+    initLedger().then(r => {
+      if (r.dataNote) setLedgerNote(r.dataNote);
+      setSnapshot(getLiveSnapshot());
+    });
+    loadProfiles().then(profiles => {
+      setYourLineIds(profiles.filter(p => p.enabled && p.line).map(p => p.line));
+    });
   }, []);
 
   // --- TfL state ---
@@ -198,7 +210,7 @@ export default function App() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', s => {
       if (s === 'active') {
-        refreshLedger(); // best-effort — throttled to 30 min
+        refreshLedger().then(() => setSnapshot(getLiveSnapshot())); // throttled to 30 min
         checkDisruptions().catch(() => {}); // foreground-only disruption check
       }
     });
@@ -283,6 +295,9 @@ export default function App() {
               onImportPress={onImportPress}
               onSelect={setSelected}
               onOpenJourneys={openJourneys}
+              snapshot={snapshot}
+              yourLineIds={yourLineIds}
+              onOpenStatusBoard={() => setMode('status')}
             />
           ) : (
             <JourneysScreen
@@ -317,7 +332,24 @@ export default function App() {
           <PushSlotsScreen
             journeys={journeys}
             assessments={assessments}
-            onBack={() => setMode('home')}
+            onBack={() => {
+              // Reload your-line ids in case the user added/removed profiles
+              loadProfiles().then(profiles => {
+                setYourLineIds(profiles.filter(p => p.enabled && p.line).map(p => p.line));
+              });
+              setMode('home');
+            }}
+          />
+        )}
+
+        {/* TfL-STATUS-BOARD: full line status board (no tab, opened from Home strip) */}
+        {mode === 'status' && (
+          <StatusBoardScreen
+            journeys={journeys}
+            onClose={() => {
+              setSnapshot(getLiveSnapshot()); // pick up any force-refresh from the board
+              setMode('home');
+            }}
           />
         )}
 

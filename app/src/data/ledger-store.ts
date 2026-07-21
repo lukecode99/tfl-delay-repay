@@ -91,6 +91,12 @@ export async function refreshLedger(): Promise<void> {
   }
 }
 
+/** Force-refresh bypassing the 30-min throttle — for pull-to-refresh. */
+export async function forceRefreshLedger(): Promise<void> {
+  lastFetchAtMs = 0;
+  await refreshLedger();
+}
+
 function formatAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
   if (!ms || ms < 0) return iso;

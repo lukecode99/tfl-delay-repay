@@ -3,7 +3,7 @@
 // refresh/import actions, and a "needs attention" list of eligible unclaimed
 // journeys still inside the claim window.
 import React from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ClaimRecord } from '../claims/db';
 import { claimTotals } from '../claims/stats';
 import { claimDeadline } from '../eligibility/deadline';
@@ -13,6 +13,9 @@ import type { StoredJourney } from '../journeys/db';
 import type { ImportOutcome } from '../journeys/import';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
 import { statusTags, type JourneyFilter } from '../journeys/status-tags';
+import { worstActiveSpan, formatSinceLabel } from '../disruptions/status-board-format';
+import type { LedgerSnapshot } from '../eligibility/ledger-json';
+import { ALL_LINES } from '../disruptions/push-slots';
 import { colors, spacing } from '../theme';
 
 interface Props {
@@ -29,6 +32,12 @@ interface Props {
   onImportPress: () => void;
   onSelect: (journey: StoredJourney) => void;
   onOpenJourneys: (filter: JourneyFilter) => void;
+  /** Optional: live ledger snapshot for the "your lines" status strip. */
+  snapshot?: LedgerSnapshot | null;
+  /** Optional: line ids the user has push-slot profiles for. */
+  yourLineIds?: string[];
+  /** Optional: callback when user taps the status strip. */
+  onOpenStatusBoard?: () => void;
 }
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -36,9 +45,22 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 export default function HomeScreen({
   journeys, assessments, overchargeById, claims, lastImport, receivedTotal, refreshing, refreshNote,
   onRefreshPress, onImportPress, onSelect, onOpenJourneys,
+  snapshot, yourLineIds, onOpenStatusBoard,
 }: Props) {
   const today = React.useMemo(todayISO, []);
   const totals = claimTotals([...claims.values()]);
+
+  // Build "your lines" pills for the status strip
+  const stripLines = React.useMemo(() => {
+    if (!snapshot || !yourLineIds?.length) return null;
+    const now = new Date();
+    return yourLineIds.map(lineId => {
+      const entry = ALL_LINES.find(l => l.id === lineId);
+      if (!entry) return null;
+      const active = worstActiveSpan(snapshot.spans, lineId, now);
+      return { lineId, lineName: entry.name, lineColor: entry.color, active };
+    }).filter(Boolean) as { lineId: string; lineName: string; lineColor: string; active: ReturnType<typeof worstActiveSpan> }[];
+  }, [snapshot, yourLineIds]);
 
   const { eligibleCount, missedCount, attention } = React.useMemo(() => {
     let eligible = 0, missed = 0;
@@ -74,6 +96,35 @@ export default function HomeScreen({
   return (
     <View style={styles.container}>
       <Text style={styles.title}>TfL Delay Repay</Text>
+
+      {stripLines && stripLines.length > 0 && (
+        <Pressable style={styles.stripWrap} onPress={onOpenStatusBoard}>
+          <Text style={styles.stripLabel}>your lines · tap for full board</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.strip}>
+            {stripLines.map(({ lineId, lineName, lineColor, active }) => {
+              const disrupted = active !== null;
+              const nowMs = Date.now();
+              const startMs = active ? new Date(active.from).getTime() : 0;
+              return (
+                <View
+                  key={lineId}
+                  style={[styles.pill, disrupted && styles.pillAlert]}
+                >
+                  <View style={[styles.pillDot, { backgroundColor: lineColor }]} />
+                  <Text style={styles.pillName}>{lineName}</Text>
+                  {disrupted && active ? (
+                    <Text style={[styles.pillSev, { color: colors.bad }]}>
+                      {' · since '}{formatSinceLabel(startMs, nowMs)}
+                    </Text>
+                  ) : (
+                    <Text style={styles.pillSev}> Good</Text>
+                  )}
+                </View>
+              );
+            })}
+          </ScrollView>
+        </Pressable>
+      )}
 
       <View style={styles.card}>
         <View style={styles.bigRow}>
@@ -153,6 +204,37 @@ export default function HomeScreen({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   title: { color: colors.text, fontSize: 28, fontWeight: '800', marginBottom: spacing.m },
+  stripWrap: {
+    borderWidth: 1,
+    borderColor: colors.accentBright,
+    borderRadius: 14,
+    padding: spacing.s + 2,
+    marginBottom: spacing.m,
+  },
+  stripLabel: {
+    color: colors.accentBright,
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: spacing.s,
+  },
+  strip: { flexDirection: 'row' },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderColor: colors.cardBorder,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: spacing.s - 2,
+    paddingHorizontal: spacing.s + 3,
+    marginRight: spacing.s,
+  },
+  pillAlert: { borderColor: colors.bad },
+  pillDot: { width: 8, height: 8, borderRadius: 4, marginRight: spacing.xs + 2 },
+  pillName: { color: colors.text, fontSize: 12, fontWeight: '600' },
+  pillSev: { color: colors.textDim, fontSize: 10, fontWeight: '500' },
   card: {
     backgroundColor: colors.card,
     borderColor: colors.cardBorder,
