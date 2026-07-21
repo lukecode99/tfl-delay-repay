@@ -13,7 +13,7 @@ import type { StoredJourney } from '../journeys/db';
 import type { ImportOutcome } from '../journeys/import';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
 import { statusTags, type JourneyFilter } from '../journeys/status-tags';
-import { worstActiveSpan, formatSinceLabel } from '../disruptions/status-board-format';
+import { worstActiveSpan, formatSinceLabel, hasCoverage } from '../disruptions/status-board-format';
 import type { LedgerSnapshot } from '../eligibility/ledger-json';
 import { ALL_LINES } from '../disruptions/push-slots';
 import { colors, spacing } from '../theme';
@@ -54,12 +54,13 @@ export default function HomeScreen({
   const stripLines = React.useMemo(() => {
     if (!snapshot || !yourLineIds?.length) return null;
     const now = new Date();
+    const liveData = hasCoverage(snapshot.coverage, now);
     return yourLineIds.map(lineId => {
       const entry = ALL_LINES.find(l => l.id === lineId);
       if (!entry) return null;
       const active = worstActiveSpan(snapshot.spans, lineId, now);
-      return { lineId, lineName: entry.name, lineColor: entry.color, active };
-    }).filter(Boolean) as { lineId: string; lineName: string; lineColor: string; active: ReturnType<typeof worstActiveSpan> }[];
+      return { lineId, lineName: entry.name, lineColor: entry.color, active, liveData };
+    }).filter(Boolean) as { lineId: string; lineName: string; lineColor: string; active: ReturnType<typeof worstActiveSpan>; liveData: boolean }[];
   }, [snapshot, yourLineIds]);
 
   const { eligibleCount, missedCount, attention } = React.useMemo(() => {
@@ -101,7 +102,7 @@ export default function HomeScreen({
         <Pressable style={styles.stripWrap} onPress={onOpenStatusBoard}>
           <Text style={styles.stripLabel}>your lines · tap for full board</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.strip}>
-            {stripLines.map(({ lineId, lineName, lineColor, active }) => {
+            {stripLines.map(({ lineId, lineName, lineColor, active, liveData }) => {
               const disrupted = active !== null;
               const nowMs = Date.now();
               const startMs = active ? new Date(active.from).getTime() : 0;
@@ -116,8 +117,10 @@ export default function HomeScreen({
                     <Text style={[styles.pillSev, { color: colors.bad }]}>
                       {' · since '}{formatSinceLabel(startMs, nowMs)}
                     </Text>
-                  ) : (
+                  ) : liveData ? (
                     <Text style={styles.pillSev}> Good</Text>
+                  ) : (
+                    <Text style={styles.pillSev}> no data</Text>
                   )}
                 </View>
               );

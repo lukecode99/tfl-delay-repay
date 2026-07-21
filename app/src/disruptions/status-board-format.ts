@@ -92,11 +92,15 @@ export function formatElapsedShort(startMs: number, nowMs: number): string {
   return full.replace(/ ago$/, '');
 }
 
-/** "since HH:MM" or "since ddd HH:MM" for start-time labels. */
+/**
+ * Time-portion for "since" labels. Returns "HH:MM" for spans under 24 h,
+ * or "ddd HH:MM" for older spans. Callers (strip and board row) prefix the
+ * word "since" themselves — do NOT add it here to avoid double-since.
+ */
 export function formatSinceLabel(startMs: number, nowMs: number): string {
   const over24h = nowMs - startMs >= 24 * 60 * 60 * 1000;
   return over24h
-    ? `since ${londonDow(startMs)} ${londonHHMM(startMs)}`
+    ? `${londonDow(startMs)} ${londonHHMM(startMs)}`
     : londonHHMM(startMs);
 }
 

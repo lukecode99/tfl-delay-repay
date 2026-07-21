@@ -137,9 +137,10 @@ describe('formatSinceLabel', () => {
     expect(formatSinceLabel(startMs, NOW.getTime())).toBe('07:42');
   });
 
-  it('returns "since ddd HH:MM" for spans over 24 h', () => {
-    const twoDAysLater = new Date('2026-07-23T07:14:00.000Z').getTime();
-    expect(formatSinceLabel(startMs, twoDAysLater)).toMatch(/^since \w{3} 07:42$/);
+  it('returns "ddd HH:MM" (no "since" prefix) for spans over 24 h', () => {
+    const twoDaysLater = new Date('2026-07-23T07:14:00.000Z').getTime();
+    expect(formatSinceLabel(startMs, twoDaysLater)).toMatch(/^\w{3} 07:42$/);
+    expect(formatSinceLabel(startMs, twoDaysLater)).not.toMatch(/^since/);
   });
 });
 
