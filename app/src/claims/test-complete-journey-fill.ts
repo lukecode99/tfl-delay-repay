@@ -28,8 +28,14 @@ ok(isCompleteJourneyFormPage('https://contactless.tfl.gov.uk/MyCards/123/Incompl
   'form: IncompleteJourney (singular) in path');
 ok(isCompleteJourneyFormPage('https://contactless.tfl.gov.uk/CorrectJourney'),
   'form: CorrectJourney path');
+ok(isCompleteJourneyFormPage('https://contactless.tfl.gov.uk/Refunds/ApplyForRefund'),
+  'form: /Refunds/ApplyForRefund — confirmed real form URL from on-device capture');
+ok(isCompleteJourneyFormPage('https://contactless.tfl.gov.uk/Refunds/ApplyForRefund?journeyId=42'),
+  'form: /Refunds/ApplyForRefund with query string');
 ok(!isCompleteJourneyFormPage('https://contactless.tfl.gov.uk/MyCards/IncompleteJourneys'),
   'form: IncompleteJourneys (plural) — the LIST page, not the form');
+ok(!isCompleteJourneyFormPage('https://contactless.tfl.gov.uk/Refunds/CorrectableJourneys'),
+  'form: /Refunds/CorrectableJourneys — list page, was burning the one-shot latch');
 ok(!isCompleteJourneyFormPage('https://contactless.tfl.gov.uk/Dashboard'),
   'form: Dashboard is not the form page');
 ok(!isCompleteJourneyFormPage('https://www.tfl.gov.uk/CompleteMyJourney'),
@@ -105,6 +111,33 @@ function runFill(plan: CompleteJourneyPlan, buildDoc: (mk: any) => any) {
   const doc = buildDoc(env.mk);
   new Function('window', 'document', buildCompleteJourneyFillScript(plan))(env.win, doc);
   return { posted: env.posted, store: env.store };
+}
+
+// fill via ApplyRefundViewModel.DestinationNlcId — confirmed captured POST name (TfL-OVERCHARGE-AUTO)
+{
+  const plan: CompleteJourneyPlan = { exitStation: 'Wimbledon' };
+  const { posted, store } = runFill(plan, (mk) => {
+    const sel = mk('ApplyRefundViewModel.DestinationNlcId', {
+      tagName: 'SELECT',
+      options: [
+        { value: '', textContent: 'Select station', text: 'Select station' },
+        { value: '657', textContent: 'Wimbledon', text: 'Wimbledon', selected: false },
+        { value: '900', textContent: 'Waterloo', text: 'Waterloo', selected: false },
+      ],
+    });
+    const byName: Record<string, any> = { 'ApplyRefundViewModel.DestinationNlcId': sel };
+    return {
+      querySelector: (sel2: string) => { const m = /name="([^"]+)"/.exec(sel2); return m ? byName[m[1]] ?? null : null; },
+      querySelectorAll: () => [sel],
+    };
+  });
+  const msg = posted.find((p: any) => p.type === 'complete-journey-fill');
+  ok(!!msg && msg.filled === 1 && msg.total === 1,
+    'ApplyRefundViewModel.DestinationNlcId: top-ranked selector matches, 1 filled');
+  ok(store['ApplyRefundViewModel.DestinationNlcId'] === '657',
+    'ApplyRefundViewModel.DestinationNlcId: NLC integer value (657) written, not station name text');
+  ok(msg.results[0].via === 'select',
+    'ApplyRefundViewModel.DestinationNlcId: via=select in result');
 }
 
 // fill via known name selector (SELECT with matching option)

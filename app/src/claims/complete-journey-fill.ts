@@ -29,13 +29,16 @@ const TFL_CONTACTLESS = /contactless\.tfl\.gov\.uk/i;
  */
 export function isCompleteJourneyFormPage(url: string): boolean {
   if (!TFL_CONTACTLESS.test(url)) return false;
+  // Real apply-for-refund form — confirmed from captured POST (TfL-OVERCHARGE-AUTO).
+  if (/\/Refunds\/ApplyForRefund/i.test(url)) return true;
   // "complete my journey" phrasing — the word "my" is absent from list-page URLs
   if (/complete.{0,4}my.{0,4}journey/i.test(url)) return true;
   // Path segments: /IncompleteJourney/… or /CompleteJourney (singular, not plural list)
   // (?!s) excludes /IncompleteJourneys which is the list page, not the form
   if (/\/(?:in)?complete.{0,4}journey(?!s)/i.test(url)) return true;
-  // /CorrectJourney — TfL's alternate phrasing for fare correction
-  if (/\/correct.{0,4}journey/i.test(url)) return true;
+  // /CorrectJourney — TfL's alternate phrasing. (?!s) excludes /CorrectableJourneys
+  // (the list page): "Correct" + "able" (4 chars) + "Journeys" matched the old pattern.
+  if (/\/correct.{0,4}journey(?!s)/i.test(url)) return true;
   return false;
 }
 
@@ -95,10 +98,12 @@ export function buildCompleteJourneyFillScript(plan: CompleteJourneyPlan): strin
     var q = function (sel) { try { return doc.querySelector(sel); } catch (e) { return null; } };
     var normText = function (s) { return String(s == null ? '' : s).toLowerCase().replace(/\\s+/g, ' ').trim(); };
 
-    // Ranked selectors: exact captured POST names first (mirroring Apply form
-    // conventions from TfL-20/21), then plausible guesses. Update with real
-    // field names once the first manual capture lands in the audit log.
+    // Ranked selectors: confirmed captured POST name first, then plausibles.
+    // ApplyRefundViewModel.DestinationNlcId confirmed from Luke's on-device capture
+    // (TfL-OVERCHARGE-AUTO) — its <select> options carry integer NLC values; the
+    // SELECT branch below reads matched.value so the NLC (not the text) is submitted.
     var STATION_SELECTORS = [
+      '[name="ApplyRefundViewModel.DestinationNlcId"]',
       '[name="FinishNlcId"]',
       '[name="ExitStationId"]',
       '[name="FinishStation"]',
