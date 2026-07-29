@@ -109,8 +109,12 @@ export default function RefreshSheet({ onClose }: Props) {
   // TfL-18: set while a dispatch() call injects the in-place direct script,
   // so the handler that triggered it doesn't inject a second time.
   const dispatchInjected = useRef(false);
+  // Harvest timeout — cleared whenever the phase leaves 'harvesting'.
+  const harvestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // null = never chosen: the sheet opens with the chooser and no WebView.
   const [mode, setMode] = useState<FetchMode | null>(persistedMode);
+  // Per-leg label shown in the status bar when phase = 'harvesting'.
+  const [legLabel, setLegLabel] = useState<string>('');
   // TfL-18: Manual capture — the user drives, the app only records.
   const [capture, setCapture] = useState(false);
   // TfL-19: capture mode now IMPORTS tapped statement downloads too — the
@@ -188,9 +192,32 @@ export default function RefreshSheet({ onClose }: Props) {
     if (next === prev) return;
     stateRef.current = next;
     setState(next);
+
+    // Clear harvest timeout whenever the phase leaves 'harvesting'.
+    if (prev.phase === 'harvesting' && next.phase !== 'harvesting') {
+      if (harvestTimerRef.current != null) {
+        clearTimeout(harvestTimerRef.current);
+        harvestTimerRef.current = null;
+      }
+    }
+
     if (next.phase !== prev.phase) {
       recordAudit('phase', next.phase + (next.phase === 'steering' ? ` → ${next.target}` : ''));
     }
+
+    // TfL-REFRESH-HANG: start a 30s watchdog whenever entering 'harvesting'.
+    // If the phase is still 'harvesting' when it fires, treat it as a failed
+    // direct attempt so the flow can recover (steer or advance) rather than
+    // spinning forever — most common when the Oyster leg never reports back.
+    if (next.phase === 'harvesting' && prev.phase !== 'harvesting') {
+      harvestTimerRef.current = setTimeout(() => {
+        if (stateRef.current.phase === 'harvesting') {
+          recordAudit('harvest-timeout', urlRef.current);
+          dispatch({ type: 'direct-failed', url: urlRef.current });
+        }
+      }, 30_000);
+    }
+
     // TfL-18: queue exhausted → the direct CSV attempt happens in place, so
     // no page load will ever fire to trigger injection — inject on the
     // transition itself. The ref stops the calling handler doubling up.
@@ -250,6 +277,9 @@ export default function RefreshSheet({ onClose }: Props) {
     urlRef.current = url;
     recordAudit('loaded', url);
     dispatchInjected.current = false;
+    // Per-leg label for the status bar in 'both' mode.
+    if (/oyster\.tfl\.gov\.uk/i.test(url)) setLegLabel('Oyster');
+    else if (/contactless\.tfl\.gov\.uk/i.test(url)) setLegLabel('contactless');
     dispatch({ type: 'loaded', url });
     // Injection is keyed off the phase the machine settles in: paused states
     // never reach 'harvesting' on a load, so login/challenge pages get no
@@ -556,7 +586,11 @@ export default function RefreshSheet({ onClose }: Props) {
         ) : (
           <>
             <View style={[styles.statusBar, state.phase === 'error' && styles.statusBarError]}>
-              <Text style={styles.statusText}>{statusText(state)}</Text>
+              <Text style={styles.statusText}>
+                {state.phase === 'harvesting' && legLabel
+                  ? `Reading your ${legLabel} journey history…`
+                  : statusText(state)}
+              </Text>
               {canHandover(state) && (
                 <Pressable
                   style={[styles.continueButton, isPaused(state) && styles.continueButtonPaused]}
