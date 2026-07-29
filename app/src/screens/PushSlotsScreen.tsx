@@ -7,8 +7,7 @@
 //
 // ALERT-ENTRY: origin/destination collected via searchable station picker (not
 // free-text Alert.prompt). Time collected via 30-min bucket scroller.
-// ALERT-SUGGEST: top-3 clusters from journey history shown above profiles.
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Modal,
@@ -24,7 +23,6 @@ import * as Notifications from 'expo-notifications';
 import {
   ALL_LINES,
   DOW_LABELS,
-  clusterToProfile,
   loadProfiles,
   removeProfile,
   saveProfiles,
@@ -37,7 +35,6 @@ import {
   scheduleNext24h,
   unregisterPushSlotsTask,
 } from '../disruptions/background-task';
-import { clusterJourneys, type JourneyCluster } from '../notifications/cluster';
 import type { AssessmentMap } from '../eligibility/use-assessments';
 import type { StoredJourney } from '../journeys/db';
 import { colors, lineColors, spacing } from '../theme';
@@ -386,55 +383,6 @@ function AddProfileModal({ visible, onClose, onAdd }: AddModalProps) {
   );
 }
 
-// --- Suggestion card (ALERT-SUGGEST) ---
-// Mirrors ProfileCard layout: line-colour accent bar, line name title,
-// origin→destination, bucketed slot range, read-only day pills, "+ Add".
-
-function SuggestionCard({
-  cluster,
-  onAdd,
-}: {
-  cluster: JourneyCluster;
-  onAdd: () => void;
-}) {
-  const lineId = cluster.lines[0] ?? '';
-  const lineEntry = ALL_LINES.find(l => l.id === lineId);
-  const lineColor = lineColors[lineId] ?? colors.accentBright;
-  const lineText = lineEntry?.name ?? (lineId || 'Unknown');
-  const slots = slotsFromUsualTime(cluster.avgTapIn);
-
-  return (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={[styles.lineIndicator, { backgroundColor: lineColor }]} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardTitle}>{lineText} line</Text>
-          <Text style={styles.cardSub}>
-            {cluster.origin} → {cluster.destination ?? '?'}
-          </Text>
-          <Text style={styles.cardSub}>{slotRangeLabel(slots)}</Text>
-        </View>
-        <Pressable style={styles.addBtn} onPress={onAdd}>
-          <Text style={styles.addBtnText}>+ Add</Text>
-        </Pressable>
-      </View>
-      <View style={styles.dayRow}>
-        {[1, 2, 3, 4, 5, 6, 7].map(d => (
-          <DayChip
-            key={d}
-            dow={d}
-            active={d === cluster.dayOfWeek}
-            onPress={() => {}}
-          />
-        ))}
-      </View>
-      <Text style={[styles.cardSub, styles.suggestCount]}>
-        from {cluster.count} journeys
-      </Text>
-    </View>
-  );
-}
-
 // --- Main screen ---
 
 export default function PushSlotsScreen({ journeys, onBack }: Props) {
@@ -446,12 +394,6 @@ export default function PushSlotsScreen({ journeys, onBack }: Props) {
     ensurePermission().then(setPermGranted);
     loadProfiles().then(setProfiles);
   }, []);
-
-  // ALERT-SUGGEST: top-3 clusters by frequency
-  const suggestions = useMemo(
-    () => clusterJourneys(journeys).slice(0, 3),
-    [journeys],
-  );
 
   const persist = useCallback(async (next: PushSlotProfile[]) => {
     setProfiles(next);
@@ -501,13 +443,6 @@ export default function PushSlotsScreen({ journeys, onBack }: Props) {
     [profiles, persist],
   );
 
-  const handleSuggestAdd = useCallback(
-    (cluster: JourneyCluster) => {
-      handleAdd(clusterToProfile(cluster));
-    },
-    [handleAdd],
-  );
-
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -527,17 +462,7 @@ export default function PushSlotsScreen({ journeys, onBack }: Props) {
       )}
 
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.l }}>
-        {/* ALERT-SUGGEST: suggestions from journey history */}
-        {suggestions.length > 0 && (
-          <View style={styles.suggestSection}>
-            <Text style={styles.suggestSectionTitle}>Suggested from your journeys</Text>
-            {suggestions.map((s, i) => (
-              <SuggestionCard key={i} cluster={s} onAdd={() => handleSuggestAdd(s)} />
-            ))}
-          </View>
-        )}
-
-        {profiles.length === 0 && suggestions.length === 0 ? (
+        {profiles.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No alert profiles yet</Text>
             <Text style={styles.emptyBody}>
@@ -717,15 +642,4 @@ const styles = StyleSheet.create({
   timeSlotRowSelected: { backgroundColor: colors.accentBright },
   timeSlotText: { color: colors.text, fontSize: 18 },
   timeSlotTextSelected: { color: '#fff', fontWeight: '700' },
-  // Suggestions section header
-  suggestSection: { marginBottom: spacing.l },
-  suggestSectionTitle: {
-    color: colors.textDim,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: spacing.s,
-  },
-  suggestCount: { marginTop: spacing.xs },
 });
