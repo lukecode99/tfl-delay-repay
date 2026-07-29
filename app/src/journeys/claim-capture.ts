@@ -112,14 +112,22 @@ export function buildNetCaptureScript(): string {
     var bodyText = function (b) {
       try {
         if (b == null) { return ''; }
-        if (typeof b === 'string') { return b; }
-        if (win.URLSearchParams && b instanceof win.URLSearchParams) { return b.toString(); }
-        if (win.FormData && b instanceof win.FormData && b.forEach) {
+        var s;
+        if (typeof b === 'string') {
+          s = b;
+        } else if (win.URLSearchParams && b instanceof win.URLSearchParams) {
+          s = b.toString();
+        } else if (win.FormData && b instanceof win.FormData && b.forEach) {
           var parts = [];
-          b.forEach(function (v, k) { parts.push(k + '=' + (secret(k) ? '[redacted]' : String(v))); });
-          return parts.join('&');
+          b.forEach(function (v, k) { parts.push(k + '=' + String(v)); });
+          s = parts.join('&');
+        } else {
+          return Object.prototype.toString.call(b);
         }
-        return Object.prototype.toString.call(b);
+        // Single choke-point: redact any key whose name suggests a credential.
+        return s.replace(/([^&=]+)=([^&]*)/g, function (_, k, v) {
+          return secret(k) ? k + '=[redacted]' : k + '=' + v;
+        });
       } catch (e) { return '[unreadable body]'; }
     };
     var formBody = function (form) {

@@ -220,6 +220,42 @@ async function main() {
     ok(win.fetch === patched, 'inject: second injection leaves the first patch in place (window flag)');
   }
 
+  // XHR string body with password field is redacted at the choke point
+  {
+    const sent: any[] = [];
+    class XHR {
+      open(method: string, url: string) { }
+      send(body: any) { sent.push(body); }
+    }
+    const { win, posted } = runScript({ XMLHttpRequest: XHR });
+    const x = new win.XMLHttpRequest();
+    x.open('POST', 'https://login.tfl.gov.uk/signin');
+    x.send('username=luke&Password=hunter2&rememberMe=true');
+    ok(posted.length === 1 && posted[0].body === 'username=luke&Password=[redacted]&rememberMe=true',
+      'bodyText: string body — password field redacted, other fields kept');
+  }
+
+  // URLSearchParams body: password field redacted via same choke point
+  {
+    const sent: any[] = [];
+    class XHR {
+      open(method: string, url: string) { }
+      send(body: any) { sent.push(body); }
+    }
+    class URLSearchParamsStub {
+      _str: string;
+      constructor(s: string) { this._str = s; }
+      toString() { return this._str; }
+    }
+    const { win, posted } = runScript({ XMLHttpRequest: XHR });
+    win.URLSearchParams = URLSearchParamsStub;
+    const x = new win.XMLHttpRequest();
+    x.open('POST', 'https://login.tfl.gov.uk/signin');
+    x.send(new URLSearchParamsStub('grant_type=password&username=luke&password=secret'));
+    ok(posted.length === 1 && posted[0].body === 'grant_type=password&username=luke&password=[redacted]',
+      'bodyText: URLSearchParams body — password field redacted via unified choke point');
+  }
+
   console.log(`\n${passed} assertions passed`);
 }
 

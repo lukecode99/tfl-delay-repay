@@ -23,7 +23,7 @@ import {
   isCompleteJourneyFormPage,
 } from '../claims/complete-journey-fill';
 import { buildNetCaptureScript, describeCapture } from '../journeys/claim-capture';
-import { appendAudit, AUDIT_LOG_KEY, formatAudit, parseAudit } from '../journeys/audit-log';
+import { appendAudit, AUDIT_LOG_KEY, clearedAudit, formatAudit, parseAudit } from '../journeys/audit-log';
 import { getMeta, setMeta } from '../journeys/db';
 import type { StoredJourney } from '../journeys/db';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
@@ -105,6 +105,10 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
     } catch { /* share cancelled */ }
   };
 
+  const wipeLog = () => {
+    try { setMeta(AUDIT_LOG_KEY, clearedAudit()); } catch { /* wipe only */ }
+  };
+
   const onMessage = (event: any) => {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
@@ -144,9 +148,16 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
           <Text style={[styles.back, !canGoBack && styles.backDisabled]}>‹ Back</Text>
         </Pressable>
         <Text style={styles.topTitle} numberOfLines={1}>Correct fare · TfL contactless</Text>
-        <Pressable onPress={shareLog} hitSlop={8}>
-          <Text style={styles.shareLog}>Share log</Text>
-        </Pressable>
+        {__DEV__ ? (
+          <>
+            <Pressable onPress={shareLog} hitSlop={8}>
+              <Text style={styles.shareLog}>Share log</Text>
+            </Pressable>
+            <Pressable onPress={wipeLog} hitSlop={8}>
+              <Text style={styles.shareLog}>Wipe</Text>
+            </Pressable>
+          </>
+        ) : null}
       </View>
 
       <Text style={styles.hint}>
