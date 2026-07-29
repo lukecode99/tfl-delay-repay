@@ -110,6 +110,12 @@ interface Live {
   /** Cards the MAX_CARDS guard refused to queue. Surfaced in the closing
    * message — see MAX_CARDS on why this is never allowed to be silent. */
   cardsDropped: number;
+  /** Set when a wrong-page steer to home has already been attempted this run.
+   * A second wrong-page while this is set means TfL keeps redirecting us —
+   * we're signed out. Pause as signed-out rather than burning remaining steers.
+   * Cleared after any confirmed real harvest (cards, empty, csv, rows) so a
+   * later wrong-page from a different card still gets one recovery steer. */
+  homeForWrongPage: boolean;
 }
 
 export type FlowState =
@@ -144,7 +150,7 @@ export type FlowEvent =
 /** Flow start for a mode: first history page loads, the rest queue up. */
 export function makeInitialFlow(mode: FetchMode): FlowState {
   const [home, ...rest] = historyUrlsFor(mode);
-  return { phase: 'loading', steers: 0, queue: rest, visited: [], inserted: 0, harvested: false, home, directCsv: mode !== 'oyster', historySwept: false, directTried: false, cardsDropped: 0 };
+  return { phase: 'loading', steers: 0, queue: rest, visited: [], inserted: 0, harvested: false, home, directCsv: mode !== 'oyster', historySwept: false, directTried: false, cardsDropped: 0, homeForWrongPage: false };
 }
 
 export const INITIAL_FLOW: FlowState = makeInitialFlow('contactless');
@@ -277,6 +283,7 @@ const liveOf = (s: FlowState): Live => ({
   historySwept: 'historySwept' in s ? s.historySwept : false,
   directTried: 'directTried' in s ? s.directTried : false,
   cardsDropped: 'cardsDropped' in s ? s.cardsDropped : 0,
+  homeForWrongPage: 'homeForWrongPage' in s ? s.homeForWrongPage : false,
 });
 
 /**
@@ -421,19 +428,25 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       if (e.status === 'consent') return { ...l, phase: 'consent' };
       if (e.status === 'wrong-page') {
         if (l.queue.length) return advance(l); // pages still waiting — skip this dud
+        // Bounce detection: steer to home at most once per run. If the page
+        // after that steer is still wrong-page, TfL is redirecting us because
+        // we're signed out — park and let the user sign in. This is
+        // URL-independent and fixes Oyster (whose signed-out page the URL
+        // classifiers don't recognise) without adding another string to match.
+        if (l.homeForWrongPage) return { ...l, phase: 'signed-out' };
         if (l.steers >= MAX_STEERS) return { phase: 'error', message: 'kept landing away from the journey history page' };
-        return { ...l, phase: 'steering', target: l.home, steers: l.steers + 1 };
+        return { ...l, phase: 'steering', target: l.home, steers: l.steers + 1, homeForWrongPage: true };
       }
       if (e.status === 'cards') {
         const { queue, cardsDropped } = enqueueCards(l, e.cards);
-        if (queue.length) return advance({ ...l, queue, cardsDropped });
+        if (queue.length) return advance({ ...l, queue, cardsDropped, homeForWrongPage: false });
         if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted, cardsDropped), inserted: l.inserted };
         return { phase: 'error', message: 'no card with journey history found' };
       }
-      if (e.status === 'empty') return advance(l); // confirmed history page, no data
+      if (e.status === 'empty') return advance({ ...l, homeForWrongPage: false }); // confirmed history page, no data
       if (e.status === 'error') return { phase: 'error', message: e.message ?? 'harvest failed' };
       // csv/rows: import it; other cards the page listed queue up behind.
-      return { ...l, phase: 'importing', harvested: true, ...enqueueCards(l, e.cards) };
+      return { ...l, phase: 'importing', harvested: true, homeForWrongPage: false, ...enqueueCards(l, e.cards) };
     case 'imported':
       if (s.phase !== 'importing') return s;
       return advance({ ...l, inserted: l.inserted + e.inserted });

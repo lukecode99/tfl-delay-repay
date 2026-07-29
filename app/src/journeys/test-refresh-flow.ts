@@ -270,6 +270,29 @@ const CONTACTLESS_DASHBOARD = 'https://contactless.tfl.gov.uk/Dashboard';
   ok(s.phase === 'account-dashboard', 'oyster mode: Dashboard still parks (no direct attempt to make)');
 }
 {
+  // Oyster has no directCsv fallback (makeInitialFlow sets it false for oyster).
+  // In contactless, a wrong-page steer → CSV fetch gives one last chance.
+  // In Oyster the CSV endpoint doesn't exist — so misclassification must not
+  // attempt a CSV fetch; it must reach signed-out (via bounce) or done/no-history,
+  // never 'harvesting: directCsv'. The empty-history path goes straight to done.
+  const s = makeInitialFlow('oyster');
+  ok(!('directCsv' in s) || !s.directCsv, 'oyster: directCsv is false from the start — no CSV endpoint exists');
+  const empty = run([
+    { type: 'loaded', url: OYSTER_HISTORY_URL },
+    { type: 'harvest', status: 'empty' },
+  ], s);
+  ok(empty.phase === 'done' && empty.inserted === 0 && statusText(empty).includes('No journey history'),
+    'oyster: empty history page → done immediately, no in-place CSV attempt');
+  const bounced = run([
+    { type: 'loaded', url: OYSTER_HISTORY_URL },
+    { type: 'harvest', status: 'wrong-page' },
+    { type: 'loaded', url: OYSTER_HISTORY_URL },
+    { type: 'harvest', status: 'wrong-page' },
+  ], s);
+  ok(bounced.phase === 'signed-out' && !('directCsv' in bounced && bounced.directCsv),
+    'oyster: bounce → signed-out, no CSV fallback armed in either direction');
+}
+{
   // A direct failure on the statements page itself keeps the classic fallback.
   const s = run([
     { type: 'loaded', url: NEW_STATEMENTS_URL },
@@ -342,20 +365,66 @@ const CONTACTLESS_DASHBOARD = 'https://contactless.tfl.gov.uk/Dashboard';
     'a stray empty report outside an active harvest is absorbed');
 }
 
-// --- TfL-12: steer cap — a redirect loop errors instead of spinning ---
+// --- TfL-OYSTER-SIGNIN: bounce detection — signed-out page redirects without a login URL ---
+//
+// Oyster's signed-out state redirects to a page whose URL doesn't match
+// isLoginUrl/isUnregisteredUrl. Before this fix: wrong-page → steer × 4 →
+// error "kept landing away from the journey history page". Fix: steer to home
+// at most once; if the next page is *also* wrong-page, TfL keeps redirecting
+// us — we're signed out. Park as signed-out and let the user sign in.
+// URL-independent, survives TfL renaming paths.
 {
-  // Use HOME_URL (a non-history contactless page) to exercise the steer cap:
-  // DASHBOARD_URL now triggers account-dashboard pause, which doesn't steer.
-  let s: FlowState = INITIAL_FLOW;
-  for (let i = 0; i < MAX_STEERS; i++) {
-    s = reduceFlow(s, { type: 'loaded', url: HOME_URL });
-    s = reduceFlow(s, { type: 'harvest', status: 'wrong-page' });
-    ok(s.phase === 'steering' && s.steers === i + 1, `steer ${i + 1}/${MAX_STEERS} allowed`);
-  }
-  s = reduceFlow(s, { type: 'loaded', url: HOME_URL });
-  s = reduceFlow(s, { type: 'harvest', status: 'wrong-page' });
-  ok(s.phase === 'error' && statusText(s).includes('journey history'),
-    'one wrong page too many → error, never an infinite steer loop');
+  // Contactless: two consecutive wrong-pages → signed-out after one steer.
+  let s = run([{ type: 'loaded', url: HOME_URL }, { type: 'harvest', status: 'wrong-page' }]);
+  ok(s.phase === 'steering' && s.steers === 1, 'first wrong-page → one steer to home');
+  s = run([{ type: 'loaded', url: HOME_URL }, { type: 'harvest', status: 'wrong-page' }], s);
+  ok(s.phase === 'signed-out' && isPaused(s),
+    'second consecutive wrong-page (bounce) → signed-out, not another steer or error');
+  ok(statusText(s).includes('Sign in') && statusText(s).includes('Continue'),
+    'signed-out copy points at the Continue button');
+}
+{
+  // Oyster: same bounce pattern, home is the Oyster URL.
+  const OYSTER_SIGNOUT = 'https://oyster.tfl.gov.uk/oyster/index.do'; // typical signed-out redirect
+  let s = run([{ type: 'loaded', url: OYSTER_SIGNOUT }, { type: 'harvest', status: 'wrong-page' }], makeInitialFlow('oyster'));
+  ok(s.phase === 'steering' && s.target === OYSTER_HISTORY_URL && s.steers === 1,
+    'oyster: first wrong-page steers to the Oyster history page');
+  s = run([{ type: 'loaded', url: OYSTER_SIGNOUT }, { type: 'harvest', status: 'wrong-page' }], s);
+  ok(s.phase === 'signed-out' && isPaused(s),
+    'oyster: second consecutive wrong-page → signed-out, not four steers then error');
+}
+{
+  // Both mode: bounce fires inside the Oyster section too.
+  let s = makeInitialFlow('both');
+  s = run([
+    { type: 'loaded', url: CONTACTLESS_HISTORY_URL }, { type: 'harvest', status: 'empty' }, // contactless done
+    { type: 'loaded', url: OYSTER_HISTORY_URL }, { type: 'harvest', status: 'wrong-page' }, // first wrong-page
+    { type: 'loaded', url: HOME_URL }, { type: 'harvest', status: 'wrong-page' },           // bounce
+  ], s);
+  ok(s.phase === 'signed-out' && isPaused(s), 'both mode: Oyster bounce also parks as signed-out');
+}
+{
+  // Bounce flag resets after a confirmed real harvest — a later wrong-page
+  // on a different card still gets one recovery steer.
+  let s = run([
+    { type: 'loaded', url: HOME_URL }, { type: 'harvest', status: 'wrong-page' },           // steer 1, flag set
+    { type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'empty' },     // real harvest, flag cleared
+    { type: 'loaded', url: HOME_URL }, { type: 'harvest', status: 'wrong-page' },           // new wrong-page, flag clear
+  ]);
+  ok(s.phase === 'steering', 'bounce flag resets after a confirmed history page — later wrong-page still gets one steer');
+}
+{
+  // Handover from signed-out (via bounce) works the same as any other sign-in.
+  let s = run([
+    { type: 'loaded', url: HOME_URL }, { type: 'harvest', status: 'wrong-page' },
+    { type: 'loaded', url: HOME_URL }, { type: 'harvest', status: 'wrong-page' },
+  ]);
+  ok(s.phase === 'signed-out');
+  s = run([
+    { type: 'handover' }, { type: 'harvest', status: 'rows' },
+    { type: 'imported', inserted: 3 }, ...CLOSE_DIRECT,
+  ], s);
+  ok(s.phase === 'done' && s.inserted === 3, 'Continue from bounce-detected signed-out completes the refresh');
 }
 
 // --- TfL-12: duplicate / expired card entries ---
