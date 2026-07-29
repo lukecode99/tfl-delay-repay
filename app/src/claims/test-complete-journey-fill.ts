@@ -217,6 +217,23 @@ function runFill(plan: CompleteJourneyPlan, buildDoc: (mk: any) => any) {
     'no-option: reports 0 filled, via=no-option, no throw');
 }
 
+// NlcId field that is a text INPUT (not SELECT) → reports nlc-text-input, no fill
+{
+  const plan: CompleteJourneyPlan = { exitStation: 'Wimbledon' };
+  const { posted } = runFill(plan, (mk) => {
+    // Simulate TfL rendering the NLC field as a plain text input instead of a SELECT.
+    const input = mk('ApplyRefundViewModel.DestinationNlcId', { tagName: 'INPUT', type: 'text' });
+    return {
+      querySelector: (s: string) => /name="ApplyRefundViewModel\.DestinationNlcId"/.test(s) ? input : null,
+      querySelectorAll: (s: string) => s === 'label' ? [] : [input],
+      getElementById: () => null,
+    };
+  });
+  const msg = posted.find((p: any) => p.type === 'complete-journey-fill');
+  ok(!!msg && msg.filled === 0 && msg.results[0].via === 'nlc-text-input',
+    'NlcId as INPUT: reports nlc-text-input failure, does not write station name');
+}
+
 // no matching field at all → schema still emitted, filled=0, no throw
 {
   const plan: CompleteJourneyPlan = { exitStation: 'Somewhere' };

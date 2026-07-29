@@ -161,10 +161,11 @@ export function buildCompleteJourneyFillScript(plan: CompleteJourneyPlan): strin
         } else {
           results.push({ field: 'exitStation', filled: false, via: 'no-option', tried: plan.exitStation });
         }
+      } else if (/NlcId$/i.test(stationEl.name || '')) {
+        // Field name ends in NlcId but it's not a SELECT — TfL expects an integer,
+        // not station text. Writing the name would submit a bad value silently.
+        results.push({ field: 'exitStation', filled: false, via: 'nlc-text-input', tried: plan.exitStation });
       } else {
-        // Text / typeahead input: set the visible name. Hidden NLC fields
-        // (if any) are not set here — the first manual capture will confirm
-        // whether a hidden-NLC pattern applies (same as Apply form TfL-21).
         setNativeValue(stationEl, plan.exitStation);
         fire(stationEl);
         results.push({ field: 'exitStation', filled: true, via: stationEl.tagName === 'INPUT' ? 'input' : stationEl.tagName, name: stationEl.name || stationEl.id || '' });
@@ -178,8 +179,7 @@ export function buildCompleteJourneyFillScript(plan: CompleteJourneyPlan): strin
     // Always emitted so every run contributes to understanding the form shape.
     var schema = [];
     try {
-      var formEl = q('form') || doc;
-      var controls = formEl.querySelectorAll ? formEl.querySelectorAll('input[name], select[name], textarea[name], button[name]') : [];
+      var controls = doc.querySelectorAll ? doc.querySelectorAll('input[name], select[name], textarea[name], button[name]') : [];
       for (var ci = 0; ci < controls.length && ci < 60; ci++) {
         var ce = controls[ci];
         var row = { name: ce.name || '', tag: ce.tagName, type: (ce.type || '').toLowerCase(), id: ce.id || '' };
