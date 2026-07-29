@@ -287,11 +287,11 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
             injectFill();
           }
 
-          // Confirmation page: show the review banner and clear the captured log
-          // (credentials already captured are no longer needed).
+          // Confirmation page: show the review banner. Log kept — ConfirmRefund is
+          // a review step, not terminal success; user may navigate back to the form.
+          // Manual Wipe button exists in __DEV__ for lab cleanup.
           if (isCompleteJourneyConfirmPage(url)) {
             setAutoFill('on-confirm');
-            wipeLog();
           }
         }}
       />

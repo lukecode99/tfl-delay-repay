@@ -4,6 +4,7 @@
 // journeys still inside the claim window.
 import React from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { markClaimed } from '../claims/db';
 import type { ClaimRecord } from '../claims/db';
 import { claimTotals } from '../claims/stats';
 import { claimDeadline } from '../eligibility/deadline';
@@ -31,6 +32,7 @@ interface Props {
   onRefreshPress: () => void;
   onImportPress: () => void;
   onSelect: (journey: StoredJourney) => void;
+  onMarkClaimed: (journey: StoredJourney) => void;
   onOpenJourneys: (filter: JourneyFilter) => void;
   /** Optional: live ledger snapshot for the "your lines" status strip. */
   snapshot?: LedgerSnapshot | null;
@@ -44,7 +46,7 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function HomeScreen({
   journeys, assessments, overchargeById, claims, lastImport, receivedTotal, refreshing, refreshNote,
-  onRefreshPress, onImportPress, onSelect, onOpenJourneys,
+  onRefreshPress, onImportPress, onSelect, onMarkClaimed, onOpenJourneys,
   snapshot, yourLineIds, onOpenStatusBoard,
 }: Props) {
   const today = React.useMemo(todayISO, []);
@@ -181,9 +183,9 @@ export default function HomeScreen({
         renderItem={({ item }) => {
           const a = assessments.get(item.id);
           return (
-            <Pressable style={styles.row} onPress={() => onSelect(item)}>
+            <View style={styles.row}>
               <View style={styles.stripe} />
-              <View style={styles.rowMain}>
+              <Pressable style={styles.rowMain} onPress={() => onSelect(item)}>
                 <Text style={styles.route} numberOfLines={1}>
                   {item.origin} → {item.destination ?? '?'}
                 </Text>
@@ -191,12 +193,17 @@ export default function HomeScreen({
                   {item.date} · {item.tapInTime ?? '--:--'}
                   {a?.overageMinutes != null ? ` · ${a.overageMinutes} min over` : ''}
                 </Text>
-              </View>
+              </Pressable>
               {a?.refundValue != null && <Text style={styles.amount}>{formatGBP(a.refundValue)}</Text>}
-              <View style={styles.claimButton}>
-                <Text style={styles.claimButtonText}>Claim</Text>
+              <View style={styles.rowActions}>
+                <Pressable style={styles.claimButton} onPress={() => onSelect(item)} hitSlop={4}>
+                  <Text style={styles.claimButtonText}>Claim</Text>
+                </Pressable>
+                <Pressable style={styles.markButton} onPress={() => { markClaimed(item.id, null); onMarkClaimed(item); }} hitSlop={4}>
+                  <Text style={styles.markButtonText}>Mark</Text>
+                </Pressable>
               </View>
-            </Pressable>
+            </View>
           );
         }}
       />
@@ -299,6 +306,7 @@ const styles = StyleSheet.create({
   route: { color: colors.text, fontSize: 15, fontWeight: '700' },
   meta: { color: colors.textDim, fontSize: 12.5, marginTop: 2 },
   amount: { color: colors.good, fontSize: 15, fontWeight: '800', marginRight: spacing.s },
+  rowActions: { alignItems: 'flex-end', justifyContent: 'center' },
   claimButton: {
     backgroundColor: colors.accentBright,
     borderRadius: 10,
@@ -306,4 +314,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.m - 1,
   },
   claimButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  markButton: {
+    borderColor: colors.cardBorder,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: spacing.s,
+    paddingHorizontal: spacing.m - 1,
+    marginTop: spacing.xs,
+  },
+  markButtonText: { color: colors.textDim, fontSize: 12, fontWeight: '600' },
 });

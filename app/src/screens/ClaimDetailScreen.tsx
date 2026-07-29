@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { getClaim, reopenClaim, setClaimOutcome, unmarkClaimed } from '../claims/db';
+import { getClaim, markClaimed, reopenClaim, setClaimOutcome, unmarkClaimed } from '../claims/db';
 import { claimDeadline } from '../eligibility/deadline';
 import type { Assessment } from '../eligibility/engine';
 import { formatDay, formatGBP } from '../format';
@@ -255,6 +255,13 @@ export default function ClaimDetailScreen({ journey, assessment: a, overcharge, 
           <Pressable style={styles.fileButton} onPress={onFileClaim}>
             <Text style={styles.fileButtonText}>File this claim on tfl.gov.uk</Text>
           </Pressable>
+          <Pressable
+            style={styles.markClaimedButton}
+            onPress={() => { markClaimed(journey.id, null); setClaim(getClaim(journey.id)); }}
+            hitSlop={8}
+          >
+            <Text style={styles.markClaimedText}>Mark as claimed (already filed)</Text>
+          </Pressable>
           <Text style={styles.footer}>
             Opens TfL's service-delay-refund flow with your journey details ready to fill or copy.
             You sign in and submit yourself — this app never stores TfL credentials or submits claims for you.
@@ -318,6 +325,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   fileButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  markClaimedButton: { alignItems: 'center', marginTop: spacing.s, paddingVertical: spacing.s },
+  markClaimedText: { color: colors.textDim, fontSize: 13, textDecorationLine: 'underline' },
   claimedText: { color: colors.good, fontSize: 15, fontWeight: '700', marginBottom: spacing.s },
   rejectedText: { color: colors.bad, fontSize: 15, fontWeight: '700', marginBottom: spacing.s },
   outcomeRow: { flexDirection: 'row', marginTop: spacing.s, marginBottom: spacing.s },
