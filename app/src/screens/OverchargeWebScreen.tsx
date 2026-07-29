@@ -80,6 +80,18 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
     } catch { /* capture only */ }
   };
 
+  // Strip sensitive query params from nav URLs before they hit the audit log.
+  const SECRET_NAV_RE = /pass|pwd|secret|token|mfa|verificationcode|otp|\bcode\b|csrf/i;
+  const redactNavUrl = (url: string): string => {
+    try {
+      const u = new URL(url);
+      const safe = new URLSearchParams();
+      u.searchParams.forEach((v, k) => { safe.set(k, SECRET_NAV_RE.test(k) ? '[redacted]' : v); });
+      u.search = safe.size ? safe.toString() : '';
+      return u.toString();
+    } catch { return url; }
+  };
+
   const copy = async (chip: Chip) => {
     await Clipboard.setStringAsync(chip.value);
     setCopiedKey(chip.key);
@@ -94,7 +106,6 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
       return;
     }
     setAutoFill('filling');
-    fillInjectedRef.current = true;
     webRef.current?.injectJavaScript(buildCompleteJourneyFillScript({ exitStation }));
   };
 
@@ -119,7 +130,12 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
         // Schema dump → audit log for post-hoc form-field discovery.
         if (msg.schema?.length) { recordAudit('cj-fill-schema', JSON.stringify(msg.schema).slice(0, 400)); }
         if (msg.error) { setAutoFill('fallback'); return; }
-        setAutoFill(msg.filled > 0 ? 'filled' : 'fallback');
+        if (msg.filled > 0) {
+          fillInjectedRef.current = true;
+          setAutoFill('filled');
+        } else {
+          setAutoFill('fallback');
+        }
       }
     } catch { /* not ours */ }
   };
@@ -211,7 +227,7 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
           setCanGoBack(!!nav?.canGoBack);
           if (!nav?.url) return;
           const url = String(nav.url);
-          recordAudit('overcharge-nav', url);
+          recordAudit('overcharge-nav', redactNavUrl(url));
 
           // Re-arm after session-timeout → OAuth → MFA so the steer fires again
           // when TfL bounces the user back to Dashboard post-login.
@@ -233,9 +249,11 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
             injectFill();
           }
 
-          // Confirmation page: show the review banner.
+          // Confirmation page: show the review banner and clear the captured log
+          // (credentials already captured are no longer needed).
           if (isCompleteJourneyConfirmPage(url)) {
             setAutoFill('on-confirm');
+            wipeLog();
           }
         }}
       />

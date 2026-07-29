@@ -115,10 +115,10 @@ async function main() {
     const { win, posted } = runScript({ XMLHttpRequest: XHR });
     const x = new win.XMLHttpRequest();
     x.open('POST', '/DelayRepay/Api');
-    x.send('token=abc&amount=3.70');
+    x.send('claimRef=abc&amount=3.70');
     ok(opened.length === 1 && sent.length === 1 && posted.length === 1
       && posted[0].kind === 'xhr' && posted[0].method === 'POST'
-      && posted[0].url === '/DelayRepay/Api' && posted[0].body === 'token=abc&amount=3.70',
+      && posted[0].url === '/DelayRepay/Api' && posted[0].body === 'claimRef=abc&amount=3.70',
       'xhr: open+send are wrapped, request reported with body, original still runs');
   }
 
@@ -137,8 +137,8 @@ async function main() {
     fireSubmit(form);
     ok(posted.length === 1 && posted[0].kind === 'form'
       && posted[0].url === 'https://contactless.tfl.gov.uk/DelayRepay/Submit'
-      && posted[0].body === '__RequestVerificationToken=CSRF123&JourneyDate=2026-07-01&Password=[redacted]',
-      'form: named fields serialised, CSRF token kept, password value redacted');
+      && posted[0].body === '__RequestVerificationToken=[redacted]&JourneyDate=2026-07-01&Password=[redacted]',
+      'form: named fields serialised, CSRF token name kept, token/password values redacted');
   }
 
   // form submit to a third-party action is ignored
@@ -171,7 +171,7 @@ async function main() {
     form.submit();
     ok(nativeSubmits === 1 && posted.length === 1 && posted[0].kind === 'form'
       && posted[0].method === 'POST'
-      && posted[0].body === '__RequestVerificationToken=CSRF9&DelayMinutes=18&Password=[redacted]',
+      && posted[0].body === '__RequestVerificationToken=[redacted]&DelayMinutes=18&Password=[redacted]',
       'form.submit(): programmatic submit captured (bypasses submit event) and still runs');
   }
 
@@ -254,6 +254,40 @@ async function main() {
     x.send(new URLSearchParamsStub('grant_type=password&username=luke&password=secret'));
     ok(posted.length === 1 && posted[0].body === 'grant_type=password&username=luke&password=[redacted]',
       'bodyText: URLSearchParams body — password field redacted via unified choke point');
+  }
+
+  // secret() expansion: MFA code and other credential fields are redacted
+  // Reproduces the exact leaked value from Luke's real session (TfL-LOG-REDACT rework).
+  {
+    const sent: any[] = [];
+    class XHR {
+      open(_m: string, _u: string) { }
+      send(body: any) { sent.push(body); }
+    }
+    const { win, posted } = runScript({ XMLHttpRequest: XHR });
+    const x = new win.XMLHttpRequest();
+    x.open('POST', 'https://account.tfl.gov.uk/signin');
+    x.send('client_id=app&mfaVerificationCode=127230&csrf_token=xyzzy&username=luke&token=Bearer99&otp=654321&journeyDate=2026-07-01');
+    ok(posted.length === 1 && posted[0].body ===
+      'client_id=app&mfaVerificationCode=[redacted]&csrf_token=[redacted]&username=luke&token=[redacted]&otp=[redacted]&journeyDate=2026-07-01',
+      'secret: mfaVerificationCode, csrf_token, token, otp all redacted; client_id and journeyDate kept');
+  }
+
+  // secret() — pwd variant and `code` as a whole word
+  {
+    const sent: any[] = [];
+    class XHR {
+      open(_m: string, _u: string) { }
+      send(body: any) { sent.push(body); }
+    }
+    const { win, posted } = runScript({ XMLHttpRequest: XHR });
+    const x = new win.XMLHttpRequest();
+    x.open('POST', 'https://account.tfl.gov.uk/signin');
+    x.send('pwd=hunter2&code=123&postcode=SW1A1AA');
+    // `code` matches \bcode\b; `postcode` does NOT (no word boundary on right side of "code" in "postcode")
+    ok(posted.length === 1 && posted[0].body ===
+      'pwd=[redacted]&code=[redacted]&postcode=SW1A1AA',
+      'secret: pwd and standalone code redacted; postcode kept (no word boundary match)');
   }
 
   console.log(`\n${passed} assertions passed`);

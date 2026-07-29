@@ -96,7 +96,8 @@ export function buildNetCaptureScript(): string {
       return !/^(?:javascript|data|blob|about):/i.test(u);
     };
     var secret = function (name, type) {
-      return /pass/i.test(String(name || '')) || /pass/i.test(String(type || ''));
+      return /pass|pwd|secret|token|mfa|verificationcode|otp|\\bcode\\b|csrf/i.test(String(name || ''))
+        || /pass/i.test(String(type || ''));
     };
     var report = function (msg) {
       try {
