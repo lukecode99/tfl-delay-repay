@@ -129,6 +129,7 @@ export function rowsToCsv(rows: string[][]): string {
  * posts exactly one {type:'journey-harvest', status, ...} message:
  *   status 'challenge'           — robot-check page; wait for the user to solve it
  *   status 'signed-out'          — login (or mid-login) page; user signs in here
+ *   status 'consent'             — cookie wall, no data behind it; user chooses
  *   status 'wrong-page', href    — signed-in but not on journey history; steer
  *   status 'cards', cards        — history page is a card picker; visit each
  *   status 'csv',  text, cards, url — CSV export fetched with the session cookie
@@ -230,6 +231,34 @@ export function buildHarvestScript(): string {
     } catch (e) {
       report({ type: 'journey-harvest', status: 'error', message: String(e) });
       return;
+    }
+
+    // Cookie wall with no journey data behind it (TfL-25). Two failures came
+    // out of not looking for this, and the second is the worse one:
+    //
+    //  1. On an unrecognised page it reported 'wrong-page', and the answer to
+    //     wrong-page is a window.location steer — so the consent page was
+    //     navigated out from under the user a second after it appeared and
+    //     "Accept all cookies" could not be tapped in time.
+    //  2. On the history URL itself it reported 'empty' — and empty means
+    //     "confirmed history page, no journeys". TfL's own text on that page
+    //     says "If this page is blocked by a cookie pop-up, choose 'Accept
+    //     only essential cookies' to then see the page", i.e. the data is
+    //     there and withheld. Reporting no journeys would have been the app
+    //     inventing an answer out of a page it never got to read.
+    //
+    // Gated on !rows deliberately: a banner over a page that DID render its
+    // journey table is just a banner, and that page harvests normally.
+    if (!rows) {
+      var consentWall = false;
+      try {
+        var cbs = doc.querySelectorAll('button, a[href], input[type="submit"], input[type="button"]');
+        for (var b = 0; b < cbs.length; b++) {
+          var btext = textOf(cbs[b]) || String((cbs[b].getAttribute && cbs[b].getAttribute('value')) || '');
+          if (/accept\\s+(all\\s+)?cookies|accept\\s+only\\s+essential|essential\\s+cookies\\s+only|manage\\s+cookies|cookie\\s+settings/i.test(btext)) { consentWall = true; break; }
+        }
+      } catch (e) { }
+      if (consentWall) { report({ type: 'journey-harvest', status: 'consent' }); return; }
     }
 
     // Are we actually ON the journey-history page? URL marker, or the journey

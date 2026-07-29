@@ -72,8 +72,15 @@ export type CardEntry = { href: string; label?: string; expired?: boolean };
 /** Wrong-page recoveries before giving up — guards against redirect loops. */
 export const MAX_STEERS = 4;
 
-/** Most card history pages visited in one refresh. */
-export const MAX_CARDS = 8;
+/**
+ * Most card history pages visited in one refresh. This is a runaway guard, not
+ * a product limit: cards are de-duplicated by card number before they queue
+ * (TfL lists the same PAN several times), so a real account with a handful of
+ * cards never comes near it. If it ever does bite, `cardsDropped` records how
+ * many were skipped and the closing message says so — a cap that truncates
+ * silently would read as "we checked everything" when it hadn't.
+ */
+export const MAX_CARDS = 20;
 
 interface Live {
   /** Wrong-page steers used so far (capped at MAX_STEERS). */
@@ -100,12 +107,16 @@ interface Live {
   /** True once the TfL-17 in-place direct attempt has run on the contactless
    * Dashboard — one shot per refresh; later Dashboard landings park normally. */
   directTried: boolean;
+  /** Cards the MAX_CARDS guard refused to queue. Surfaced in the closing
+   * message — see MAX_CARDS on why this is never allowed to be silent. */
+  cardsDropped: number;
 }
 
 export type FlowState =
   | ({ phase: 'loading' } & Live)
   | ({ phase: 'signed-out' } & Live)
   | ({ phase: 'challenge' } & Live)
+  | ({ phase: 'consent' } & Live)
   | ({ phase: 'account-dashboard' } & Live)
   | ({ phase: 'steering'; target: string } & Live)
   | ({ phase: 'harvesting' } & Live)
@@ -119,7 +130,7 @@ export type FlowEvent =
   | { type: 'loaded'; url: string }
   | {
       type: 'harvest';
-      status: 'signed-out' | 'challenge' | 'wrong-page' | 'cards' | 'csv' | 'rows' | 'empty' | 'error';
+      status: 'signed-out' | 'challenge' | 'consent' | 'wrong-page' | 'cards' | 'csv' | 'rows' | 'empty' | 'error';
       message?: string;
       cards?: CardEntry[];
     }
@@ -133,7 +144,7 @@ export type FlowEvent =
 /** Flow start for a mode: first history page loads, the rest queue up. */
 export function makeInitialFlow(mode: FetchMode): FlowState {
   const [home, ...rest] = historyUrlsFor(mode);
-  return { phase: 'loading', steers: 0, queue: rest, visited: [], inserted: 0, harvested: false, home, directCsv: mode !== 'oyster', historySwept: false, directTried: false };
+  return { phase: 'loading', steers: 0, queue: rest, visited: [], inserted: 0, harvested: false, home, directCsv: mode !== 'oyster', historySwept: false, directTried: false, cardsDropped: 0 };
 }
 
 export const INITIAL_FLOW: FlowState = makeInitialFlow('contactless');
@@ -149,7 +160,8 @@ export function isTerminal(s: FlowState): boolean {
  * the no-injection guarantee. Only 'handover' (the Continue button) resumes.
  */
 export function isPaused(s: FlowState): boolean {
-  return s.phase === 'signed-out' || s.phase === 'challenge' || s.phase === 'account-dashboard';
+  return s.phase === 'signed-out' || s.phase === 'challenge' || s.phase === 'consent'
+    || s.phase === 'account-dashboard';
 }
 
 /** Whether the Continue button applies: any live phase except a running import. */
@@ -160,6 +172,51 @@ export function canHandover(s: FlowState): boolean {
 /** Actual sign-in pages only — path contains signin/sign-in/login. */
 export function isLoginUrl(url: string): boolean {
   return /signin|sign-in|login/i.test(url);
+}
+
+/**
+ * TfL's cookie-consent interstitial (TfL-25).
+ *
+ * This is the page that made the refresh unusable, and the failure was the
+ * machine's, not the WebView's: an unrecognised page reports 'wrong-page', and
+ * the answer to wrong-page is to set window.location back to the history URL.
+ * So the consent page loaded, was classified as a dud, and got navigated out
+ * from under the user about a second later — tap "Accept all cookies" and the
+ * page is already reloading, banner intact. Four rounds of that and the
+ * refresh gave up with "kept landing away from the journey history page".
+ *
+ * The fix is to recognise it and PAUSE, which is the same guarantee TfL-13
+ * gives login and robot-check pages: paused means no steering and no
+ * injection, so the page is wholly the user's until they tap Continue.
+ *
+ * Matching on 'cookie'/'consent' anywhere in the URL is deliberately broad.
+ * TfL is not going to serve journey data from a URL with "cookie" in it, and
+ * the cost of a false positive is one extra Continue tap, while the cost of a
+ * false negative is the bug above. Checked AFTER isLoginUrl so an OIDC
+ * sign-in carrying a `consent` parameter still parks as signed-out.
+ */
+export function isConsentUrl(url: string): boolean {
+  return /cookie|consent/i.test(url);
+}
+
+/**
+ * TfL's own captcha gate (TfL-25). Verified live: an unauthenticated GET of
+ * the contactless history page 302s to /UnregisteredCustomer/Captcha. That is
+ * neither a login page nor a Cloudflare challenge, so before this it was a
+ * 'wrong-page' too — meaning a brand-new user's very first refresh got steered
+ * off TfL's captcha four times and then errored. Public-release blocker.
+ */
+export function isCaptchaUrl(url: string): boolean {
+  return /captcha/i.test(url);
+}
+
+/**
+ * TfL telling us, in a URL, that nobody is signed in. Distinct from
+ * isLoginUrl: this is not the sign-in form, it's the gate in front of it.
+ * Checked after isCaptchaUrl because the captcha path contains both.
+ */
+export function isUnregisteredUrl(url: string): boolean {
+  return /unregisteredcustomer/i.test(url);
 }
 
 /**
@@ -195,9 +252,18 @@ export function isChallengeTitle(title: string): boolean {
   return /just a moment|attention required|verify you are human|are you a robot|security check/i.test(title);
 }
 
-export function doneMessage(inserted: number): string {
-  if (inserted <= 0) return "No new journeys — you're already up to date.";
-  return `Imported ${inserted} new journey${inserted === 1 ? '' : 's'} from TfL.`;
+export function doneMessage(inserted: number, cardsDropped = 0): string {
+  const tail = cardsDropped > 0
+    ? cardsDropped === 1
+      ? " 1 further card wasn't checked — refresh again to pick it up."
+      : ` ${cardsDropped} further cards weren't checked — refresh again to pick them up.`
+    : '';
+  // "Already up to date" is a claim, and with cards left unchecked it would be
+  // a false one — so it isn't made.
+  if (inserted <= 0) {
+    return cardsDropped > 0 ? `No new journeys on the cards checked.${tail}` : "No new journeys — you're already up to date.";
+  }
+  return `Imported ${inserted} new journey${inserted === 1 ? '' : 's'} from TfL.${tail}`;
 }
 
 const liveOf = (s: FlowState): Live => ({
@@ -210,6 +276,7 @@ const liveOf = (s: FlowState): Live => ({
   directCsv: 'directCsv' in s ? s.directCsv : false,
   historySwept: 'historySwept' in s ? s.historySwept : false,
   directTried: 'directTried' in s ? s.directTried : false,
+  cardsDropped: 'cardsDropped' in s ? s.cardsDropped : 0,
 });
 
 /**
@@ -225,28 +292,41 @@ function advance(l: Live): FlowState {
   const [next, ...rest] = l.queue;
   if (next) return { ...l, phase: 'steering', target: next, queue: rest, visited: [...l.visited, next] };
   if (l.directCsv) return { ...l, phase: 'harvesting', directCsv: false, directTried: true, historySwept: true };
-  if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted), inserted: l.inserted };
+  if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted, l.cardsDropped), inserted: l.inserted };
   return { phase: 'done', message: 'No journey history found on TfL.', inserted: 0 };
 }
 
 /**
  * Add the cards a page listed to the visit queue: unexpired entries first;
  * if every entry is expired-flagged (TfL's flags are unreliable — Luke's live
- * card shows as expired) all of them qualify. Already-visited and already-
- * queued pages never re-enter, and the total visit count is capped.
+ * card shows as expired) all of them qualify. Already-visited and already-queued
+ * links never re-enter, and the total visit count is capped — with any overflow
+ * counted rather than dropped quietly.
+ *
+ * Identity is the LINK, not the card number, and that is a deliberate reversal
+ * (TfL-25). Luke's account lists "Visa ending in 5006" twice, so keying on the
+ * PAN tail looked like the obvious saving — one page load instead of two.
+ * The tests below say otherwise: with three •5006 entries, only the SECOND
+ * one's page has journeys on it. Collapsing them by card number would have
+ * visited the first, found it empty, and reported "you're already up to date"
+ * while a page of real journeys sat unread — a missed refund, silently. An
+ * extra page load costs a couple of seconds; a dropped card costs money. The
+ * duplicates are handled by MAX_CARDS instead, which bounds the cost without
+ * ever choosing which card to skip.
  */
-function enqueueCards(l: Live, cards: CardEntry[] | undefined): string[] {
+function enqueueCards(l: Live, cards: CardEntry[] | undefined): { queue: string[]; cardsDropped: number } {
   const entries = (cards ?? []).filter(c => c && typeof c.href === 'string' && c.href !== '');
   const usable = entries.some(c => !c.expired) ? entries.filter(c => !c.expired) : entries;
   const seen = new Set([...l.visited, ...l.queue]);
   const queue = [...l.queue];
+  let cardsDropped = l.cardsDropped;
   for (const c of usable) {
-    if (l.visited.length + queue.length >= MAX_CARDS) break;
     if (seen.has(c.href)) continue;
+    if (l.visited.length + queue.length >= MAX_CARDS) { cardsDropped++; continue; }
     seen.add(c.href);
     queue.push(c.href);
   }
-  return queue;
+  return { queue, cardsDropped };
 }
 
 export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
@@ -272,6 +352,12 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       if (e.title != null && isChallengeTitle(e.title)) return { ...l, phase: 'challenge' };
       // An expired session redirects to the account sign-in mid-navigation.
       if (isLoginUrl(e.url)) return { ...l, phase: 'signed-out' };
+      // TfL-25: consent and captcha gates are the user's, exactly like login.
+      // Caught on 'nav' as well as 'loaded' so the pause lands before the
+      // steering that used to yank the page away mid-tap.
+      if (isConsentUrl(e.url)) return { ...l, phase: 'consent' };
+      if (isCaptchaUrl(e.url)) return { ...l, phase: 'challenge' };
+      if (isUnregisteredUrl(e.url)) return { ...l, phase: 'signed-out' };
       // TfL-17: the contactless Dashboard gets a direct attempt on 'loaded' —
       // don't park on the mid-navigation event (parking blocks injection).
       if (isContactlessDashboard(e.url) && l.directCsv && !l.directTried) return s;
@@ -285,6 +371,11 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       // the flow resumes only via handover.
       if (isPaused(s)) return s;
       if (isLoginUrl(e.url)) return { ...l, phase: 'signed-out' };
+      // TfL-25: same three gates as the 'nav' case. Pausing here is what stops
+      // the harvest being injected into a consent or captcha page at all.
+      if (isConsentUrl(e.url)) return { ...l, phase: 'consent' };
+      if (isCaptchaUrl(e.url)) return { ...l, phase: 'challenge' };
+      if (isUnregisteredUrl(e.url)) return { ...l, phase: 'signed-out' };
       // TfL-17: signed-in contactless Dashboard — TfL bounces every steer
       // here, so run the direct CSV fetch in place instead of parking. One
       // shot per refresh; directCsv clears so a success advances to done (or
@@ -321,21 +412,28 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       if (s.phase !== 'harvesting') return s;
       if (e.status === 'signed-out') return { ...l, phase: 'signed-out' };
       if (e.status === 'challenge') return { ...l, phase: 'challenge' };
+      // TfL-25: the DOM half of consent detection, for the cookie wall served
+      // at the requested URL. It catches the case a URL check can't and the
+      // more damaging one: on the history URL itself, a cookie wall used to be
+      // reported as 'empty' — "no journeys" from a page whose data was merely
+      // withheld. The script only reports this when the page rendered no
+      // journey table, so a banner over real data still harvests.
+      if (e.status === 'consent') return { ...l, phase: 'consent' };
       if (e.status === 'wrong-page') {
         if (l.queue.length) return advance(l); // pages still waiting — skip this dud
         if (l.steers >= MAX_STEERS) return { phase: 'error', message: 'kept landing away from the journey history page' };
         return { ...l, phase: 'steering', target: l.home, steers: l.steers + 1 };
       }
       if (e.status === 'cards') {
-        const queue = enqueueCards(l, e.cards);
-        if (queue.length) return advance({ ...l, queue });
-        if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted), inserted: l.inserted };
+        const { queue, cardsDropped } = enqueueCards(l, e.cards);
+        if (queue.length) return advance({ ...l, queue, cardsDropped });
+        if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted, cardsDropped), inserted: l.inserted };
         return { phase: 'error', message: 'no card with journey history found' };
       }
       if (e.status === 'empty') return advance(l); // confirmed history page, no data
       if (e.status === 'error') return { phase: 'error', message: e.message ?? 'harvest failed' };
       // csv/rows: import it; other cards the page listed queue up behind.
-      return { ...l, phase: 'importing', harvested: true, queue: enqueueCards(l, e.cards) };
+      return { ...l, phase: 'importing', harvested: true, ...enqueueCards(l, e.cards) };
     case 'imported':
       if (s.phase !== 'importing') return s;
       return advance({ ...l, inserted: l.inserted + e.inserted });
@@ -350,7 +448,17 @@ export function statusText(s: FlowState): string {
     case 'loading': return 'Loading TfL…';
     case 'signed-out': return 'Sign in to your TfL account, then tap Continue.';
     case 'challenge': return "Complete TfL's security check, then tap Continue.";
-    case 'account-dashboard': return "Navigate to 'My contactless cards' on TfL, then tap Continue.";
+    // TfL-25: cookie choices are the user's to make — never auto-clicked, and
+    // never described as a step we could have done for them.
+    case 'consent': return 'Choose your TfL cookie settings, then tap Continue.';
+    // TfL-25 (Luke, 29-Jul): this used to say "Navigate to 'My contactless
+    // cards' on TfL, then tap Continue" — an instruction that was simply
+    // untrue. Continue dispatches 'handover', which harvests whatever page is
+    // showing; on the dashboard that harvest reports 'cards', queues each
+    // card's history page and drives itself there. The user never had to
+    // navigate. Asking them to do work the machine already does reads as the
+    // machine not working.
+    case 'account-dashboard': return "Signed in. Tap Continue and I'll find your cards.";
     case 'steering': return 'Opening your journey history…';
     case 'harvesting': return 'Reading your journey history…';
     case 'importing': return 'Importing journeys…';
@@ -358,4 +466,48 @@ export function statusText(s: FlowState): string {
     case 'cancelled': return 'Refresh cancelled.';
     case 'error': return `Couldn't refresh — ${s.message}`;
   }
+}
+
+/** What a progress bar can honestly show — see progressOf. */
+export interface Progress {
+  /** Pages finished. */
+  done: number;
+  /** Pages finished + still to go. Can GROW mid-refresh; see below. */
+  total: number;
+  /** 0..1, for a determinate bar. */
+  fraction: number;
+  /** Human label, e.g. "Page 2 of 5". */
+  label: string;
+}
+
+/**
+ * Progress for the refresh (Luke, 29-Jul: "it needs a progress bar or
+ * something").
+ *
+ * Two honest limits, both deliberate:
+ *
+ * `total` grows. We only know how many pages there are once TfL's card list has
+ * been harvested, so "Page 2 of 3" can become "Page 2 of 7" when a five-card
+ * account reveals itself. A bar that jumps backwards is mildly annoying; a bar
+ * that reaches 100% and then keeps working is a lie, and the whole point of the
+ * bar is to tell the user the thing is alive.
+ *
+ * Returns null while paused or terminal — during a pause the machine is doing
+ * nothing at all, so a bar would be claiming work that isn't happening, and the
+ * status line already says whose turn it is. Callers should render an
+ * indeterminate spinner (or nothing) on null rather than a 0% bar.
+ */
+export function progressOf(s: FlowState): Progress | null {
+  if (isTerminal(s) || isPaused(s)) return null;
+  const l = s as FlowState & Live;
+  // `visited` is appended at the moment a page is steered TO, so it includes
+  // the page in flight and excludes the mode's own first history page, which
+  // was never steered to. Counting pages STARTED (that first page, plus every
+  // steer) and treating the current one as unfinished is what makes the label
+  // match what the user is looking at.
+  const started = 1 + l.visited.length;
+  const remaining = l.queue.length + (l.directCsv && !l.directTried ? 1 : 0);
+  const total = started + remaining;
+  const done = started - 1;
+  return { done, total, fraction: done / total, label: `Page ${started} of ${total}` };
 }

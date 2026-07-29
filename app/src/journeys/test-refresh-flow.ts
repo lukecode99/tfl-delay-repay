@@ -5,6 +5,7 @@ import { JOURNEY_HISTORY_URL } from './autofetch.ts';
 import {
   canHandover,
   CONTACTLESS_HISTORY_URL,
+  doneMessage,
   type FlowEvent,
   type FlowState,
   HISTORY_URL,
@@ -21,6 +22,7 @@ import {
   MAX_STEERS,
   NEW_STATEMENTS_URL,
   OYSTER_HISTORY_URL,
+  progressOf,
   reduceFlow,
   startUrlFor,
   statusText,
@@ -499,6 +501,155 @@ ok(run([
   ];
   ok(run(late, done) === done && run(late, cancelled) === cancelled && run(late, errored) === errored,
     'late events after a terminal state change nothing');
+}
+
+// --- TfL-25: the cookie banner that made the refresh unusable ---
+//
+// Luke, 29-Jul: "I got this cookies pop up on an log in. The browser doesn't
+// let me accept cookies or go back". The WebView was fine; the state machine
+// was the problem. An unrecognised page reports 'wrong-page', and the answer to
+// wrong-page is to put window.location back on the history URL — so the consent
+// page loaded, got classified as a dud and was navigated out from under him
+// about a second later. Every tap on "Accept all cookies" raced a reload it
+// couldn't win, and after MAX_STEERS the refresh errored.
+//
+// These assertions pin the fix at its actual mechanism: consent is a PAUSED
+// phase, and paused is already the no-steering/no-injection guarantee TfL-13
+// gave login and robot checks. What must never regress is the steer.
+const CONSENT_URL = 'https://contactless.tfl.gov.uk/CookieSettings';
+{
+  const s = run([{ type: 'loaded', url: CONSENT_URL }]);
+  ok(s.phase === 'consent' && isPaused(s), "cookie page → paused, not a 'wrong page' to be steered off");
+  ok(!isTerminal(s) && canHandover(s), 'cookie page keeps Continue available');
+  // The regression that matters: no steering phase means no window.location
+  // injection, so the buttons stay tappable for as long as the user needs.
+  const later = run([
+    { type: 'nav', url: CONSENT_URL },
+    { type: 'loaded', url: CONSENT_URL },
+    { type: 'harvest', status: 'wrong-page' }, // a report in flight from before the pause
+  ], s);
+  ok(later.phase === 'consent', 'while the cookie page is up nothing steers it away');
+}
+{
+  // Caught on 'nav' too, which fires before the page has finished loading —
+  // the pause has to land before the steer, not after it.
+  const s = run([{ type: 'nav', url: CONSENT_URL }]);
+  ok(s.phase === 'consent', 'cookie page recognised on navigation, before load completes');
+}
+{
+  // TfL also draws the dialog OVER the page it was asked for; only the DOM can
+  // see that, so the harvest script reports it.
+  const s = run([
+    { type: 'loaded', url: JOURNEY_HISTORY_URL },
+    { type: 'harvest', status: 'consent' },
+  ]);
+  ok(s.phase === 'consent' && isPaused(s), 'consent dialog reported from the page → paused');
+}
+{
+  // Continue is the only thing that resumes, and it resumes into a harvest of
+  // whatever page is now showing — the same handover login already uses.
+  let s = run([{ type: 'loaded', url: CONSENT_URL }, { type: 'handover' }]);
+  ok(s.phase === 'harvesting', 'Continue from the cookie page resumes the harvest');
+  s = run([{ type: 'harvest', status: 'rows' }, { type: 'imported', inserted: 3 }, ...CLOSE_DIRECT], s);
+  ok(s.phase === 'done' && s.inserted === 3, 'cookie pause costs nothing — the refresh completes after it');
+}
+{
+  const s = reduceFlow(run([{ type: 'loaded', url: CONSENT_URL }]), { type: 'cancel' });
+  ok(s.phase === 'cancelled', "cancel from 'consent' → cancelled");
+}
+
+// --- TfL-25: TfL's own captcha, which a first-time user hits immediately ---
+//
+// Verified live: an unauthenticated GET of the contactless history page 302s to
+// /UnregisteredCustomer/Captcha. That is neither a login form nor a Cloudflare
+// challenge, so before this it was a 'wrong-page' as well — meaning a brand-new
+// public user's very first refresh steered off TfL's captcha four times and
+// then errored. Public-release blocker (Luke, msg 4606).
+{
+  const s = run([{ type: 'loaded', url: 'https://contactless.tfl.gov.uk/UnregisteredCustomer/Captcha' }]);
+  ok(s.phase === 'challenge' && isPaused(s), "TfL's own captcha → paused challenge, not a dud page");
+}
+{
+  const s = run([{ type: 'nav', url: 'https://contactless.tfl.gov.uk/UnregisteredCustomer/SomethingElse' }]);
+  ok(s.phase === 'signed-out' && isPaused(s), 'unregistered-customer gate → signed-out, not a dud page');
+}
+{
+  // Order matters: an OIDC sign-in URL carrying a consent parameter is still a
+  // login, so isLoginUrl is checked first.
+  const s = run([{ type: 'loaded', url: 'https://account.tfl.gov.uk/signin?prompt=consent' }]);
+  ok(s.phase === 'signed-out', 'sign-in URL with a consent parameter parks as signed-out, not consent');
+}
+
+// --- TfL-25: hardened for any number of cards (Luke, msg 4606) ---
+{
+  // The cap is a runaway guard, and when it bites it says so. A cap that
+  // truncated silently would read as "we checked everything" when it hadn't.
+  const many = Array.from({ length: MAX_CARDS + 3 }, (_, i) => ({ href: `https://contactless.tfl.gov.uk/Card/${i}/History` }));
+  let s = run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'cards', cards: many }]);
+  ok(s.phase === 'steering' && s.visited.length + s.queue.length + 1 <= MAX_CARDS + 1,
+    'more cards than the cap → queue bounded');
+  ok(s.cardsDropped === 3, 'cards the cap refused are counted, not forgotten');
+  // TfL's card switcher re-lists everything on every page, so the overflow is
+  // seen again and again. The count is per-encounter rather than per-card: it
+  // answers "did we look at everything?" (no) and drives one sentence of copy.
+  // Precision beyond that would need a set of skipped hrefs to no benefit.
+  const again = run([{ type: 'loaded', url: s.phase === 'steering' ? s.target : '' },
+    { type: 'harvest', status: 'cards', cards: many }], s);
+  ok('cardsDropped' in again && again.cardsDropped > 3,
+    're-listing the same overflow on a later page keeps counting the skips');
+}
+{
+  // The closing message tells the user what was left, in their words, with an
+  // action — the alternative is a cheerful "all up to date" that is false.
+  const s = run([
+    { type: 'loaded', url: JOURNEY_HISTORY_URL },
+    { type: 'harvest', status: 'cards', cards: Array.from({ length: MAX_CARDS + 1 }, (_, i) => ({ href: `https://c.tfl/${i}` })) },
+  ]);
+  ok('cardsDropped' in s && s.cardsDropped === 1, 'one card over the cap is one card counted');
+  const msg = doneMessage(4, 1);
+  ok(msg.includes('4') && /1 further card wasn't checked/.test(msg) && msg.includes('refresh again'),
+    'closing message names the skipped card and what to do about it');
+  ok(/2 further cards weren't checked/.test(doneMessage(0, 2)), 'plural reads correctly');
+  ok(!/further card/.test(doneMessage(4, 0)), 'nothing skipped → no noise about skipped cards');
+}
+{
+  // The duplicate •5006 entries stay individually visited on purpose — see
+  // enqueueCards. Only the identical LINK is deduplicated.
+  const s = run([
+    { type: 'loaded', url: JOURNEY_HISTORY_URL },
+    {
+      type: 'harvest', status: 'cards', cards: [
+        { href: CARD_A, label: 'Visa ending in 5006', expired: true },
+        { href: CARD_A, label: 'Visa ending in 5006', expired: true },
+        { href: CARD_B, label: 'Visa ending in 5006', expired: true },
+      ],
+    },
+  ]);
+  ok(s.phase === 'steering' && s.target === CARD_A && s.queue.length === 1 && s.queue[0] === CARD_B,
+    'same link twice → one visit; same card number on a different link → still visited');
+}
+
+// --- TfL-25: progress, honest about what it does and does not know ---
+{
+  ok(progressOf({ phase: 'cancelled' }) === null, 'no progress bar once the refresh is over');
+  const paused = run([{ type: 'loaded', url: CONSENT_URL }]);
+  ok(progressOf(paused) === null, 'no progress bar while the machine is waiting on the user');
+  const live = run([
+    { type: 'loaded', url: JOURNEY_HISTORY_URL },
+    { type: 'harvest', status: 'cards', cards: [{ href: CARD_A }, { href: CARD_B }] },
+  ]);
+  // History page done, card A in flight, card B queued, direct CSV still to go.
+  const p = progressOf(live);
+  ok(p !== null && p.label === 'Page 2 of 4' && p.done === 1,
+    'progress counts pages started, the queue ahead, and the direct CSV step');
+  const p2 = progressOf(run([{ type: 'loaded', url: CARD_A }, { type: 'harvest', status: 'empty' }], live));
+  ok(p2 !== null && p2.done === 2 && p2.fraction > p!.fraction, 'finishing a page moves the bar');
+  // A growing total is the honest reading: TfL only reveals the card list
+  // partway through, and a bar that hit 100% while still working would lie.
+  const grown = progressOf(run([{ type: 'harvest', status: 'cards', cards: [{ href: CARD_C }] }],
+    run([{ type: 'loaded', url: CARD_A }], live)));
+  ok(grown !== null && grown.total === 5, 'a card discovered mid-sweep grows the total rather than overflowing it');
+  ok(grown!.fraction < 1, 'the bar never reads finished while pages remain');
 }
 
 console.log(`\ntest-refresh-flow: all ${passed} assertions passed.`);

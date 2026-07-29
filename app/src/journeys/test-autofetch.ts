@@ -100,6 +100,9 @@ interface StubAnchor { href: string; text?: string; parentText?: string }
 function harvestDoc(over: {
   password?: boolean; anchors?: StubAnchor[]; tables?: string[][][];
   title?: string; bodyText?: string; challenge?: boolean;
+  /** Clickable controls, for the cookie-wall check (TfL-25). `value` covers
+   * `<input type="submit" value="…">`, which has no textContent at all. */
+  buttons?: { text?: string; value?: string }[];
 } = {}) {
   return {
     title: over.title ?? '',
@@ -110,6 +113,20 @@ function harvestDoc(over: {
       return null;
     },
     querySelectorAll: (sel: string) => {
+      // The cookie-wall sweep asks for buttons and links together, so it sees
+      // both — a real page's "Accept all cookies" may be either.
+      if (sel.includes('button')) {
+        return [
+          ...(over.buttons ?? []).map(b => ({
+            textContent: b.text ?? '',
+            getAttribute: (n: string) => (n === 'value' ? b.value ?? null : null),
+          })),
+          ...(over.anchors ?? []).map(a => ({
+            textContent: a.text ?? '',
+            getAttribute: () => null,
+          })),
+        ];
+      }
       if (sel === 'a[href]') {
         return (over.anchors ?? []).map(a => ({
           href: a.href,
@@ -223,6 +240,60 @@ async function runHarvest(doc: any, winOver: { href?: string; fetch?: any } = {}
   const msgs = await runHarvest(harvestDoc(), { href: 'https://contactless.tfl.gov.uk/HomePage' });
   ok(msgs.length === 1 && msgs[0].status === 'wrong-page' && String(msgs[0].href).includes('homepage'),
     'harvest: off-history landing page → wrong-page with the URL, NOT empty (TfL-12)');
+}
+
+// --- harvest script: TfL-25 cookie wall ---
+//
+// Luke, 29-Jul: "I got this cookies pop up on an log in. The browser doesn't
+// let me accept cookies or go back." Reporting anything but 'consent' here is
+// what broke it: 'wrong-page' triggers a window.location steer that pulled the
+// page away mid-tap, and on the history URL 'empty' would have claimed "no
+// journeys" about a page whose data TfL was withholding until he chose.
+const CONSENT_BUTTONS = [
+  { text: 'Accept all cookies' },
+  { text: 'Accept only essential cookies' },
+  { text: 'Manage cookies' },
+];
+{
+  const msgs = await runHarvest(harvestDoc({ buttons: CONSENT_BUTTONS }), { href: 'https://contactless.tfl.gov.uk/CookieSettings' });
+  ok(msgs.length === 1 && msgs[0].status === 'consent',
+    'harvest: cookie wall → consent, NOT wrong-page (a steer is what stole the tap)');
+}
+{
+  // The one that would have cost data: TfL serves the wall at the history URL.
+  const msgs = await runHarvest(harvestDoc({ buttons: CONSENT_BUTTONS }), { href: JOURNEY_HISTORY_URL });
+  ok(msgs.length === 1 && msgs[0].status === 'consent',
+    'harvest: cookie wall ON the history URL → consent, never "empty" — withheld data is not no data');
+}
+{
+  const msgs = await runHarvest(harvestDoc({
+    buttons: [{ value: 'Accept all cookies' }],
+  }), { href: JOURNEY_HISTORY_URL });
+  ok(msgs.length === 1 && msgs[0].status === 'consent', 'harvest: submit-input cookie button found by its value attribute');
+}
+{
+  // A banner over a page that DID render its journeys is just a banner.
+  const table = [
+    ['Date', 'Time', 'Journey / Action', 'Charge'],
+    ['04/07/2026', '10:32 - 11:18', 'Eastcote to Sudbury Town', '-£2.20'],
+  ];
+  const msgs = await runHarvest(harvestDoc({ buttons: CONSENT_BUTTONS, tables: [table] }), { href: JOURNEY_HISTORY_URL });
+  ok(msgs.length === 1 && msgs[0].status === 'rows',
+    'harvest: cookie banner over a rendered journey table → harvest anyway, no needless pause');
+}
+{
+  // Login comes first: a sign-in page carrying a cookie banner is a sign-in
+  // page, and both pause, so the only thing at stake is the copy being right.
+  const msgs = await runHarvest(harvestDoc({ password: true, buttons: CONSENT_BUTTONS }),
+    { href: 'https://account.tfl.gov.uk/Login' });
+  ok(msgs.length === 1 && msgs[0].status === 'signed-out', 'harvest: cookie banner on the login page still reads as signed-out');
+}
+{
+  // And the words have to be the cookie words — "Accept" alone is everywhere.
+  const msgs = await runHarvest(harvestDoc({ buttons: [{ text: 'Accept' }, { text: 'Continue' }] }),
+    { href: 'https://contactless.tfl.gov.uk/HomePage' });
+  ok(msgs.length === 1 && msgs[0].status === 'wrong-page',
+    'harvest: a bare "Accept" button is not a cookie wall — no false pause');
 }
 {
   const msgs = await runHarvest(harvestDoc({

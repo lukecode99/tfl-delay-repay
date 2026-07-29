@@ -22,7 +22,7 @@
 // Repay claim records the claim endpoint and payload in the log.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import {
   appendCsvHit,
@@ -62,6 +62,7 @@ import {
   isPaused,
   isTerminal,
   makeInitialFlow,
+  progressOf,
   reduceFlow,
   startUrlFor,
   statusText,
@@ -100,6 +101,83 @@ function directTried(s: FlowState): boolean {
   return 'directTried' in s && s.directTried === true;
 }
 
+/**
+ * Browser controls (TfL-25).
+ *
+ * Luke, 29-Jul: "The browser doesn't let me accept cookies or go back." The
+ * second half of that was literally true — the sheet's only control was Cancel,
+ * which closes the whole refresh. A WKWebView has no chrome of its own, so a
+ * user stuck on any page TfL served had no way out except abandoning the job.
+ *
+ * Three controls, on both WebViews, because the report came from Manual mode:
+ * Back for a page you didn't want, Reload for a page that half-loaded, and
+ * Safari for anything the in-app view can't finish (a bank's 3-D Secure step,
+ * a download, a password manager). Safari is the honest escape hatch: the
+ * session cookie is the shared system one, so signing in out there counts in
+ * here.
+ */
+function BrowserBar({ web, canGoBack, url }: {
+  web: React.RefObject<WebView | null>;
+  canGoBack: boolean;
+  url: string;
+}) {
+  return (
+    <View style={styles.browserBar}>
+      <Pressable
+        style={[styles.browserButton, !canGoBack && styles.browserButtonOff]}
+        hitSlop={8}
+        disabled={!canGoBack}
+        onPress={() => web.current?.goBack()}
+      >
+        <Text style={[styles.browserText, !canGoBack && styles.browserTextOff]}>‹ Back</Text>
+      </Pressable>
+      <Pressable style={styles.browserButton} hitSlop={8} onPress={() => web.current?.reload()}>
+        <Text style={styles.browserText}>Reload</Text>
+      </Pressable>
+      <View style={styles.browserSpacer} />
+      <Pressable
+        style={styles.browserButton}
+        hitSlop={8}
+        disabled={!url}
+        onPress={() => { if (url) Linking.openURL(url).catch(() => { }); }}
+      >
+        <Text style={[styles.browserText, !url && styles.browserTextOff]}>Open in Safari</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/**
+ * The progress bar Luke asked for (msg 4608: "it needs a progress bar or
+ * something").
+ *
+ * Renders nothing when progressOf returns null — while the flow is paused the
+ * machine genuinely isn't working, and a bar creeping along under "sign in,
+ * then tap Continue" would be claiming progress that isn't happening. The
+ * status line covers those states.
+ *
+ * The total can grow mid-refresh, because TfL only reveals how many cards are
+ * on the account partway through. "Page 2 of 3" becoming "Page 2 of 5" is the
+ * truth; a bar that filled and then kept working would not be.
+ */
+function ProgressBar({ state }: { state: FlowState }) {
+  const p = progressOf(state);
+  if (!p) return null;
+  return (
+    <View style={styles.progressWrap}>
+      <View style={styles.progressTrack}>
+        {/* Two flex weights rather than a percentage width: `flex` is a plain
+            number, so this can't trip over RN's DimensionValue template-literal
+            type — and there is no node_modules in this workspace to type-check
+            against, so the formulation that can't fail is the right one. */}
+        <View style={[styles.progressFill, { flex: p.fraction }]} />
+        <View style={{ flex: 1 - p.fraction }} />
+      </View>
+      <Text style={styles.progressLabel}>{p.label}</Text>
+    </View>
+  );
+}
+
 export default function RefreshSheet({ onClose }: Props) {
   const webRef = useRef<WebView>(null);
   const urlRef = useRef(''); // last URL the WebView reported — picks the injected script
@@ -117,6 +195,11 @@ export default function RefreshSheet({ onClose }: Props) {
   const [legLabel, setLegLabel] = useState<string>('');
   // TfL-18: Manual capture — the user drives, the app only records.
   const [capture, setCapture] = useState(false);
+  // TfL-25: the browser bar needs these in render, so they're state rather than
+  // the urlRef the audit log uses. One pair for both WebViews — only one is
+  // ever mounted, and switching mode remounts it (hence the resets below).
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [pageUrl, setPageUrl] = useState('');
   // TfL-19: capture mode now IMPORTS tapped statement downloads too — the
   // WebView needs a ref (to inject the page-context fetch; a native fetch
   // would bounce off the WAF), a dedupe set (Download taps repeat), and a
@@ -260,6 +343,11 @@ export default function RefreshSheet({ onClose }: Props) {
     urlRef.current = '';
     stateRef.current = makeInitialFlow(m);
     setState(stateRef.current);
+    // TfL-25: the WebView remounts on mode change (key={mode}), so its
+    // back/forward list goes with it. Leaving canGoBack true would offer a
+    // ‹ Back button that does nothing.
+    setCanGoBack(false);
+    setPageUrl('');
     setMode(m);
   };
 
@@ -517,6 +605,10 @@ export default function RefreshSheet({ onClose }: Props) {
             onPress={() => {
               if (capture) return;
               recordAudit('capture-start');
+              // TfL-25: a different WebView mounts here, with its own empty
+              // history — the flow view's back state doesn't carry over.
+              setCanGoBack(false);
+              setPageUrl('');
               setCapture(true);
             }}
           >
@@ -542,16 +634,21 @@ export default function RefreshSheet({ onClose }: Props) {
               style={styles.web}
               sharedCookiesEnabled={true}
               incognito={false}
+              // TfL-25: swipe-back, the gesture users try before they look for
+              // a button. Off by default in react-native-webview.
+              allowsBackForwardNavigationGestures={true}
               // TfL-20: record the page's outbound traffic (fetch/XHR/form
               // posts) so one manual claim reveals the claim endpoint and
               // payload for later direct submission. Re-injected per page
               // load; the script's own window flag stops double-patching.
               injectedJavaScript={buildNetCaptureScript()}
-              onNavigationStateChange={(nav: { url?: string }) => {
+              onNavigationStateChange={(nav: { url?: string; canGoBack?: boolean }) => {
                 if (nav?.url && nav.url !== urlRef.current) {
                   urlRef.current = String(nav.url);
                   recordAudit('capture-nav', String(nav.url));
                 }
+                setCanGoBack(nav?.canGoBack === true);
+                setPageUrl(String(nav?.url ?? ''));
               }}
               onShouldStartLoadWithRequest={(req: any) => {
                 const url = String(req?.url ?? '');
@@ -572,6 +669,7 @@ export default function RefreshSheet({ onClose }: Props) {
               }}
               onMessage={onCaptureMessage}
             />
+            <BrowserBar web={captureRef} canGoBack={canGoBack} url={pageUrl} />
           </>
         ) : mode == null ? (
           <View style={styles.chooser}>
@@ -601,6 +699,7 @@ export default function RefreshSheet({ onClose }: Props) {
                 </Pressable>
               )}
             </View>
+            <ProgressBar state={state} />
             <WebView
               key={mode}
               ref={webRef}
@@ -610,12 +709,18 @@ export default function RefreshSheet({ onClose }: Props) {
               // system WebView store — the app never reads or persists credentials.
               sharedCookiesEnabled={true}
               incognito={false}
+              // TfL-25: swipe-back. Safe with the state machine — a user-driven
+              // navigation arrives as a normal 'nav' event, and while paused the
+              // reducer ignores it entirely (that's the TfL-13 guarantee).
+              allowsBackForwardNavigationGestures={true}
               onLoadEnd={(e: any) => onLoaded(String(e?.nativeEvent?.url ?? ''))}
-              onNavigationStateChange={(nav: { url?: string; title?: string }) => {
+              onNavigationStateChange={(nav: { url?: string; title?: string; canGoBack?: boolean }) => {
                 if (nav?.url && nav.url !== urlRef.current) {
                   urlRef.current = String(nav.url);
                   recordAudit('nav', String(nav.url));
                 }
+                setCanGoBack(nav?.canGoBack === true);
+                setPageUrl(String(nav?.url ?? ''));
                 dispatch({
                   type: 'nav',
                   url: String(nav?.url ?? ''),
@@ -630,6 +735,7 @@ export default function RefreshSheet({ onClose }: Props) {
               onError={() => dispatch({ type: 'web-error', message: 'page failed to load' })}
               onMessage={onMessage}
             />
+            <BrowserBar web={webRef} canGoBack={canGoBack} url={pageUrl} />
           </>
         )}
       </View>
@@ -651,7 +757,14 @@ const styles = StyleSheet.create({
   cancelText: { color: colors.accentBright, fontSize: 16, fontWeight: '600' },
   modeRow: {
     flexDirection: 'row',
+    // TfL-25: four chips (Contactless / Oyster / Both / Manual) don't fit one
+    // line on a 390pt-wide phone, and without wrapping the last one is simply
+    // cut off at the screen edge — visible in Luke's 29-Jul screenshot. A row
+    // that wraps is better than a scroller here: nothing is hidden, and the
+    // chips are a mode switch, not a list.
+    flexWrap: 'wrap',
     gap: spacing.s,
+    rowGap: spacing.s,
     paddingHorizontal: spacing.l,
     paddingBottom: spacing.s,
   },
@@ -694,6 +807,37 @@ const styles = StyleSheet.create({
   continueButtonPaused: { borderColor: colors.accentBright },
   continueText: { color: colors.accentBright, fontSize: 14, fontWeight: '700' },
   web: { flex: 1, backgroundColor: '#fff' },
+  progressWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.s,
+    marginHorizontal: spacing.l,
+    marginBottom: spacing.s,
+  },
+  progressTrack: {
+    flex: 1,
+    flexDirection: 'row',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.cardBorder,
+    overflow: 'hidden',
+  },
+  progressFill: { height: 4, borderRadius: 2, backgroundColor: colors.accentBright },
+  progressLabel: { color: colors.textDim, fontSize: 11 },
+  browserBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.s,
+    borderTopColor: colors.cardBorder,
+    borderTopWidth: 1,
+    paddingHorizontal: spacing.l,
+    paddingVertical: spacing.s,
+  },
+  browserButton: { paddingVertical: 4, paddingHorizontal: spacing.s },
+  browserButtonOff: { opacity: 0.4 },
+  browserSpacer: { flex: 1 },
+  browserText: { color: colors.accentBright, fontSize: 14, fontWeight: '600' },
+  browserTextOff: { color: colors.textDim },
   captureBar: {
     backgroundColor: colors.card,
     borderColor: colors.cardBorder,
