@@ -343,6 +343,9 @@ export default function RefreshSheet({ onClose }: Props) {
       dispatchInjected.current = true;
       injectDirect();
     }
+    // Paused states entered via harvest reports (e.g. bounce into signed-out)
+    // get no page load, so onLoaded never fires the scan. Inject here instead.
+    if (isPaused(next) && !isPaused(prev)) webRef.current?.injectJavaScript(PAUSED_SCAN_SCRIPT);
     if (next.phase === 'steering') {
       // Wrong landing page (dashboard, card list…) or the next queued page:
       // the machine says where to go, the WebView follows.

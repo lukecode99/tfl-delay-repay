@@ -739,4 +739,20 @@ const CONSENT_URL = 'https://contactless.tfl.gov.uk/CookieSettings';
   ok(grown!.fraction < 1, 'the bar never reads finished while cards remain');
 }
 
+// --- GAP 4 wiring: paused phase entered via harvest needs dispatch injection ---
+{
+  // The homeForWrongPage bounce goes: harvesting → (wrong-page harvest) → signed-out.
+  // No page load fires after the harvest, so onLoaded never has a chance to inject
+  // PAUSED_SCAN_SCRIPT. The dispatch-side guard (isPaused(next) && !isPaused(prev))
+  // is the only injection path for this transition.
+  const preTransition = run([
+    { type: 'loaded', url: HOME_URL }, { type: 'harvest', status: 'wrong-page' },
+    { type: 'loaded', url: HOME_URL }, // harvesting — not paused yet
+  ]);
+  ok(!isPaused(preTransition), 'bounce pre-transition: harvesting is not paused — load-time injection would miss it');
+  const postTransition = reduceFlow(preTransition, { type: 'harvest', status: 'wrong-page' });
+  ok(isPaused(postTransition) && postTransition.phase === 'signed-out',
+    'bounce post-transition: harvest event alone crosses into paused — dispatch injection required');
+}
+
 console.log(`\ntest-refresh-flow: all ${passed} assertions passed.`);
