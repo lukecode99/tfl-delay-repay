@@ -91,6 +91,33 @@ const MODES: { value: FetchMode; label: string }[] = [
 // in it links everywhere the user might download a statement from.
 const CAPTURE_URL = 'https://contactless.tfl.gov.uk/HomePage';
 
+// TfL-LOGIN-FIRST: lightweight read-only DOM scan injected during paused states.
+// Unlike the harvest script this never navigates or modifies the page — it only
+// reads the DOM and posts back one message so the banner copy can re-evaluate
+// per navigation while the user is working through sign-in. Captcha stays
+// entirely the user's: no injection there alters the flow.
+const PAUSED_SCAN_SCRIPT = `(function () {
+  try {
+    var pw = !!document.querySelector('input[type="password"]');
+    var bodyText = document.body ? document.body.innerText : '';
+    var quota = /recaptcha/i.test(bodyText) && /quota|exceeded|error for site owner/i.test(bodyText);
+    var signinHref = null;
+    var links = document.querySelectorAll('a[href]');
+    for (var i = 0; i < links.length; i++) {
+      var t = (links[i].textContent || '').trim();
+      if (/^sign ?in$|^log ?in$/i.test(t)) { signinHref = links[i].href; break; }
+    }
+    if (window.ReactNativeWebView) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'paused-page-scan',
+        hasPassword: pw,
+        signinHref: signinHref,
+        quotaNotice: quota,
+      }));
+    }
+  } catch (e) {}
+})(); true;`;
+
 function persistedMode(): FetchMode | null {
   const m = getMeta(FETCH_MODE_KEY);
   return m === 'contactless' || m === 'oyster' || m === 'both' ? m : null;
@@ -200,6 +227,9 @@ export default function RefreshSheet({ onClose }: Props) {
   // ever mounted, and switching mode remounts it (hence the resets below).
   const [canGoBack, setCanGoBack] = useState(false);
   const [pageUrl, setPageUrl] = useState('');
+  // TfL-LOGIN-FIRST: banner copy override while paused. Cleared on each new
+  // page load and reset by the PAUSED_SCAN_SCRIPT result (paused-page-scan).
+  const [pausedCopy, setPausedCopy] = useState<string | null>(null);
   // TfL-19: capture mode now IMPORTS tapped statement downloads too — the
   // WebView needs a ref (to inject the page-context fetch; a native fetch
   // would bounce off the WAF), a dedupe set (Download taps repeat), and a
@@ -348,6 +378,7 @@ export default function RefreshSheet({ onClose }: Props) {
     // ‹ Back button that does nothing.
     setCanGoBack(false);
     setPageUrl('');
+    setPausedCopy(null);
     setMode(m);
   };
 
@@ -355,6 +386,7 @@ export default function RefreshSheet({ onClose }: Props) {
   // of whatever page the user navigated to themselves.
   const onContinue = () => {
     recordAudit('continue', urlRef.current);
+    setPausedCopy(null);
     dispatchInjected.current = false;
     dispatch({ type: 'handover' });
     if (dispatchInjected.current) return; // this dispatch injected in place (TfL-18)
@@ -365,15 +397,22 @@ export default function RefreshSheet({ onClose }: Props) {
     urlRef.current = url;
     recordAudit('loaded', url);
     dispatchInjected.current = false;
+    // Clear the previous page's banner override — the scan below will set a
+    // new one if this page warrants it (TfL-LOGIN-FIRST).
+    setPausedCopy(null);
     // Per-leg label for the status bar in 'both' mode.
     if (/oyster\.tfl\.gov\.uk/i.test(url)) setLegLabel('Oyster');
     else if (/contactless\.tfl\.gov\.uk/i.test(url)) setLegLabel('contactless');
     dispatch({ type: 'loaded', url });
-    // Injection is keyed off the phase the machine settles in: paused states
-    // never reach 'harvesting' on a load, so login/challenge pages get no
-    // script at all (TfL-13).
+    // Injection is keyed off the phase the machine settles in.
+    // Harvest script: harvesting phase only — login/challenge pages get none (TfL-13).
+    // Paused-scan script: read-only DOM probe that re-evaluates banner copy so
+    // the user sees context-appropriate text as they step through sign-in pages.
+    // It never navigates or modifies the page, preserving TfL-13's no-steering
+    // guarantee.
     if (dispatchInjected.current) return; // this dispatch injected in place (TfL-18)
     if (stateRef.current.phase === 'harvesting') injectHarvest();
+    else if (isPaused(stateRef.current)) webRef.current?.injectJavaScript(PAUSED_SCAN_SCRIPT);
   };
 
   // Several cards can each contribute an import (TfL-12) — merge the tallies
@@ -448,6 +487,18 @@ export default function RefreshSheet({ onClose }: Props) {
   const onMessage = (event: any) => {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
+      if (msg.type === 'paused-page-scan') {
+        // TfL-LOGIN-FIRST: re-evaluate banner copy per page during pause.
+        // reCAPTCHA quota notices are TfL's billing problem, not ours —
+        // say so explicitly rather than leaving the user wondering.
+        if (msg.quotaNotice) {
+          setPausedCopy("TfL's reCAPTCHA is over its daily quota — this is a TfL issue, not ours. Try again later.");
+        } else if (msg.hasPassword) {
+          setPausedCopy('Enter your TfL login details, then tap Continue.');
+        }
+        // Other paused pages (captcha, marketing): statusText(state) is correct.
+        return;
+      }
       if (msg.type === 'net-probe') {
         recordCsvHit(String(msg.kind ?? 'net'), String(msg.url ?? ''));
         return;
@@ -687,7 +738,7 @@ export default function RefreshSheet({ onClose }: Props) {
               <Text style={styles.statusText}>
                 {state.phase === 'harvesting' && legLabel
                   ? `Reading your ${legLabel} journey history…`
-                  : statusText(state)}
+                  : pausedCopy ?? statusText(state)}
               </Text>
               {canHandover(state) && (
                 <Pressable
