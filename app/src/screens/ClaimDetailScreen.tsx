@@ -189,9 +189,38 @@ export default function ClaimDetailScreen({ journey, assessment: a, overcharge, 
           {claim.status === 'paid' ? (
             <>
               <Text style={styles.claimedText}>
-                ✓ Paid{claim.paidAmount != null ? ` ${formatGBP(claim.paidAmount)}` : ''}
+                ✓ Paid{claim.paidAmount != null && claim.paidAmount > 0 ? ` ${formatGBP(claim.paidAmount)}` : ''}
                 {claim.resolvedAt ? ` · ${formatDay(claim.resolvedAt.slice(0, 10))}` : ''}
               </Text>
+              {(claim.paidAmount === 0 || claim.paidAmount === null) && (
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => {
+                    const prefill = claim.expectedValue ?? a?.refundValue ?? null;
+                    Alert.prompt(
+                      'Record refund amount',
+                      'How much did TfL pay? Leave blank if the amount is unknown.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Save',
+                          onPress: (value?: string) => {
+                            const raw = (value ?? '').replace(/[£,\s]/g, '');
+                            const n = raw.length > 0 ? Number(raw) : NaN;
+                            setClaimOutcome(journey.id, 'paid', Number.isFinite(n) && n >= 0 ? n : null);
+                            setClaim(getClaim(journey.id));
+                          },
+                        },
+                      ],
+                      'plain-text',
+                      prefill != null ? prefill.toFixed(2) : '',
+                      'decimal-pad',
+                    );
+                  }}
+                >
+                  <Text style={styles.unmark}>Record amount received</Text>
+                </Pressable>
+              )}
               <Pressable onPress={() => { reopenClaim(journey.id); setClaim(getClaim(journey.id)); }} hitSlop={8}>
                 <Text style={styles.unmark}>Not right? Reopen</Text>
               </Pressable>
@@ -213,24 +242,25 @@ export default function ClaimDetailScreen({ journey, assessment: a, overcharge, 
                 <Pressable
                   style={[styles.outcomeButton, styles.outcomePaid]}
                   onPress={() => {
-                    const fallback = claim.expectedValue ?? a?.refundValue ?? null;
+                    const prefill = claim.expectedValue ?? a?.refundValue ?? null;
                     Alert.prompt(
                       'Amount received',
-                      'What did TfL refund? (£)',
+                      'How much did TfL pay? Leave blank if the amount is unknown.',
                       [
                         { text: 'Cancel', style: 'cancel' },
                         {
                           text: 'Save',
                           onPress: (value?: string) => {
-                            const n = Number(value?.replace(/[£,\s]/g, ''));
-                            setClaimOutcome(journey.id, 'paid', Number.isFinite(n) && n >= 0 ? n : fallback);
+                            const raw = (value ?? '').replace(/[£,\s]/g, '');
+                            const n = raw.length > 0 ? Number(raw) : NaN;
+                            setClaimOutcome(journey.id, 'paid', Number.isFinite(n) && n >= 0 ? n : null);
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                             setClaim(getClaim(journey.id));
                           },
                         },
                       ],
                       'plain-text',
-                      fallback != null ? fallback.toFixed(2) : '',
+                      prefill != null ? prefill.toFixed(2) : '',
                       'decimal-pad',
                     );
                   }}
