@@ -213,7 +213,14 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
           const url = String(nav.url);
           recordAudit('overcharge-nav', url);
 
-          // Steer from Dashboard → MyCards after OAuth login (one-shot).
+          // Re-arm after session-timeout → OAuth → MFA so the steer fires again
+          // when TfL bounces the user back to Dashboard post-login.
+          if (/signin|sign-in|login|oauth|b2c/i.test(url) || /account\.tfl\.gov\.uk/i.test(url)) {
+            steerredRef.current = false;
+            fillInjectedRef.current = false;
+          }
+
+          // Steer from Dashboard → MyCards after OAuth login (one-shot per session).
           const target = overchargeSteerUrl(url);
           if (target && !steerredRef.current) {
             steerredRef.current = true;
