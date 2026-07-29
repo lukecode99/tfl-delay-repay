@@ -85,8 +85,8 @@ export const MAX_CARDS = 20;
 interface Live {
   /** Wrong-page steers used so far (capped at MAX_STEERS). */
   steers: number;
-  /** History/card pages still to visit. */
-  queue: string[];
+  /** History/card pages still to visit. card=true marks items from enqueueCards; mode URLs lack it. */
+  queue: Array<{ href: string; card?: true; label?: string }>;
   /** Pages already steered to — never re-queued. */
   visited: string[];
   /** Journeys imported so far across all pages. */
@@ -116,6 +116,16 @@ interface Live {
    * Cleared after any confirmed real harvest (cards, empty, csv, rows) so a
    * later wrong-page from a different card still gets one recovery steer. */
   homeForWrongPage: boolean;
+  /** Total cards ever enqueued (grows monotonically). Counts items added by
+   * enqueueCards plus mode-URL legs (e.g. Oyster in 'both' mode) that were
+   * queued at startup. Used by progressOf to keep total honest as new cards
+   * surface mid-sweep. */
+  totalCards: number;
+  /** Whether the page currently being read came from a card queue entry. False
+   * while reading a mode-URL leg (e.g. the initial Oyster history page). */
+  currentIsCard: boolean;
+  /** Human label of the card currently being read, if available from CardEntry. */
+  currentCardLabel: string | undefined;
 }
 
 export type FlowState =
@@ -150,7 +160,19 @@ export type FlowEvent =
 /** Flow start for a mode: first history page loads, the rest queue up. */
 export function makeInitialFlow(mode: FetchMode): FlowState {
   const [home, ...rest] = historyUrlsFor(mode);
-  return { phase: 'loading', steers: 0, queue: rest, visited: [], inserted: 0, harvested: false, home, directCsv: mode !== 'oyster', historySwept: false, directTried: false, cardsDropped: 0, homeForWrongPage: false };
+  // Mode-URL legs (e.g. Oyster in 'both') count as cards in the progress bar
+  // so the bar doesn't read "complete" while the Oyster leg is still running.
+  const queue = rest.map(url => ({
+    href: url,
+    card: true as const,
+    label: url === OYSTER_HISTORY_URL ? 'Oyster' : undefined,
+  }));
+  return {
+    phase: 'loading', steers: 0, queue, visited: [], inserted: 0, harvested: false, home,
+    directCsv: mode !== 'oyster', historySwept: false, directTried: false, cardsDropped: 0,
+    homeForWrongPage: false, totalCards: queue.length, currentIsCard: false,
+    currentCardLabel: undefined,
+  };
 }
 
 export const INITIAL_FLOW: FlowState = makeInitialFlow('contactless');
@@ -274,7 +296,7 @@ export function doneMessage(inserted: number, cardsDropped = 0): string {
 
 const liveOf = (s: FlowState): Live => ({
   steers: 'steers' in s ? s.steers : 0,
-  queue: 'queue' in s ? s.queue : [],
+  queue: 'queue' in s ? s.queue as Live['queue'] : [],
   visited: 'visited' in s ? s.visited : [],
   inserted: 'inserted' in s ? s.inserted : 0,
   harvested: 'harvested' in s ? s.harvested : false,
@@ -284,6 +306,9 @@ const liveOf = (s: FlowState): Live => ({
   directTried: 'directTried' in s ? s.directTried : false,
   cardsDropped: 'cardsDropped' in s ? s.cardsDropped : 0,
   homeForWrongPage: 'homeForWrongPage' in s ? s.homeForWrongPage : false,
+  totalCards: 'totalCards' in s ? (s as any).totalCards : 0,
+  currentIsCard: 'currentIsCard' in s ? (s as any).currentIsCard : false,
+  currentCardLabel: 'currentCardLabel' in s ? (s as any).currentCardLabel : undefined,
 });
 
 /**
@@ -297,7 +322,17 @@ const liveOf = (s: FlowState): Live => ({
  */
 function advance(l: Live): FlowState {
   const [next, ...rest] = l.queue;
-  if (next) return { ...l, phase: 'steering', target: next, queue: rest, visited: [...l.visited, next] };
+  if (next) {
+    return {
+      ...l,
+      phase: 'steering',
+      target: next.href,
+      queue: rest,
+      visited: [...l.visited, next.href],
+      currentIsCard: next.card === true,
+      currentCardLabel: next.card === true ? next.label : undefined,
+    };
+  }
   if (l.directCsv) return { ...l, phase: 'harvesting', directCsv: false, directTried: true, historySwept: true };
   if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted, l.cardsDropped), inserted: l.inserted };
   return { phase: 'done', message: 'No journey history found on TfL.', inserted: 0 };
@@ -321,19 +356,24 @@ function advance(l: Live): FlowState {
  * duplicates are handled by MAX_CARDS instead, which bounds the cost without
  * ever choosing which card to skip.
  */
-function enqueueCards(l: Live, cards: CardEntry[] | undefined): { queue: string[]; cardsDropped: number } {
+function enqueueCards(
+  l: Live,
+  cards: CardEntry[] | undefined,
+): { queue: Live['queue']; cardsDropped: number; totalCards: number } {
   const entries = (cards ?? []).filter(c => c && typeof c.href === 'string' && c.href !== '');
   const usable = entries.some(c => !c.expired) ? entries.filter(c => !c.expired) : entries;
-  const seen = new Set([...l.visited, ...l.queue]);
+  const seen = new Set([...l.visited, ...l.queue.map(q => q.href)]);
   const queue = [...l.queue];
   let cardsDropped = l.cardsDropped;
+  let totalCards = l.totalCards;
   for (const c of usable) {
     if (seen.has(c.href)) continue;
     if (l.visited.length + queue.length >= MAX_CARDS) { cardsDropped++; continue; }
     seen.add(c.href);
-    queue.push(c.href);
+    queue.push({ href: c.href, card: true, label: c.label });
+    totalCards++;
   }
-  return { queue, cardsDropped };
+  return { queue, cardsDropped, totalCards };
 }
 
 export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
@@ -438,8 +478,8 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
         return { ...l, phase: 'steering', target: l.home, steers: l.steers + 1, homeForWrongPage: true };
       }
       if (e.status === 'cards') {
-        const { queue, cardsDropped } = enqueueCards(l, e.cards);
-        if (queue.length) return advance({ ...l, queue, cardsDropped, homeForWrongPage: false });
+        const { queue, cardsDropped, totalCards } = enqueueCards(l, e.cards);
+        if (queue.length) return advance({ ...l, queue, cardsDropped, totalCards, homeForWrongPage: false });
         if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted, cardsDropped), inserted: l.inserted };
         return { phase: 'error', message: 'no card with journey history found' };
       }
@@ -513,14 +553,19 @@ export interface Progress {
 export function progressOf(s: FlowState): Progress | null {
   if (isTerminal(s) || isPaused(s)) return null;
   const l = s as FlowState & Live;
-  // `visited` is appended at the moment a page is steered TO, so it includes
-  // the page in flight and excludes the mode's own first history page, which
-  // was never steered to. Counting pages STARTED (that first page, plus every
-  // steer) and treating the current one as unfinished is what makes the label
-  // match what the user is looking at.
-  const started = 1 + l.visited.length;
-  const remaining = l.queue.length + (l.directCsv && !l.directTried ? 1 : 0);
-  const total = started + remaining;
-  const done = started - 1;
-  return { done, total, fraction: done / total, label: `Page ${started} of ${total}` };
+  if (l.totalCards === 0) {
+    // No cards found yet — show a minimal indeterminate-style bar while the
+    // initial history page loads. Better than a false "Page 1 of 1" (done=0).
+    return { done: 0, total: 1, fraction: 0, label: 'Loading your journey history…' };
+  }
+  // Count card-queue items still ahead of us (mode-URL legs excluded — they
+  // carry card=true only when they were added as card legs).
+  const cardsLeft = l.queue.filter(q => q.card === true).length;
+  // Subtract both the remaining cards AND the one currently in progress.
+  const done = l.totalCards - cardsLeft - (l.currentIsCard ? 1 : 0);
+  const total = l.totalCards;
+  const label = l.currentCardLabel
+    ? `${l.currentCardLabel} (${done + 1} of ${total})`
+    : `Card ${done + 1} of ${total}`;
+  return { done, total, fraction: done / total, label };
 }

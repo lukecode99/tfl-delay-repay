@@ -94,7 +94,7 @@ ok(historyUrlsFor('both')[0] === CONTACTLESS_HISTORY_URL && historyUrlsFor('both
 {
   // Both mode: contactless section empty, Oyster has the journeys — totals merge.
   let s = makeInitialFlow('both');
-  ok(s.phase === 'loading' && 'queue' in s && s.queue[0] === OYSTER_HISTORY_URL, 'both mode queues Oyster behind contactless');
+  ok(s.phase === 'loading' && 'queue' in s && s.queue[0].href === OYSTER_HISTORY_URL, 'both mode queues Oyster behind contactless');
   s = run([{ type: 'loaded', url: CONTACTLESS_HISTORY_URL }, { type: 'harvest', status: 'empty' }], s);
   ok(s.phase === 'steering' && s.target === OYSTER_HISTORY_URL,
     'contactless section empty → not a verdict, the Oyster section is next');
@@ -455,7 +455,7 @@ const CONTACTLESS_DASHBOARD = 'https://contactless.tfl.gov.uk/Dashboard';
       ],
     },
   ]);
-  ok(s.phase === 'steering' && s.target === CARD_A && s.queue[0] === CARD_B,
+  ok(s.phase === 'steering' && s.target === CARD_A && s.queue[0].href === CARD_B,
     'all entries expired-flagged → flags distrusted, every card queued');
 }
 {
@@ -694,7 +694,7 @@ const CONSENT_URL = 'https://contactless.tfl.gov.uk/CookieSettings';
       ],
     },
   ]);
-  ok(s.phase === 'steering' && s.target === CARD_A && s.queue.length === 1 && s.queue[0] === CARD_B,
+  ok(s.phase === 'steering' && s.target === CARD_A && s.queue.length === 1 && s.queue[0].href === CARD_B,
     'same link twice → one visit; same card number on a different link → still visited');
 }
 
@@ -707,18 +707,18 @@ const CONSENT_URL = 'https://contactless.tfl.gov.uk/CookieSettings';
     { type: 'loaded', url: JOURNEY_HISTORY_URL },
     { type: 'harvest', status: 'cards', cards: [{ href: CARD_A }, { href: CARD_B }] },
   ]);
-  // History page done, card A in flight, card B queued, direct CSV still to go.
+  // Card A in flight (0 done), card B queued — progress counts cards, not pages.
   const p = progressOf(live);
-  ok(p !== null && p.label === 'Page 2 of 4' && p.done === 1,
-    'progress counts pages started, the queue ahead, and the direct CSV step');
+  ok(p !== null && p.label === 'Card 1 of 2' && p.done === 0,
+    'progress counts cards: on first card, done=0');
   const p2 = progressOf(run([{ type: 'loaded', url: CARD_A }, { type: 'harvest', status: 'empty' }], live));
-  ok(p2 !== null && p2.done === 2 && p2.fraction > p!.fraction, 'finishing a page moves the bar');
+  ok(p2 !== null && p2.done === 1 && p2.fraction > p!.fraction, 'finishing a card moves the bar');
   // A growing total is the honest reading: TfL only reveals the card list
   // partway through, and a bar that hit 100% while still working would lie.
   const grown = progressOf(run([{ type: 'harvest', status: 'cards', cards: [{ href: CARD_C }] }],
     run([{ type: 'loaded', url: CARD_A }], live)));
-  ok(grown !== null && grown.total === 5, 'a card discovered mid-sweep grows the total rather than overflowing it');
-  ok(grown!.fraction < 1, 'the bar never reads finished while pages remain');
+  ok(grown !== null && grown.total === 3, 'a card discovered mid-sweep grows the total rather than overflowing it');
+  ok(grown!.fraction < 1, 'the bar never reads finished while cards remain');
 }
 
 console.log(`\ntest-refresh-flow: all ${passed} assertions passed.`);

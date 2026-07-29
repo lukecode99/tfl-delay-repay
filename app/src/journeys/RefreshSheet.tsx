@@ -323,7 +323,7 @@ export default function RefreshSheet({ onClose }: Props) {
     // If the phase is still 'harvesting' when it fires, treat it as a failed
     // direct attempt so the flow can recover (steer or advance) rather than
     // spinning forever — most common when the Oyster leg never reports back.
-    if (next.phase === 'harvesting' && prev.phase !== 'harvesting') {
+    if (next.phase === 'harvesting' && (prev.phase !== 'harvesting' || e.type === 'handover')) {
       harvestTimerRef.current = setTimeout(() => {
         if (stateRef.current.phase === 'harvesting') {
           recordAudit('harvest-timeout', urlRef.current);
