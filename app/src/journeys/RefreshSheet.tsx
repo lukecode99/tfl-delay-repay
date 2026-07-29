@@ -22,7 +22,7 @@
 // Repay claim records the claim endpoint and payload in the log.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import {
   appendCsvHit,
@@ -49,6 +49,7 @@ import {
   periodsForRefresh,
 } from './direct-csv';
 import { autoMatchRefunds } from '../claims/auto-match';
+import { setClaimOutcome } from '../claims/db';
 import { getMeta, insertRefunds, listCards, setMeta } from './db';
 import { importCsvText, ImportOutcome } from './import';
 import { parseStatement } from './parse';
@@ -212,6 +213,9 @@ export default function RefreshSheet({ onClose }: Props) {
   const stateRef = useRef<FlowState>(makeInitialFlow('contactless'));
   const outcomeRef = useRef<ImportOutcome | null>(null);
   const closedRef = useRef(false);
+  // REFUND-AUTO-MATCH: accumulated across billing files in this session.
+  const sessionAutoMatchedRef = useRef(0);
+  const sessionCorrectionsRef = useRef<Array<{ journeyId: number; suggested: number }>>([]);
   // TfL-18: set while a dispatch() call injects the in-place direct script,
   // so the handler that triggered it doesn't inject a second time.
   const dispatchInjected = useRef(false);
@@ -348,7 +352,32 @@ export default function RefreshSheet({ onClose }: Props) {
     if (next.phase === 'done') {
       const outcome = outcomeRef.current;
       if (outcome) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(() => close(outcome ? { kind: 'imported', outcome } : { kind: 'empty' }), DISMISS_DELAY_MS);
+      const n = sessionAutoMatchedRef.current;
+      if (n > 0) {
+        // Fold the auto-match count into the status banner alongside the done message.
+        setPausedCopy(`${next.message} · ${n} claim${n === 1 ? '' : 's'} auto-marked paid`);
+      }
+      const doClose = () => close(outcome ? { kind: 'imported', outcome } : { kind: 'empty' });
+      const pendingCorrections = [...sessionCorrectionsRef.current];
+      if (pendingCorrections.length > 0) {
+        // Present each correction in sequence. Never auto-writes — the user
+        // decides whether each suggested amount is right. Close after all handled.
+        const offerNext = (remaining: typeof pendingCorrections) => {
+          if (!remaining.length) { doClose(); return; }
+          const [c, ...rest] = remaining;
+          Alert.alert(
+            'Refund amount found',
+            `Your billing statement shows a £${c.suggested.toFixed(2)} credit that matches a claim already marked paid but with no amount recorded. Record £${c.suggested.toFixed(2)} as the paid amount?`,
+            [
+              { text: 'Skip', style: 'cancel', onPress: () => offerNext(rest) },
+              { text: 'Record', onPress: () => { setClaimOutcome(c.journeyId, 'paid', c.suggested); offerNext(rest); } },
+            ],
+          );
+        };
+        setTimeout(() => offerNext(pendingCorrections), DISMISS_DELAY_MS);
+      } else {
+        setTimeout(doClose, DISMISS_DELAY_MS);
+      }
     }
     // 'error' stays open — the status bar shows what went wrong and the page
     // stays visible; the button becomes Close.
@@ -387,7 +416,14 @@ export default function RefreshSheet({ onClose }: Props) {
   // of whatever page the user navigated to themselves.
   const onContinue = () => {
     recordAudit('continue', urlRef.current);
-    setPausedCopy(null);
+    if (stateRef.current.phase === 'harvesting') {
+      // Re-tapping Continue while already harvesting changes nothing visible —
+      // show brief feedback so Luke knows the tap registered.
+      setPausedCopy('Re-reading this page…');
+      setTimeout(() => setPausedCopy(p => p === 'Re-reading this page…' ? null : p), 1500);
+    } else {
+      setPausedCopy(null);
+    }
     dispatchInjected.current = false;
     dispatch({ type: 'handover' });
     if (dispatchInjected.current) return; // this dispatch injected in place (TfL-18)
@@ -562,11 +598,15 @@ export default function RefreshSheet({ onClose }: Props) {
                     const { inserted: ri } = insertRefunds(bparsed.refunds, bcard, bperiod);
                     billingRefunds += ri;
                     const { matched, corrections } = autoMatchRefunds(bparsed.refunds);
-                    if (matched > 0) recordAudit('auto-match', `${matched} claim(s) marked paid`);
+                    if (matched > 0) {
+                      recordAudit('auto-match', `${matched} claim(s) marked paid`);
+                      sessionAutoMatchedRef.current += matched;
+                    }
                     if (corrections.length > 0) {
                       recordAudit('auto-match-review', corrections
                         .map(c => `journey ${c.journeyId}: suggested £${c.suggested.toFixed(2)}`)
                         .join('; '));
+                      sessionCorrectionsRef.current.push(...corrections);
                     }
                   }
                 }
@@ -744,9 +784,11 @@ export default function RefreshSheet({ onClose }: Props) {
           <>
             <View style={[styles.statusBar, state.phase === 'error' && styles.statusBarError]}>
               <Text style={styles.statusText}>
-                {state.phase === 'harvesting' && legLabel
-                  ? `Reading your ${legLabel} journey history…`
-                  : pausedCopy ?? statusText(state)}
+                {pausedCopy != null
+                  ? pausedCopy
+                  : state.phase === 'harvesting' && legLabel
+                    ? `Reading your ${legLabel} journey history…`
+                    : statusText(state)}
               </Text>
               {canHandover(state) && (
                 <Pressable
