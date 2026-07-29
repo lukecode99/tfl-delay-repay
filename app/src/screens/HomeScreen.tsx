@@ -3,7 +3,6 @@
 // refresh/import actions, and a "needs attention" list of eligible unclaimed
 // journeys still inside the claim window.
 import React from 'react';
-import * as Haptics from 'expo-haptics';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ClaimRecord } from '../claims/db';
 import { claimTotals } from '../claims/stats';
@@ -32,7 +31,6 @@ interface Props {
   onRefreshPress: () => void;
   onImportPress: () => void;
   onSelect: (journey: StoredJourney) => void;
-  onMarkClaimed: (journey: StoredJourney) => void;
   onOpenJourneys: (filter: JourneyFilter) => void;
   /** Optional: live ledger snapshot for the "your lines" status strip. */
   snapshot?: LedgerSnapshot | null;
@@ -46,7 +44,7 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function HomeScreen({
   journeys, assessments, overchargeById, claims, lastImport, receivedTotal, refreshing, refreshNote,
-  onRefreshPress, onImportPress, onSelect, onMarkClaimed, onOpenJourneys,
+  onRefreshPress, onImportPress, onSelect, onOpenJourneys,
   snapshot, yourLineIds, onOpenStatusBoard,
 }: Props) {
   const today = React.useMemo(todayISO, []);
@@ -195,14 +193,9 @@ export default function HomeScreen({
                 </Text>
               </Pressable>
               {a?.refundValue != null && <Text style={styles.amount}>{formatGBP(a.refundValue)}</Text>}
-              <View style={styles.rowActions}>
-                <Pressable style={styles.claimButton} onPress={() => onSelect(item)} hitSlop={4}>
-                  <Text style={styles.claimButtonText}>Claim</Text>
-                </Pressable>
-                <Pressable style={styles.markButton} onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onMarkClaimed(item); }} hitSlop={4}>
-                  <Text style={styles.markButtonText}>Mark</Text>
-                </Pressable>
-              </View>
+              <Pressable style={styles.claimButton} onPress={() => onSelect(item)} hitSlop={4}>
+                <Text style={styles.claimButtonText}>Claim</Text>
+              </Pressable>
             </View>
           );
         }}
@@ -306,7 +299,6 @@ const styles = StyleSheet.create({
   route: { color: colors.text, fontSize: 15, fontWeight: '700' },
   meta: { color: colors.textDim, fontSize: 12.5, marginTop: 2 },
   amount: { color: colors.good, fontSize: 15, fontWeight: '800', marginRight: spacing.s },
-  rowActions: { alignItems: 'flex-end', justifyContent: 'center' },
   claimButton: {
     backgroundColor: colors.accentBright,
     borderRadius: 10,
@@ -314,13 +306,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.m - 1,
   },
   claimButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  markButton: {
-    borderColor: colors.cardBorder,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: spacing.s,
-    paddingHorizontal: spacing.m - 1,
-    marginTop: spacing.xs,
-  },
-  markButtonText: { color: colors.textDim, fontSize: 12, fontWeight: '600' },
 });

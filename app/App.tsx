@@ -7,7 +7,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
-import { ClaimRecord, listClaims, markClaimed } from './src/claims/db';
+import { ClaimRecord, listClaims } from './src/claims/db';
 import { initLedger, refreshLedger, getLiveSnapshot } from './src/data/ledger-store';
 import type { LedgerSnapshot } from './src/eligibility/ledger-json';
 import { loadProfiles } from './src/disruptions/push-slots';
@@ -294,7 +294,6 @@ export default function App() {
               onRefreshPress={() => startAutoFetch(true)}
               onImportPress={onImportPress}
               onSelect={setSelected}
-              onMarkClaimed={j => { markClaimed(j.id, null); refresh(); }}
               onOpenJourneys={openJourneys}
               snapshot={snapshot}
               yourLineIds={yourLineIds}
@@ -309,7 +308,6 @@ export default function App() {
               lastImport={lastImport}
               onImportPress={onImportPress}
               onSelect={setSelected}
-              onMarkClaimed={j => { markClaimed(j.id, null); refresh(); }}
               onRefreshPress={() => startAutoFetch(true)}
               refreshing={autoFetching}
               refreshNote={refreshNote}
