@@ -12,6 +12,7 @@ import { formatGBP } from '../format';
 import type { StoredJourney } from '../journeys/db';
 import type { ImportOutcome } from '../journeys/import';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
+import { attentionList } from '../journeys/home-stats';
 import { statusTags, type JourneyFilter } from '../journeys/status-tags';
 import { worstActiveSpan, formatSinceLabel, hasCoverage } from '../disruptions/status-board-format';
 import type { LedgerSnapshot } from '../eligibility/ledger-json';
@@ -65,7 +66,6 @@ export default function HomeScreen({
 
   const { eligibleCount, missedCount, attention } = React.useMemo(() => {
     let eligible = 0, missed = 0;
-    const attn: StoredJourney[] = [];
     for (const j of journeys) {
       const isEligible = assessments.get(j.id)?.status === 'eligible';
       const oc = overchargeById.get(j.id);
@@ -80,9 +80,8 @@ export default function HomeScreen({
       // live overcharges count as eligible money too.
       if (tags.has('eligible')) eligible++;
       if (tags.has('missed')) missed++;
-      else if (isEligible && !tags.has('claimed')) attn.push(j);
     }
-    return { eligibleCount: eligible, missedCount: missed, attention: attn };
+    return { eligibleCount: eligible, missedCount: missed, attention: attentionList(journeys, assessments, overchargeById, claims, today) };
   }, [journeys, assessments, overchargeById, claims, today]);
 
   const stat = (label: string, value: string, filter: JourneyFilter, valueStyle?: object) => (
