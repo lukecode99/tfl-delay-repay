@@ -257,7 +257,7 @@ export default function ClaimDetailScreen({ journey, assessment: a, overcharge, 
           </Pressable>
           <Pressable
             style={styles.markClaimedButton}
-            onPress={() => { markClaimed(journey.id, null); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setClaim(getClaim(journey.id)); }}
+            onPress={() => { markClaimed(journey.id, a?.refundValue ?? null); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setClaim(getClaim(journey.id)); }}
             hitSlop={8}
           >
             <Text style={styles.markClaimedText}>Mark as claimed (already filed)</Text>

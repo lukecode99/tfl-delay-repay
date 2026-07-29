@@ -48,6 +48,7 @@ import {
   looksLikeCsv,
   periodsForRefresh,
 } from './direct-csv';
+import { autoMatchRefunds } from '../claims/auto-match';
 import { getMeta, insertRefunds, listCards, setMeta } from './db';
 import { importCsvText, ImportOutcome } from './import';
 import { parseStatement } from './parse';
@@ -560,6 +561,13 @@ export default function RefreshSheet({ onClose }: Props) {
                   if (bparsed.refunds.length > 0) {
                     const { inserted: ri } = insertRefunds(bparsed.refunds, bcard, bperiod);
                     billingRefunds += ri;
+                    const { matched, corrections } = autoMatchRefunds(bparsed.refunds);
+                    if (matched > 0) recordAudit('auto-match', `${matched} claim(s) marked paid`);
+                    if (corrections.length > 0) {
+                      recordAudit('auto-match-review', corrections
+                        .map(c => `journey ${c.journeyId}: suggested £${c.suggested.toFixed(2)}`)
+                        .join('; '));
+                    }
                   }
                 }
               } catch { /* non-fatal */ }

@@ -21,7 +21,7 @@ export function importCsvText(text: string, fileName: string, period = ''): Impo
   const card = fileName.replace(/\.csv$/i, '').trim() || 'unknown';
   const parsed = parseStatement(text, card);
   const summary = insertJourneys(parsed.journeys);
-  const autoMatchedRefunds = autoMatchRefunds(parsed.refunds);
+  const { matched: autoMatchedRefunds } = autoMatchRefunds(parsed.refunds);
   const { inserted: refundsInserted } = insertRefunds(parsed.refunds, card, period);
   return { ...summary, parsed, fileName, filesChecked: 1, autoMatchedRefunds, refundsInserted };
 }
