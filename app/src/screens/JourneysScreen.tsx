@@ -3,6 +3,7 @@
 // received/rejected/missed can coexist) and chips match "has this tag".
 // The home screen deep-links here with a filter pre-applied.
 import React, { useState } from 'react';
+import * as Haptics from 'expo-haptics';
 import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import type { ClaimRecord } from '../claims/db';
 import { claimDeadline } from '../eligibility/deadline';
@@ -28,6 +29,7 @@ interface Props {
   lastImport: ImportOutcome | null;
   onImportPress: () => void;
   onSelect: (journey: StoredJourney) => void;
+  onMarkClaimed: (journey: StoredJourney) => void;
   onRefreshPress: () => void;
   refreshing: boolean;
   refreshNote: string | null;
@@ -78,7 +80,7 @@ function cutoff13Mo(): string {
 }
 
 export default function JourneysScreen({
-  journeys, assessments, overchargeById, claims, lastImport, onImportPress, onSelect,
+  journeys, assessments, overchargeById, claims, lastImport, onImportPress, onSelect, onMarkClaimed,
   onRefreshPress, refreshing, refreshNote, filter, onFilterChange,
 }: Props) {
   const today = React.useMemo(todayISO, []);
@@ -188,8 +190,38 @@ export default function JourneysScreen({
         }
         renderSectionHeader={({ section }) => <Text style={styles.dayHeader}>{section.title}</Text>}
         renderItem={({ item }) => {
-          const missed = tagsById.get(item.id)?.has('missed') ?? false;
+          const tags = tagsById.get(item.id) ?? new Set();
+          const missed = tags.has('missed');
           const a = assessments.get(item.id);
+          const oc = overchargeById.get(item.id);
+          const showMark = !claims.get(item.id) && (tags.has('eligible') || (oc != null && oc.claimStatus !== 'expired'));
+          if (showMark) {
+            return (
+              <View style={[styles.row, missed && styles.rowMissed]}>
+                <Pressable style={styles.rowNavArea} onPress={() => onSelect(item)}>
+                  {missed && <View style={styles.stripeMissed} />}
+                  <View style={styles.rowMain}>
+                    <Text style={styles.route} numberOfLines={1}>
+                      {item.origin} → {item.destination ?? '?'}
+                    </Text>
+                    <Text style={styles.meta}>
+                      {item.tapInTime ?? '--:--'}–{item.tapOutTime ?? '--:--'}
+                      {item.charge != null ? `  ·  ${formatGBP(item.charge)}` : ''}
+                      {missed && a?.refundValue != null ? `  ·  was worth ${formatGBP(a.refundValue)}` : ''}
+                    </Text>
+                  </View>
+                  <Badge assessment={a} claim={claims.get(item.id)} missed={missed} overcharge={oc} />
+                </Pressable>
+                <Pressable
+                  style={styles.markButton}
+                  onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onMarkClaimed(item); }}
+                  hitSlop={4}
+                >
+                  <Text style={styles.markButtonText}>Mark</Text>
+                </Pressable>
+              </View>
+            );
+          }
           return (
             <Pressable style={[styles.row, missed && styles.rowMissed]} onPress={() => onSelect(item)}>
               {missed && <View style={styles.stripeMissed} />}
@@ -203,12 +235,7 @@ export default function JourneysScreen({
                   {missed && a?.refundValue != null ? `  ·  was worth ${formatGBP(a.refundValue)}` : ''}
                 </Text>
               </View>
-              <Badge
-                assessment={a}
-                claim={claims.get(item.id)}
-                missed={missed}
-                overcharge={overchargeById.get(item.id)}
-              />
+              <Badge assessment={a} claim={claims.get(item.id)} missed={missed} overcharge={oc} />
               <Text style={styles.chevron}>›</Text>
             </Pressable>
           );
@@ -289,6 +316,7 @@ const styles = StyleSheet.create({
   },
   rowMissed: { opacity: 0.65 },
   stripeMissed: { width: 4, alignSelf: 'stretch', borderRadius: 3, backgroundColor: colors.textDim, marginRight: spacing.m },
+  rowNavArea: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   rowMain: { flex: 1, marginRight: spacing.s },
   route: { color: colors.text, fontSize: 15, fontWeight: '600' },
   meta: { color: colors.textDim, fontSize: 12, marginTop: 2 },
@@ -318,6 +346,15 @@ const styles = StyleSheet.create({
   badgeEligibleText: { color: '#04220F', fontSize: 13, fontWeight: '800' },
   badgeConfidence: { color: '#04220F', fontSize: 9, fontWeight: '600', textTransform: 'uppercase' },
   chevron: { color: colors.textDim, fontSize: 20 },
+  markButton: {
+    borderColor: colors.cardBorder,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: spacing.s,
+    paddingHorizontal: spacing.m - 1,
+    marginLeft: spacing.s,
+  },
+  markButtonText: { color: colors.textDim, fontSize: 12, fontWeight: '600' },
   showOlderBtn: {
     alignItems: 'center',
     padding: spacing.m,

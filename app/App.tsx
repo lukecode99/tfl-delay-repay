@@ -309,6 +309,7 @@ export default function App() {
               lastImport={lastImport}
               onImportPress={onImportPress}
               onSelect={setSelected}
+              onMarkClaimed={j => { markClaimed(j.id, null); refresh(); }}
               onRefreshPress={() => startAutoFetch(true)}
               refreshing={autoFetching}
               refreshNote={refreshNote}

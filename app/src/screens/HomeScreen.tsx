@@ -3,8 +3,8 @@
 // refresh/import actions, and a "needs attention" list of eligible unclaimed
 // journeys still inside the claim window.
 import React from 'react';
+import * as Haptics from 'expo-haptics';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { markClaimed } from '../claims/db';
 import type { ClaimRecord } from '../claims/db';
 import { claimTotals } from '../claims/stats';
 import { claimDeadline } from '../eligibility/deadline';
@@ -199,7 +199,7 @@ export default function HomeScreen({
                 <Pressable style={styles.claimButton} onPress={() => onSelect(item)} hitSlop={4}>
                   <Text style={styles.claimButtonText}>Claim</Text>
                 </Pressable>
-                <Pressable style={styles.markButton} onPress={() => { markClaimed(item.id, null); onMarkClaimed(item); }} hitSlop={4}>
+                <Pressable style={styles.markButton} onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onMarkClaimed(item); }} hitSlop={4}>
                   <Text style={styles.markButtonText}>Mark</Text>
                 </Pressable>
               </View>
