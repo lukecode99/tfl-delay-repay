@@ -24,12 +24,14 @@ import {
 } from '../claims/complete-journey-fill';
 import { buildNetCaptureScript, describeCapture } from '../journeys/claim-capture';
 import { appendAudit, AUDIT_LOG_KEY, clearedAudit, formatAudit, parseAudit } from '../journeys/audit-log';
+import { markClaimed } from '../claims/db';
 import { getMeta, setMeta } from '../journeys/db';
 import type { StoredJourney } from '../journeys/db';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
 import { formatDay, formatGBP } from '../format';
 import { colors, spacing } from '../theme';
-import { CONTACTLESS_CARDS_URL, overchargeSteerUrl } from '../claims/overcharge-steer';
+import { buildCjNavScanScript } from '../claims/cj-nav-scan';
+import { CONTACTLESS_CARDS_URL, correctableJourneysUrl, isCorrectableJourneysPage, overchargeSteerUrl } from '../claims/overcharge-steer';
 
 interface Props {
   journey: StoredJourney;
@@ -70,9 +72,12 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [autoFill, setAutoFill] = useState<AutoFillState>('idle');
+  const [scanNote, setScanNote] = useState<string | null>(null);
+  const [claimed, setClaimed] = useState(false);
   const steerredRef = useRef(false);
   // Prevent re-injecting the fill script when navigating back to the form page.
   const fillInjectedRef = useRef(false);
+  const scannerInjectedRef = useRef(false);
 
   const recordAudit = (tag: string, detail?: string) => {
     try {
@@ -87,7 +92,7 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
       const u = new URL(url);
       const safe = new URLSearchParams();
       u.searchParams.forEach((v, k) => { safe.set(k, SECRET_NAV_RE.test(k) ? '[redacted]' : v); });
-      u.search = safe.size ? safe.toString() : '';
+      u.search = safe.toString();
       return u.toString();
     } catch { return url; }
   };
@@ -125,6 +130,15 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.type === 'net-capture') {
         recordAudit('overcharge-capture', describeCapture(msg));
+      }
+      if (msg.type === 'cj-nav-result') {
+        switch (msg.status) {
+          case 'navigating': setScanNote('Navigating to your journey…'); break;
+          case 'no-match':   setScanNote('Journey not found in the refund list — select it manually.'); break;
+          case 'ambiguous':  setScanNote('Multiple matching journeys found — select yours manually.'); break;
+          case 'no-links':   setScanNote('No refund links on this page — navigate to your journey manually.'); break;
+          default:           setScanNote(null); break;
+        }
       }
       if (msg.type === 'complete-journey-fill') {
         // Schema dump → audit log for post-hoc form-field discovery.
@@ -177,9 +191,12 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
       </View>
 
       <Text style={styles.hint}>
-        Sign in → pick your card → Incomplete journeys → select this trip.
+        {journey.card
+          ? 'Sign in — the refund list will open automatically and navigate to this journey.'
+          : 'Sign in → pick your card → Incomplete journeys → select this trip.'}
         {exitStation ? ' The exit station will be filled for you.' : ''}
       </Text>
+      {scanNote ? <Text style={styles.scanNote}>{scanNote}</Text> : null}
 
       <ScrollView
         horizontal
@@ -211,12 +228,23 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
       {autoFill === 'on-confirm' && (
         <View style={styles.confirmBanner}>
           <Text style={styles.confirmText}>Review the details below, then tap Submit on TfL's page.</Text>
+          {!claimed ? (
+            <Pressable
+              style={styles.claimButton}
+              onPress={() => { try { markClaimed(journey.id, null); setClaimed(true); } catch { /* db only */ } }}
+              hitSlop={8}
+            >
+              <Text style={styles.claimButtonText}>Mark as corrected</Text>
+            </Pressable>
+          ) : (
+            <Text style={styles.claimDone}>✓ Recorded</Text>
+          )}
         </View>
       )}
 
       <WebView
         ref={webRef}
-        source={{ uri: CONTACTLESS_CARDS_URL }}
+        source={{ uri: journey.card ? correctableJourneysUrl(journey.card) : CONTACTLESS_CARDS_URL }}
         style={styles.web}
         onMessage={onMessage}
         injectedJavaScript={buildNetCaptureScript()}
@@ -234,14 +262,24 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
           if (/signin|sign-in|login|oauth|b2c/i.test(url) || /account\.tfl\.gov\.uk/i.test(url)) {
             steerredRef.current = false;
             fillInjectedRef.current = false;
+            scannerInjectedRef.current = false;
           }
 
-          // Steer from Dashboard → MyCards after OAuth login (one-shot per session).
-          const target = overchargeSteerUrl(url);
+          // Steer from Dashboard (or MyCards) → CorrectableJourneys after OAuth login.
+          const target = overchargeSteerUrl(url, journey.card || undefined);
           if (target && !steerredRef.current) {
             steerredRef.current = true;
             webRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(target)}; true;`);
           }
+
+          // Inject the journey matcher once the CorrectableJourneys list has loaded.
+          if (isCorrectableJourneysPage(url) && !scannerInjectedRef.current) {
+            scannerInjectedRef.current = true;
+            webRef.current?.injectJavaScript(buildCjNavScanScript({ date: journey.date, origin: journey.origin }));
+          }
+
+          // Clear scan note when the user reaches the form (manual or scanner-navigated).
+          if (isCompleteJourneyFormPage(url)) { setScanNote(null); }
 
           // Auto-fill when the "Complete my journey" form is detected.
           // fillInjectedRef prevents a re-inject on back navigation to the same form.
@@ -295,6 +333,7 @@ const styles = StyleSheet.create({
   },
   chipLabel: { color: colors.textDim, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
   chipValue: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  scanNote: { color: colors.textDim, fontSize: 12, lineHeight: 16, marginBottom: spacing.s },
   fillNote: { color: colors.text, fontSize: 12, lineHeight: 16, marginBottom: spacing.s },
   fillNoteWarn: { color: colors.warn },
   confirmBanner: {
@@ -305,6 +344,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   confirmText: { color: '#fff', fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  claimButton: { marginTop: spacing.s, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 8, paddingHorizontal: spacing.m, paddingVertical: 6 },
+  claimButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  claimDone: { marginTop: spacing.s, color: '#fff', fontSize: 13, opacity: 0.8 },
   web: { flex: 1, borderRadius: 12, overflow: 'hidden', backgroundColor: '#fff' },
   footer: { color: colors.textDim, fontSize: 11, lineHeight: 15, marginTop: spacing.s },
 });
