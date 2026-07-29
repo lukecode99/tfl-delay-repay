@@ -201,6 +201,24 @@ ok(statusText(run([
   ok(done.phase === 'done' && done.inserted === 2, 'flow completes after in-sheet sign-in');
 }
 {
+  // TfL-LOGIN-FIRST: PAUSED_SCAN_SCRIPT found a Sign In anchor → steer to it.
+  const SIGNIN_HREF = 'https://account.tfl.gov.uk/Login?returnUrl=y';
+  const so = reduceFlow(INITIAL_FLOW, { type: 'nav', url: LOGIN_URL });
+  // signed-out + signinHref → steer to TfL's own anchor, not a hardcoded URL.
+  const steered = reduceFlow(so, { type: 'signin-nav', url: SIGNIN_HREF });
+  ok(steered.phase === 'steering' && 'target' in steered && steered.target === SIGNIN_HREF,
+    'signin-nav from signed-out → steer to the Sign In href from TfL\'s own page');
+  // Bounce guard: the anchor led to another unrecognised page → back to signed-out.
+  // A second signin-nav from that same episode must not re-steer.
+  const back = reduceFlow(steered, { type: 'nav', url: SIGNIN_HREF }); // isLoginUrl → signed-out, signinSteered still true
+  ok(reduceFlow(back, { type: 'signin-nav', url: SIGNIN_HREF }) === back,
+    'second signin-nav on the same signed-out episode is absorbed — bad anchor cannot loop');
+  // challenge and consent pages are the user's — a Sign In anchor on those must not steer away.
+  const inChallenge = run([{ type: 'loaded', url: HOME_URL }, { type: 'harvest', status: 'challenge' }]);
+  ok(reduceFlow(inChallenge, { type: 'signin-nav', url: SIGNIN_HREF }) === inChallenge,
+    'signin-nav in challenge phase is absorbed — captcha stays the user\'s');
+}
+{
   // TfL-15: account dashboard pause — same contract as signed-out.
   const ad = reduceFlow(INITIAL_FLOW, { type: 'nav', url: DASHBOARD_URL });
   ok(ad.phase === 'account-dashboard' && isPaused(ad) && !isTerminal(ad),

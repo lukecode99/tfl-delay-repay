@@ -116,6 +116,11 @@ interface Live {
    * Cleared after any confirmed real harvest (cards, empty, csv, rows) so a
    * later wrong-page from a different card still gets one recovery steer. */
   homeForWrongPage: boolean;
+  /** Set when a Sign In anchor on a signed-out page has already triggered a
+   * steer. Prevents a bad or circular anchor from re-entering the loop —
+   * same single-shot guard pattern as homeForWrongPage. Cleared on any
+   * confirmed real harvest so a future signed-out episode gets one steer. */
+  signinSteered: boolean;
   /** Total cards ever enqueued (grows monotonically). Counts items added by
    * enqueueCards plus mode-URL legs (e.g. Oyster in 'both' mode) that were
    * queued at startup. Used by progressOf to keep total honest as new cards
@@ -151,6 +156,7 @@ export type FlowEvent =
       cards?: CardEntry[];
     }
   | { type: 'handover' }
+  | { type: 'signin-nav'; url: string }
   | { type: 'direct-failed'; url?: string }
   | { type: 'imported'; inserted: number }
   | { type: 'import-failed'; message: string }
@@ -170,7 +176,7 @@ export function makeInitialFlow(mode: FetchMode): FlowState {
   return {
     phase: 'loading', steers: 0, queue, visited: [], inserted: 0, harvested: false, home,
     directCsv: mode !== 'oyster', historySwept: false, directTried: false, cardsDropped: 0,
-    homeForWrongPage: false, totalCards: queue.length, currentIsCard: false,
+    homeForWrongPage: false, signinSteered: false, totalCards: queue.length, currentIsCard: false,
     currentCardLabel: undefined,
   };
 }
@@ -306,6 +312,7 @@ const liveOf = (s: FlowState): Live => ({
   directTried: 'directTried' in s ? s.directTried : false,
   cardsDropped: 'cardsDropped' in s ? s.cardsDropped : 0,
   homeForWrongPage: 'homeForWrongPage' in s ? s.homeForWrongPage : false,
+  signinSteered: 'signinSteered' in s ? (s as any).signinSteered : false,
   totalCards: 'totalCards' in s ? (s as any).totalCards : 0,
   currentIsCard: 'currentIsCard' in s ? (s as any).currentIsCard : false,
   currentCardLabel: 'currentCardLabel' in s ? (s as any).currentCardLabel : undefined,
@@ -388,6 +395,14 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       // phase (the escape hatch) — but never interrupts a running import.
       if (s.phase === 'importing') return s;
       return { ...l, phase: 'harvesting' };
+    case 'signin-nav':
+      // PAUSED_SCAN_SCRIPT found a Sign In anchor — steer to it. Only from
+      // signed-out; captcha and consent pages are the user's to handle.
+      // Bounce guard: signinSteered is set on the first steer and stays set
+      // until a confirmed real harvest, so a bad anchor can't loop.
+      if (s.phase !== 'signed-out') return s;
+      if (l.signinSteered) return s;
+      return { ...l, phase: 'steering', target: e.url, signinSteered: true };
     case 'web-error':
       // While the user drives (login/challenge), a failed page is theirs to
       // retry — it must not kill the refresh out from under them.
@@ -479,14 +494,14 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       }
       if (e.status === 'cards') {
         const { queue, cardsDropped, totalCards } = enqueueCards(l, e.cards);
-        if (queue.length) return advance({ ...l, queue, cardsDropped, totalCards, homeForWrongPage: false });
+        if (queue.length) return advance({ ...l, queue, cardsDropped, totalCards, homeForWrongPage: false, signinSteered: false });
         if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted, cardsDropped), inserted: l.inserted };
         return { phase: 'error', message: 'no card with journey history found' };
       }
-      if (e.status === 'empty') return advance({ ...l, homeForWrongPage: false }); // confirmed history page, no data
+      if (e.status === 'empty') return advance({ ...l, homeForWrongPage: false, signinSteered: false }); // confirmed history page, no data
       if (e.status === 'error') return { phase: 'error', message: e.message ?? 'harvest failed' };
       // csv/rows: import it; other cards the page listed queue up behind.
-      return { ...l, phase: 'importing', harvested: true, homeForWrongPage: false, ...enqueueCards(l, e.cards) };
+      return { ...l, phase: 'importing', harvested: true, homeForWrongPage: false, signinSteered: false, ...enqueueCards(l, e.cards) };
     case 'imported':
       if (s.phase !== 'importing') return s;
       return advance({ ...l, inserted: l.inserted + e.inserted });

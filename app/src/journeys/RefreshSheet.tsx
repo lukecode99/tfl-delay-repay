@@ -358,7 +358,14 @@ export default function RefreshSheet({ onClose }: Props) {
         setPausedCopy(`${next.message} · ${n} claim${n === 1 ? '' : 's'} auto-marked paid`);
       }
       const doClose = () => close(outcome ? { kind: 'imported', outcome } : { kind: 'empty' });
-      const pendingCorrections = [...sessionCorrectionsRef.current];
+      // Dedupe by journeyId — a journey appearing in two billing files would
+      // otherwise prompt twice for the same claim.
+      const seenJourneys = new Set<number>();
+      const pendingCorrections = sessionCorrectionsRef.current.filter(c => {
+        if (seenJourneys.has(c.journeyId)) return false;
+        seenJourneys.add(c.journeyId);
+        return true;
+      });
       if (pendingCorrections.length > 0) {
         // Present each correction in sequence. Never auto-writes — the user
         // decides whether each suggested amount is right. Close after all handled.
@@ -401,6 +408,8 @@ export default function RefreshSheet({ onClose }: Props) {
     // key={mode} and loads the mode's first history page.
     outcomeRef.current = null;
     urlRef.current = '';
+    sessionAutoMatchedRef.current = 0;
+    sessionCorrectionsRef.current = [];
     stateRef.current = makeInitialFlow(m);
     setState(stateRef.current);
     // TfL-25: the WebView remounts on mode change (key={mode}), so its
@@ -532,6 +541,11 @@ export default function RefreshSheet({ onClose }: Props) {
           setPausedCopy("TfL's reCAPTCHA is over its daily quota — this is a TfL issue, not ours. Try again later.");
         } else if (msg.hasPassword) {
           setPausedCopy('Enter your TfL login details, then tap Continue.');
+        } else if (msg.signinHref) {
+          // Sign In anchor found on the signed-out page — follow TfL's own
+          // routing rather than guessing a URL. The reducer enforces the
+          // single-steer bounce guard (signinSteered).
+          dispatch({ type: 'signin-nav', url: String(msg.signinHref) });
         }
         // Other paused pages (captcha, marketing): statusText(state) is correct.
         return;
