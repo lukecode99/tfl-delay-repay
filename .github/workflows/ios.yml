@@ -6,6 +6,19 @@ on:
     branches: [main]
     paths: ['app/**']
 
+# Only one iOS build at a time. The build number is not decided here -- the
+# archive is handed CURRENT_PROJECT_VERSION below, but `xcodebuild
+# -exportArchive` is given App Store Connect credentials and is left to manage
+# the version itself, so the number that reaches TestFlight is "next one free
+# on ASC", read at export time. Two runs overlapping therefore read the same
+# number and the loser is rejected: that is what killed runs 63, 65 and 66 on
+# 29-Jul (90189 "Redundant Binary Upload", and a 409 on buildUpload when the
+# two collided in the same second). Queue rather than cancel, so no push
+# silently fails to produce a build.
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
 defaults:
   run:
     working-directory: app
@@ -162,6 +175,10 @@ jobs:
           echo "${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}" | base64 --decode \
             > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
 
+      # CURRENT_PROJECT_VERSION below does reach the archive, but it is not the
+      # number that ends up on TestFlight -- the export step overwrites it (see
+      # the concurrency comment at the top of this file). Run 67 archived 67 and
+      # shipped build 44. Don't read a TestFlight build number off a run number.
       - name: Build iOS archive
         run: |
           XCWORKSPACE=$(find ios -maxdepth 1 -name "*.xcworkspace" -type d | head -1)
