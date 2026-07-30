@@ -470,11 +470,6 @@ export default function PushSlotsScreen({ journeys, onBack }: Props) {
               appears during your usual travel time, you'll get an immediate
               notification next time you open the app.
             </Text>
-            {journeys.length === 0 && (
-              <Text style={styles.emptyHint}>
-                Import your TfL journey history to see suggested alert profiles.
-              </Text>
-            )}
             <Pressable style={styles.emptyAddBtn} onPress={() => setShowAdd(true)}>
               <Text style={styles.emptyAddBtnText}>Set up first alert</Text>
             </Pressable>
@@ -555,13 +550,6 @@ const styles = StyleSheet.create({
     color: colors.textDim,
     fontSize: 14,
     lineHeight: 20,
-    textAlign: 'center',
-    marginBottom: spacing.m,
-  },
-  emptyHint: {
-    color: colors.textDim,
-    fontSize: 13,
-    fontStyle: 'italic',
     textAlign: 'center',
     marginBottom: spacing.m,
   },

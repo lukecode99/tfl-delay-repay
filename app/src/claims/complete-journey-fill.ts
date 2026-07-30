@@ -29,16 +29,14 @@ const TFL_CONTACTLESS = /contactless\.tfl\.gov\.uk/i;
  */
 export function isCompleteJourneyFormPage(url: string): boolean {
   if (!TFL_CONTACTLESS.test(url)) return false;
-  // Real apply-for-refund form — confirmed from captured POST (TfL-OVERCHARGE-AUTO).
-  if (/\/Refunds\/ApplyForRefund/i.test(url)) return true;
+  // Real apply-for-refund form — requires both cardDisplayId and journeyDisplayId params
+  // to avoid matching the list page (/Refunds/ApplyForRefund without params).
+  if (/\/Refunds\/ApplyForRefund/i.test(url) && /cardDisplayId=/i.test(url) && /journeyDisplayId=/i.test(url)) return true;
   // "complete my journey" phrasing — the word "my" is absent from list-page URLs
   if (/complete.{0,4}my.{0,4}journey/i.test(url)) return true;
   // Path segments: /IncompleteJourney/… or /CompleteJourney (singular, not plural list)
   // (?!s) excludes /IncompleteJourneys which is the list page, not the form
   if (/\/(?:in)?complete.{0,4}journey(?!s)/i.test(url)) return true;
-  // /CorrectJourney — TfL's alternate phrasing. (?!s) excludes /CorrectableJourneys
-  // (the list page): "Correct" + "able" (4 chars) + "Journeys" matched the old pattern.
-  if (/\/correct.{0,4}journey(?!s)/i.test(url)) return true;
   return false;
 }
 

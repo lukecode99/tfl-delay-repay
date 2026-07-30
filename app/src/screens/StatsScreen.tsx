@@ -97,7 +97,7 @@ export default function StatsScreen({ journeys, assessments, claims }: Props) {
           {totals.claimedCount} claim{totals.claimedCount === 1 ? '' : 's'} filed
         </Text>
         <View style={styles.pillRow}>
-          <View style={styles.pill}><Text style={[styles.pillNum, { color: colors.good }]}>{gbp(totals.paidValue)}</Text><Text style={styles.pillCap}>paid ({totals.paidCount})</Text></View>
+          <View style={styles.pill}><Text style={[styles.pillNum, { color: colors.good }]}>{gbp(totals.paidValue)}{totals.unknownPaidCount > 0 ? '+' : ''}</Text><Text style={styles.pillCap}>paid ({totals.paidCount}{totals.unknownPaidCount > 0 ? `, ${totals.unknownPaidCount} unknown` : ''})</Text></View>
           <View style={styles.pill}><Text style={styles.pillNum}>{totals.openCount}</Text><Text style={styles.pillCap}>awaiting</Text></View>
           <View style={styles.pill}><Text style={styles.pillNum}>{totals.rejectedCount}</Text><Text style={styles.pillCap}>rejected</Text></View>
         </View>

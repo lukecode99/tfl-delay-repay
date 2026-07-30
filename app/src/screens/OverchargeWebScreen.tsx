@@ -72,6 +72,7 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [autoFill, setAutoFill] = useState<AutoFillState>('idle');
+  const [fillVia, setFillVia] = useState<string | null>(null);
   const [scanNote, setScanNote] = useState<string | null>(null);
   const [claimed, setClaimed] = useState(() => getClaim(journey.id) != null);
   const steerredRef = useRef(false);
@@ -144,10 +145,14 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
         // Schema dump → audit log for post-hoc form-field discovery.
         if (msg.schema?.length) { recordAudit('cj-fill-schema', JSON.stringify(msg.schema).slice(0, 400)); }
         if (msg.error) { setAutoFill('fallback'); return; }
+        const exitResult = Array.isArray(msg.results) ? msg.results.find((r: any) => r.field === 'exitStation') : null;
+        const via = exitResult?.via ?? null;
         if (msg.filled > 0) {
           fillInjectedRef.current = true;
+          setFillVia(via);
           setAutoFill('filled');
         } else {
+          setFillVia(via);
           setAutoFill('fallback');
         }
       }
@@ -157,9 +162,15 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
   const fillNote = (() => {
     switch (autoFill) {
       case 'filling': return 'Filling form…';
-      case 'filled': return `Filled exit station (${exitStation}) — check and submit.`;
+      case 'filled': return fillVia === 'select'
+        ? `Filled exit station (${exitStation}) via dropdown — check and submit.`
+        : `Filled exit station (${exitStation}) — check and submit.`;
       case 'fallback': return exitStation
-        ? `Couldn't find the station field — use the chips above to enter "${exitStation}" manually.`
+        ? fillVia === 'no-option'
+          ? `Station "${exitStation}" not found in the dropdown — use the chips above to enter it manually.`
+          : fillVia === 'nlc-text-input'
+          ? `Station field expects a code — use the chips above to enter "${exitStation}" manually.`
+          : `Couldn't find the station field — use the chips above to enter "${exitStation}" manually.`
         : 'No likely destination recorded — enter the exit station manually.';
       case 'on-confirm': return null; // handled by confirm banner
       default: return exitStation

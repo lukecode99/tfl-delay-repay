@@ -18,8 +18,24 @@ describe('isCompleteJourneyFormPage', () => {
     expect(isCompleteJourneyFormPage('https://contactless.tfl.gov.uk/MyCards/999/IncompleteJourney/Fill')).toBe(true);
   });
 
-  it('matches CorrectJourney path', () => {
-    expect(isCompleteJourneyFormPage('https://contactless.tfl.gov.uk/CorrectJourney')).toBe(true);
+  it('does not match CorrectJourney path (regex removed — too broad)', () => {
+    expect(isCompleteJourneyFormPage('https://contactless.tfl.gov.uk/CorrectJourney')).toBe(false);
+  });
+
+  it('matches ApplyForRefund with both cardDisplayId and journeyDisplayId params', () => {
+    expect(isCompleteJourneyFormPage(
+      'https://contactless.tfl.gov.uk/Refunds/ApplyForRefund?cardDisplayId=1234&journeyDisplayId=5678',
+    )).toBe(true);
+  });
+
+  it('does not match ApplyForRefund without query params (list page)', () => {
+    expect(isCompleteJourneyFormPage('https://contactless.tfl.gov.uk/Refunds/ApplyForRefund')).toBe(false);
+  });
+
+  it('does not match ApplyForRefund with only cardDisplayId', () => {
+    expect(isCompleteJourneyFormPage(
+      'https://contactless.tfl.gov.uk/Refunds/ApplyForRefund?cardDisplayId=1234',
+    )).toBe(false);
   });
 
   it('does not match the incomplete journeys LIST page (plural)', () => {
