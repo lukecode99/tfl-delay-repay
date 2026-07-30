@@ -678,6 +678,10 @@ export default function RefreshSheet({ onClose }: Props) {
             // isDeepPullComplete, so existing installs re-pull once automatically.
             // Partial passes update the marker but don't trigger the mode switch.
             const coveredPeriods = files.map((f: any) => String(f?.period ?? '')).filter(Boolean);
+            const requested = requestedPeriodsRef.current;
+            // scopeComplete: this specific run covered every period it requested.
+            // False on a partial pass — withholds "already up to date" in doneMessage.
+            const scopeComplete = requested.length === 0 || requested.every(p => coveredPeriods.includes(p));
             const dpKey = deepPullMetaKeyFor(mode ?? 'contactless');
             const updatedMeta = mergeDeepPullCoverage(getMeta(dpKey), coveredPeriods);
             setMeta(dpKey, updatedMeta);
@@ -686,7 +690,6 @@ export default function RefreshSheet({ onClose }: Props) {
             if (isDeepPullComplete(updatedMeta, dpNowISO)) {
               recordAudit('deep-pull-complete', `${coveredPeriods.length} period(s) proven`);
             } else {
-              const requested = requestedPeriodsRef.current;
               const shortfall = requested.filter(p => !coveredPeriods.includes(p)).length;
               recordAudit('deep-pull-partial', `${coveredPeriods.length}/${requested.length} this pass, ${shortfall} missing`);
             }
@@ -725,7 +728,7 @@ export default function RefreshSheet({ onClose }: Props) {
             saveRawStatements(rawFiles)
               .then(nn => recordAudit('raw-export', `saved ${nn} raw statement(s)`))
               .catch(e => recordAudit('raw-export', `save failed: ${String(e)}`));
-            dispatch({ type: 'imported', inserted });
+            dispatch({ type: 'imported', inserted, scopeComplete });
           } catch (e) {
             recordAudit('import-failed', String(e));
             dispatch({ type: 'import-failed', message: String(e) });

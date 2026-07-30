@@ -110,6 +110,10 @@ interface Live {
   /** Cards the MAX_CARDS guard refused to queue. Surfaced in the closing
    * message — see MAX_CARDS on why this is never allowed to be silent. */
   cardsDropped: number;
+  /** Whether the refresh covered its full intended scope (all requested periods
+   * for direct-csv; always true for the classic harvest path). False on a
+   * partial direct-csv pass — withholds the "already up to date" reassurance. */
+  scopeComplete: boolean;
   /** Set when a wrong-page steer to home has already been attempted this run.
    * A second wrong-page while this is set means TfL keeps redirecting us —
    * we're signed out. Pause as signed-out rather than burning remaining steers.
@@ -158,7 +162,7 @@ export type FlowEvent =
   | { type: 'handover' }
   | { type: 'signin-nav'; url: string }
   | { type: 'direct-failed'; url?: string }
-  | { type: 'imported'; inserted: number }
+  | { type: 'imported'; inserted: number; scopeComplete?: boolean }
   | { type: 'import-failed'; message: string }
   | { type: 'web-error'; message: string }
   | { type: 'cancel' };
@@ -177,7 +181,7 @@ export function makeInitialFlow(mode: FetchMode): FlowState {
     phase: 'loading', steers: 0, queue, visited: [], inserted: 0, harvested: false, home,
     directCsv: mode !== 'oyster', historySwept: false, directTried: false, cardsDropped: 0,
     homeForWrongPage: false, signinSteered: false, totalCards: queue.length, currentIsCard: false,
-    currentCardLabel: undefined,
+    currentCardLabel: undefined, scopeComplete: true,
   };
 }
 
@@ -286,16 +290,19 @@ export function isChallengeTitle(title: string): boolean {
   return /just a moment|attention required|verify you are human|are you a robot|security check/i.test(title);
 }
 
-export function doneMessage(inserted: number, cardsDropped = 0): string {
+export function doneMessage(inserted: number, cardsDropped = 0, scopeComplete = true): string {
   const tail = cardsDropped > 0
     ? cardsDropped === 1
       ? " 1 further card wasn't checked — refresh again to pick it up."
       : ` ${cardsDropped} further cards weren't checked — refresh again to pick them up.`
     : '';
-  // "Already up to date" is a claim, and with cards left unchecked it would be
-  // a false one — so it isn't made.
+  // "Already up to date" is a claim — only made when cards and periods are
+  // fully accounted for. Partial-scope or dropped-card runs name the shortfall
+  // instead. No phrasing may invent a number or date it hasn't verified.
   if (inserted <= 0) {
-    return cardsDropped > 0 ? `No new journeys on the cards checked.${tail}` : "No new journeys — you're already up to date.";
+    if (cardsDropped > 0) return `No new journeys on the cards checked.${tail}`;
+    if (!scopeComplete) return "No new journeys in the periods checked.";
+    return "No new journeys — you're already up to date.";
   }
   return `Imported ${inserted} new journey${inserted === 1 ? '' : 's'} from TfL.${tail}`;
 }
@@ -316,6 +323,7 @@ const liveOf = (s: FlowState): Live => ({
   totalCards: 'totalCards' in s ? (s as any).totalCards : 0,
   currentIsCard: 'currentIsCard' in s ? (s as any).currentIsCard : false,
   currentCardLabel: 'currentCardLabel' in s ? (s as any).currentCardLabel : undefined,
+  scopeComplete: 'scopeComplete' in s ? (s as any).scopeComplete : true,
 });
 
 /**
@@ -341,7 +349,7 @@ function advance(l: Live): FlowState {
     };
   }
   if (l.directCsv) return { ...l, phase: 'harvesting', directCsv: false, directTried: true, historySwept: true };
-  if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted, l.cardsDropped), inserted: l.inserted };
+  if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted, l.cardsDropped, l.scopeComplete), inserted: l.inserted };
   return { phase: 'done', message: 'No journey history found on TfL.', inserted: 0 };
 }
 
@@ -507,7 +515,7 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       if (e.status === 'cards') {
         const { queue, cardsDropped, totalCards } = enqueueCards(l, e.cards);
         if (queue.length) return advance({ ...l, queue, cardsDropped, totalCards, homeForWrongPage: false, signinSteered: false });
-        if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted, cardsDropped), inserted: l.inserted };
+        if (l.harvested) return { phase: 'done', message: doneMessage(l.inserted, cardsDropped, l.scopeComplete), inserted: l.inserted };
         return { phase: 'error', message: 'no card with journey history found' };
       }
       if (e.status === 'empty') return advance({ ...l, homeForWrongPage: false, signinSteered: false }); // confirmed history page, no data
@@ -516,7 +524,7 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       return { ...l, phase: 'importing', harvested: true, homeForWrongPage: false, signinSteered: false, ...enqueueCards(l, e.cards) };
     case 'imported':
       if (s.phase !== 'importing') return s;
-      return advance({ ...l, inserted: l.inserted + e.inserted });
+      return advance({ ...l, inserted: l.inserted + e.inserted, scopeComplete: e.scopeComplete ?? l.scopeComplete });
     case 'import-failed':
       return { phase: 'error', message: e.message };
   }

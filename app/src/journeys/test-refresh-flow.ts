@@ -719,6 +719,43 @@ const CONSENT_URL = 'https://contactless.tfl.gov.uk/CookieSettings';
   ok(!/further card/.test(doneMessage(4, 0)), 'nothing skipped → no noise about skipped cards');
 }
 {
+  // TfL-UPTODATE-CLAIM: "already up to date" is only valid when scope was full.
+  // Partial direct-csv passes must not claim completeness.
+  ok(/up to date/.test(doneMessage(0, 0, true)),
+    'full scope + 0 inserted → "up to date" is warranted');
+  ok(!/up to date/.test(doneMessage(0, 0, false)),
+    'partial scope + 0 inserted → must not claim "up to date"');
+  ok(/periods checked/.test(doneMessage(0, 0, false)),
+    'partial scope message names the shortfall ("periods checked")');
+  ok(!/up to date/.test(doneMessage(0, 1, true)),
+    'cards dropped → "up to date" suppressed regardless of scope');
+  ok(/up to date/.test(doneMessage(0)),
+    'default scope=true (classic harvest path) still gets "up to date"');
+}
+{
+  // TfL-UPTODATE-CLAIM: scopeComplete=false on imported event must withhold
+  // "up to date" in the done state. The classic harvest → direct-fail path
+  // reaches done by clearing directCsv at advance() time.
+  const partial = run([
+    { type: 'loaded', url: JOURNEY_HISTORY_URL },
+    { type: 'harvest', status: 'csv' },
+    { type: 'imported', inserted: 0, scopeComplete: false },
+    { type: 'direct-failed' }, // exhausts the direct-csv phase → done
+  ]);
+  ok(partial.phase === 'done' && 'message' in partial && !/up to date/.test(partial.message),
+    'imported with scopeComplete=false → done message does not claim "up to date"');
+  ok(partial.phase === 'done' && 'message' in partial && /periods checked/.test(partial.message),
+    'imported with scopeComplete=false → done message names the shortfall');
+  const complete = run([
+    { type: 'loaded', url: JOURNEY_HISTORY_URL },
+    { type: 'harvest', status: 'csv' },
+    { type: 'imported', inserted: 0, scopeComplete: true },
+    { type: 'direct-failed' },
+  ]);
+  ok(complete.phase === 'done' && 'message' in complete && /up to date/.test(complete.message),
+    'imported with scopeComplete=true → done message says "up to date"');
+}
+{
   // The duplicate •5006 entries stay individually visited on purpose — see
   // enqueueCards. Only the identical LINK is deduplicated.
   const s = run([
