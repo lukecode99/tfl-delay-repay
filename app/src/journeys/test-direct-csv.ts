@@ -223,10 +223,13 @@ function withMyCards(inner: (url: string, opts?: any) => any, html = '<html><bod
     ],
     options: [CARD_C, 'not-a-card'],
   }), { fetch: withMyCards(fetchStub) });
-  ok(msgs.length === 1 && msgs[0].status === 'csv', 'script: statements fetched → one csv report');
+  // Journey pass emits {status:'csv'} immediately; billing pass follows with
+  // {status:'billing'} so closing the sheet mid-billing can't lose journeys.
+  ok(msgs.length === 2 && msgs[0].status === 'csv', 'script: journey pass emits csv first, billing follows as a second message');
   ok(msgs[0].files.length === 6, 'script: 3 cards × 2 periods = 6 statements, duplicates collapsed');
-  ok(calls.length === 6 && calls.every(c => c.opts.credentials === 'include'),
-    'script: every fetch carries the session cookie (credentials: include)');
+  ok(msgs[1].status === 'billing' && msgs[1].billingFiles.length === 6, 'script: billing pass emits 3 cards × 2 billing periods = 6 billing files');
+  ok(calls.length === 12 && calls.every(c => c.opts.credentials === 'include'),
+    'script: 6 journey + 6 billing fetches, every one carries the session cookie (credentials: include)');
   ok(calls[0].url === buildCsvUrl('7|2026', CARD_A) && calls[1].url === buildCsvUrl('6|2026', CARD_A),
     'script: fetch URLs match buildCsvUrl exactly — current month first, then previous');
   ok(msgs[0].files.every((f: any) => f.text === CSV_BODY && f.url.includes('DownloadJourneyCsv')
@@ -247,8 +250,8 @@ function withMyCards(inner: (url: string, opts?: any) => any, html = '<html><bod
   const msgs = await runDirect(statementsDoc({
     anchors: [{ href: `/x?CardDisplayId=${CARD_A}` }],
   }), { fetch: withMyCards(flaky) });
-  ok(msgs.length === 1 && msgs[0].status === 'csv' && msgs[0].files.length === 1,
-    'script: an HTML response is dropped, surviving statements still reported');
+  ok(msgs.length === 2 && msgs[0].status === 'csv' && msgs[0].files.length === 1,
+    'script: an HTML response is dropped, surviving statements still reported; billing message follows');
 }
 {
   const msgs = await runDirect(statementsDoc({
@@ -280,8 +283,8 @@ function withMyCards(inner: (url: string, opts?: any) => any, html = '<html><bod
     return Promise.resolve({ ok: true, text: () => Promise.resolve(CSV_BODY) });
   };
   const msgs = await runDirect(statementsDoc({ anchors: many }), { fetch: withMyCards(fetchStub) });
-  ok(msgs[0].status === 'csv' && calls.length === MAX_DIRECT_CARDS * 2,
-    `script: card list capped at ${MAX_DIRECT_CARDS} — a pathological page can't fetch forever`);
+  ok(msgs[0].status === 'csv' && calls.length === MAX_DIRECT_CARDS * 4,
+    `script: card list capped at ${MAX_DIRECT_CARDS} — MAX_DIRECT_CARDS × 2 journey + MAX_DIRECT_CARDS × 2 billing fetches, pathological page can't run forever`);
 }
 {
   const hostile = { querySelector: () => { throw new Error('boom'); }, querySelectorAll: () => { throw new Error('boom'); } };
@@ -302,8 +305,8 @@ const DASHBOARD_HREF = 'https://contactless.tfl.gov.uk/Dashboard';
   };
   const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }),
     { href: DASHBOARD_HREF, fetch: withMyCards(fetchStub) }, ['7|2026', '6|2026'], [CARD_A]);
-  ok(msgs.length === 1 && msgs[0].status === 'csv' && msgs[0].files.length === 2,
-    'TfL-17: Dashboard + logged card id → both months fetched, no statements page needed');
+  ok(msgs.length === 2 && msgs[0].status === 'csv' && msgs[0].files.length === 2,
+    'TfL-17: Dashboard + logged card id → both months fetched, no statements page needed; billing follows');
   ok(calls[0].url === buildCsvUrl('7|2026', CARD_A) && calls.every(c => c.opts.credentials === 'include'),
     'TfL-17: Dashboard fetches hit the same endpoint with the session cookie');
 }
@@ -317,8 +320,8 @@ const DASHBOARD_HREF = 'https://contactless.tfl.gov.uk/Dashboard';
   const msgs = await runDirect(statementsDoc({
     anchors: [{ href: `/x?CardDisplayId=${CARD_A}` }],
   }), { fetch: withMyCards(fetchStub) }, ['7|2026', '6|2026'], [CARD_A.toUpperCase(), CARD_B]);
-  ok(msgs[0].status === 'csv' && msgs[0].files.length === 4 && calls.length === 4,
-    'TfL-17: known ids merge behind page ids without duplicating them');
+  ok(msgs[0].status === 'csv' && msgs[0].files.length === 4 && calls.length === 8,
+    'TfL-17: known ids merge behind page ids without duplicating them; 4 journey + 4 billing fetches');
 }
 {
   // TfL-18: the statements page is gone, so there is no page left to fetch —
@@ -334,10 +337,10 @@ const DASHBOARD_HREF = 'https://contactless.tfl.gov.uk/Dashboard';
     html: `<script>var x = "/NewStatements/DownloadBillingCsv?Period=6|2026&CardDisplayId=${CARD_B}";`
       + ` var dup = "?CardDisplayId=${CARD_B}";</script>`,
   }), { href: DASHBOARD_HREF, fetch: withMyCards(fetchStub) });
-  ok(msgs.length === 1 && msgs[0].status === 'csv' && msgs[0].files.length === 2
+  ok(msgs.length === 2 && msgs[0].status === 'csv' && msgs[0].files.length === 2
     && msgs[0].files.every((f: any) => f.card === CARD_B)
     && calls[0] === buildCsvUrl('7|2026', CARD_B),
-    'TfL-18: current page HTML mined for card ids when links and log are empty — no dead-page fetch');
+    'TfL-18: current page HTML mined for card ids when links and log are empty — no dead-page fetch; billing follows');
 }
 {
   // Ids found on the page suppress the HTML mining — it is a last resort.
@@ -350,8 +353,8 @@ const DASHBOARD_HREF = 'https://contactless.tfl.gov.uk/Dashboard';
     anchors: [{ href: `/x?CardDisplayId=${CARD_A}` }],
     html: `<a href="?CardDisplayId=${CARD_B}">`,
   }), { href: DASHBOARD_HREF, fetch: withMyCards(fetchStub) });
-  ok(msgs[0].status === 'csv' && msgs[0].files.every((f: any) => f.card === CARD_A) && calls.length === 2,
-    'TfL-18: HTML mining is a last resort — page ids suppress it');
+  ok(msgs[0].status === 'csv' && msgs[0].files.every((f: any) => f.card === CARD_A) && calls.length === 4,
+    'TfL-18: HTML mining is a last resort — page ids suppress it; 2 journey + 2 billing fetches');
 }
 {
   // Nothing anywhere → one failed report and zero download traffic (MyCards
@@ -391,12 +394,12 @@ const DASHBOARD_HREF = 'https://contactless.tfl.gov.uk/Dashboard';
   };
   const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }),
     { href: DASHBOARD_HREF, fetch: fetchStub });
-  ok(msgs.length === 1 && msgs[0].status === 'csv' && msgs[0].files.length === 4,
-    'TfL-19: MyCards discovers 2 active cards on a bare Dashboard → 2 cards × 2 periods');
+  ok(msgs.length === 2 && msgs[0].status === 'csv' && msgs[0].files.length === 4,
+    'TfL-19: MyCards discovers 2 active cards on a bare Dashboard → 2 cards × 2 periods; billing follows');
   ok(calls[0].url === MY_CARDS_URL && calls[0].opts.credentials === 'include',
     'TfL-19: MyCards is fetched first, with the session cookie');
-  ok(calls.slice(1).every(c => /\/DownloadJourneyCsv\?/.test(c.url)),
-    'TfL-19: downloads hit DownloadJourneyCsv, not the billing sibling');
+  ok(calls.slice(1, 5).every(c => /\/DownloadJourneyCsv\?/.test(c.url)),
+    'TfL-19: journey downloads (first 4 after MyCards) hit DownloadJourneyCsv, not the billing sibling');
   const cards = msgs[0].files.map((f: any) => f.card);
   ok(cards.filter((c: string) => c === CARD_A).length === 2
     && cards.filter((c: string) => c === CARD_B).length === 2,
@@ -413,9 +416,9 @@ const DASHBOARD_HREF = 'https://contactless.tfl.gov.uk/Dashboard';
   };
   const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }),
     { href: DASHBOARD_HREF, fetch: fetchStub }, ['7|2026', '6|2026'], [CARD_C]);
-  ok(msgs.length === 1 && msgs[0].status === 'csv' && msgs[0].files.length === 2
-    && calls.length === 2 && msgs[0].files.every((f: any) => f.card === CARD_C),
-    'TfL-19: MyCards fetch failure falls through to known ids — discovery is never fatal');
+  ok(msgs.length === 2 && msgs[0].status === 'csv' && msgs[0].files.length === 2
+    && calls.length === 4 && msgs[0].files.every((f: any) => f.card === CARD_C),
+    'TfL-19: MyCards fetch failure falls through to known ids — discovery is never fatal; 2 journey + 2 billing fetches');
 }
 
 // --- flow: where a refresh starts, and the fallback path ---
@@ -465,7 +468,7 @@ ok(startUrlFor('oyster') === OYSTER_HISTORY_URL, 'flow: Oyster has no statements
     { type: 'direct-failed' },
   ], makeInitialFlow('both'));
   ok(s.phase === 'steering' && s.target === CONTACTLESS_HISTORY_URL
-    && 'queue' in s && s.queue.length === 1 && s.queue[0] === OYSTER_HISTORY_URL,
+    && 'queue' in s && s.queue.length === 1 && s.queue[0].href === OYSTER_HISTORY_URL,
     'flow: both-mode fallback steers to contactless history with Oyster still queued');
 }
 {
