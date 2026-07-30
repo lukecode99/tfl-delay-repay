@@ -4,7 +4,15 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['app/**']
+    # Tests live under app/src, so a test-only commit used to burn a full
+    # TestFlight build and consume an ASC build number (five builds landed on
+    # 30-Jul, only four of which changed the app). Exclusions must follow the
+    # positive pattern to take effect; a commit touching both a test and a
+    # source file still builds, which is what we want.
+    paths:
+      - 'app/**'
+      - '!app/**/__tests__/**'
+      - '!app/**/test-*.ts'
 
 # Only one iOS build at a time. The build number is not decided here -- the
 # archive is handed CURRENT_PROJECT_VERSION below, but `xcodebuild
