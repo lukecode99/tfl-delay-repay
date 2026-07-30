@@ -568,11 +568,12 @@ export interface Progress {
 export function progressOf(s: FlowState): Progress | null {
   if (isTerminal(s) || isPaused(s)) return null;
   const l = s as FlowState & Live;
-  if (l.totalCards === 0) {
-    // No cards found yet — show a minimal indeterminate-style bar while the
-    // initial history page loads. Better than a false "Page 1 of 1" (done=0).
-    return { done: 0, total: 1, fraction: 0, label: 'Loading your journey history…' };
-  }
+  // totalCards ≤ 1 means the total is still unknown or the flow is a single
+  // home-page visit with no sub-cards (Oyster mode). A determinate bar at
+  // fraction=0 reads as "stuck at 0%", which is exactly the frozen-bar bug
+  // Luke saw on Oyster. Return null so the caller renders nothing (indeterminate)
+  // rather than a misleading filled bar that never moves.
+  if (l.totalCards <= 1) return null;
   // Count card-queue items still ahead of us (mode-URL legs excluded — they
   // carry card=true only when they were added as card legs).
   const cardsLeft = l.queue.filter(q => q.card === true).length;

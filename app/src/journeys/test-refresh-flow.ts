@@ -716,6 +716,31 @@ const CONSENT_URL = 'https://contactless.tfl.gov.uk/CookieSettings';
     'same link twice → one visit; same card number on a different link → still visited');
 }
 
+// --- TfL-REFRESH-PROGRESS: Oyster mode must not show a frozen 0% bar ---
+{
+  // Oyster has one URL, no sub-cards, so totalCards stays 0 throughout.
+  // The old code returned { fraction: 0, ... } → ProgressBar rendered flex:0 fill
+  // that never moved. Fix: return null so callers render nothing (indeterminate).
+  const s = makeInitialFlow('oyster');
+  ok(progressOf(s) === null, 'oyster initial: no progress bar — indeterminate, not a frozen 0% bar');
+  const loaded = reduceFlow(s, { type: 'loaded', url: OYSTER_HISTORY_URL });
+  ok(progressOf(loaded) === null, 'oyster after page load: still null — single-page flow, total ≤ 1');
+  const importing = reduceFlow(loaded, { type: 'harvest', status: 'rows' });
+  ok(progressOf(importing) === null, 'oyster during import: still null — no card count to display');
+}
+{
+  // both mode: starts with totalCards=1 (Oyster leg only). Bar stays hidden until
+  // contactless card discovery grows the total above 1.
+  const s = makeInitialFlow('both');
+  ok(progressOf(s) === null, 'both mode initial: totalCards=1 → null, bar waits for card discovery');
+  const withCards = reduceFlow(
+    reduceFlow(s, { type: 'loaded', url: CONTACTLESS_HISTORY_URL }),
+    { type: 'harvest', status: 'cards', cards: [{ href: CARD_A }, { href: CARD_B }] },
+  );
+  const p = progressOf(withCards);
+  ok(p !== null && p.total === 3, 'both mode: 2 contactless cards found → totalCards=3, bar appears');
+}
+
 // --- TfL-25: progress, honest about what it does and does not know ---
 {
   ok(progressOf({ phase: 'cancelled' }) === null, 'no progress bar once the refresh is over');

@@ -123,6 +123,27 @@ export default function ClaimDetailScreen({ journey, assessment: a, overcharge, 
               >
                 <Text style={styles.disputeButtonText}>Correct this fare on TfL contactless</Text>
               </Pressable>
+              {!claim && (
+                // expectedValue=null: overcharge corrections are TfL fare adjustments, not
+                // direct bank credits. Null keeps this claim out of autoMatchRefunds, which
+                // matches CSV billing credits by amount — a non-null value here could
+                // false-match a delay-repay credit for the same journey in the same batch.
+                // Schema note: delay-repay and overcharge share the claims table; if stats
+                // ever need them distinguished (separate totals), add a claim_type column —
+                // that's a separate card and migration. Today claimedValue sums both, which
+                // is correct: both represent money owed by TfL.
+                <Pressable
+                  style={[styles.markClaimedButton, { marginTop: spacing.s }]}
+                  onPress={() => {
+                    markClaimed(journey.id, null);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    setClaim(getClaim(journey.id));
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.markClaimedText}>Mark as corrected (already submitted)</Text>
+                </Pressable>
+              )}
             </>
           )}
         </View>

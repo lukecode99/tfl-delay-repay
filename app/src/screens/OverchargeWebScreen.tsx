@@ -225,20 +225,21 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
 
       {fillNote ? <Text style={[styles.fillNote, autoFill === 'fallback' && styles.fillNoteWarn]}>{fillNote}</Text> : null}
 
+      {!claimed ? (
+        <Pressable
+          style={styles.markCorrectedButton}
+          onPress={() => { try { markClaimed(journey.id, null); setClaimed(true); } catch { /* db only */ } }}
+          hitSlop={8}
+        >
+          <Text style={styles.markCorrectedText}>Mark as corrected</Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.markCorrectedDone}>✓ Correction recorded</Text>
+      )}
+
       {autoFill === 'on-confirm' && (
         <View style={styles.confirmBanner}>
           <Text style={styles.confirmText}>Review the details below, then tap Submit on TfL's page.</Text>
-          {!claimed ? (
-            <Pressable
-              style={styles.claimButton}
-              onPress={() => { try { markClaimed(journey.id, null); setClaimed(true); } catch { /* db only */ } }}
-              hitSlop={8}
-            >
-              <Text style={styles.claimButtonText}>Mark as corrected</Text>
-            </Pressable>
-          ) : (
-            <Text style={styles.claimDone}>✓ Recorded</Text>
-          )}
         </View>
       )}
 
@@ -336,6 +337,16 @@ const styles = StyleSheet.create({
   scanNote: { color: colors.textDim, fontSize: 12, lineHeight: 16, marginBottom: spacing.s },
   fillNote: { color: colors.text, fontSize: 12, lineHeight: 16, marginBottom: spacing.s },
   fillNoteWarn: { color: colors.warn },
+  markCorrectedButton: {
+    borderColor: colors.good,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+    marginBottom: spacing.s,
+  },
+  markCorrectedText: { color: colors.good, fontSize: 13, fontWeight: '700' },
+  markCorrectedDone: { color: colors.good, fontSize: 13, fontWeight: '600', textAlign: 'center', marginBottom: spacing.s },
   confirmBanner: {
     backgroundColor: colors.good,
     borderRadius: 10,
@@ -344,9 +355,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   confirmText: { color: '#fff', fontSize: 14, fontWeight: '700', textAlign: 'center' },
-  claimButton: { marginTop: spacing.s, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 8, paddingHorizontal: spacing.m, paddingVertical: 6 },
-  claimButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  claimDone: { marginTop: spacing.s, color: '#fff', fontSize: 13, opacity: 0.8 },
   web: { flex: 1, borderRadius: 12, overflow: 'hidden', backgroundColor: '#fff' },
   footer: { color: colors.textDim, fontSize: 11, lineHeight: 15, marginTop: spacing.s },
 });
