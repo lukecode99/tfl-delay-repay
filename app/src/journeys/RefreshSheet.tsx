@@ -43,9 +43,11 @@ import {
   extractCardDisplayId,
   HISTORY_MONTHS,
   isCsvDownloadUrl,
+  isDeepPullComplete,
   isDirectCsvUrl,
   lastNPeriods,
   looksLikeCsv,
+  mergeDeepPullCoverage,
   periodsForRefresh,
 } from './direct-csv';
 import { autoMatchRefunds } from '../claims/auto-match';
@@ -266,6 +268,11 @@ export default function RefreshSheet({ onClose }: Props) {
   const dispatchInjected = useRef(false);
   // Harvest timeout — cleared whenever the phase leaves 'harvesting'.
   const harvestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // TfL-DEEPPULL-PROOF: capture what the current directScript() call requested
+  // so the message handler can compare covered vs requested without recomputing
+  // nowISO (which could shift at midnight between call and response).
+  const requestedPeriodsRef = useRef<string[]>([]);
+  const requestedNowISORef = useRef<string>('');
   // null = never chosen: the sheet opens with the chooser and no WebView.
   const [mode, setMode] = useState<FetchMode | null>(persistedMode);
   // Per-leg label shown in the status bar when phase = 'harvesting'.
@@ -330,10 +337,15 @@ export default function RefreshSheet({ onClose }: Props) {
   const directScript = () => {
     const now = new Date();
     const nowISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    // Deep pull on first import (no meta marker); routine = current+previous month.
+    // Deep pull on first import (no proven marker); routine = current+previous month.
     // Incomplete-fare route-learning always reads the full DB so keeps its 12-month view.
-    const deepPullDone = getMeta(deepPullMetaKeyFor(mode ?? 'contactless')) !== null;
-    return buildDirectCsvScript(periodsForRefresh(nowISO, deepPullDone), cardIdsFromLog(getMeta(CSV_LOG_KEY)));
+    // isDeepPullComplete rejects legacy 'done' — existing installs re-pull once.
+    const meta = getMeta(deepPullMetaKeyFor(mode ?? 'contactless'));
+    const deepPullDone = isDeepPullComplete(meta, nowISO);
+    const periods = periodsForRefresh(nowISO, deepPullDone);
+    requestedPeriodsRef.current = periods;
+    requestedNowISORef.current = nowISO;
+    return buildDirectCsvScript(periods, cardIdsFromLog(getMeta(CSV_LOG_KEY)));
   };
 
   const injectHarvest = () => {
@@ -660,9 +672,24 @@ export default function RefreshSheet({ onClose }: Props) {
                   .map(s => `${s.date} "${s.rawAction}" £${s.credit.toFixed(2)}`).join('; '));
               }
             }
-            // Record deep-pull completion so subsequent refreshes use 2-month routine scope.
-            // Mode-specific key so switching mode triggers a fresh pull for the new mode.
-            setMeta(deepPullMetaKeyFor(mode ?? 'contactless'), 'done');
+            // Accumulate covered periods into the deep-pull marker. The app only
+            // switches to 2-month routine once isDeepPullComplete proves every
+            // HISTORY_MONTHS period. Legacy 'done' is treated as unproven by
+            // isDeepPullComplete, so existing installs re-pull once automatically.
+            // Partial passes update the marker but don't trigger the mode switch.
+            const coveredPeriods = files.map((f: any) => String(f?.period ?? '')).filter(Boolean);
+            const dpKey = deepPullMetaKeyFor(mode ?? 'contactless');
+            const updatedMeta = mergeDeepPullCoverage(getMeta(dpKey), coveredPeriods);
+            setMeta(dpKey, updatedMeta);
+            const dpNowISO = requestedNowISORef.current ||
+              `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+            if (isDeepPullComplete(updatedMeta, dpNowISO)) {
+              recordAudit('deep-pull-complete', `${coveredPeriods.length} period(s) proven`);
+            } else {
+              const requested = requestedPeriodsRef.current;
+              const shortfall = requested.filter(p => !coveredPeriods.includes(p)).length;
+              recordAudit('deep-pull-partial', `${coveredPeriods.length}/${requested.length} this pass, ${shortfall} missing`);
+            }
             // Process billing CSVs (non-fatal) — extract refund credits only.
             const billingFiles = Array.isArray(msg.billingFiles) ? msg.billingFiles : [];
             let billingRefunds = 0;

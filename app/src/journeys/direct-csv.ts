@@ -110,6 +110,43 @@ export function periodsForRefresh(nowISO: string, deepPullDone: boolean): string
 }
 
 /**
+ * Parse the stored deep-pull marker. Returns the set of proven period tokens
+ * (e.g. '7|2026'). Null and the legacy 'done' string are treated as empty —
+ * unproven, so existing installs re-pull once to establish period-level proof.
+ */
+export function deepPullCoveredPeriods(meta: string | null): Set<string> {
+  if (!meta || meta === 'done') return new Set();
+  try {
+    const arr = JSON.parse(meta);
+    return new Set(Array.isArray(arr) ? arr.filter((p): p is string => typeof p === 'string') : []);
+  } catch { return new Set(); }
+}
+
+/**
+ * True only when the stored marker proves every period in the HISTORY_MONTHS
+ * window for nowISO. Legacy 'done' is never considered complete.
+ */
+export function isDeepPullComplete(meta: string | null, nowISO: string): boolean {
+  const covered = deepPullCoveredPeriods(meta);
+  return lastNPeriods(nowISO, HISTORY_MONTHS).every(p => covered.has(p));
+}
+
+/**
+ * Returns a new marker value that merges newPeriods into the existing coverage
+ * set. Periods are sorted newest-first for readability in the DB.
+ */
+export function mergeDeepPullCoverage(existing: string | null, newPeriods: readonly string[]): string {
+  const merged = new Set([...deepPullCoveredPeriods(existing), ...newPeriods]);
+  return JSON.stringify(
+    [...merged].sort((a, b) => {
+      const [am, ay] = a.split('|').map(Number);
+      const [bm, by] = b.split('|').map(Number);
+      return ay !== by ? by - ay : bm - am;
+    }),
+  );
+}
+
+/**
  * The last `months` statement periods as TfL's `<month>|<year>` tokens
  * (month unpadded — the captured link used `Period=5|2026` for May 2026),
  * newest first. Accepts any `YYYY-MM...` prefix so callers can pass a
