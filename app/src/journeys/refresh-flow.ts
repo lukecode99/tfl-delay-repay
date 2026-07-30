@@ -409,6 +409,13 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       if (isPaused(s)) return s;
       return { phase: 'error', message: e.message };
     case 'nav':
+      // TfL-SIGNIN-DIRECT: /UnregisteredCustomer/Captcha matches isCaptchaUrl
+      // (has "captcha") before isUnregisteredUrl, landing in 'challenge'. But
+      // this URL is TfL's signed-out gate, not a robot check — upgrade
+      // challenge→signed-out so the banner and navigation are correct.
+      // Scope: challenge only, unregistered URL only. Any other paused state
+      // stays paused — yanking a consent or real-challenge page is TfL-13/25.
+      if (s.phase === 'challenge' && isUnregisteredUrl(e.url)) return { ...l, phase: 'signed-out' };
       if (isPaused(s)) return s; // user browsing freely — stay out of the way
       // Robot check spotted from the reported page title — no injection needed.
       if (e.title != null && isChallengeTitle(e.title)) return { ...l, phase: 'challenge' };
@@ -428,6 +435,11 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       if (isAccountDashboard(e.url)) return { ...l, phase: 'account-dashboard' };
       return s;
     case 'loaded':
+      // TfL-SIGNIN-DIRECT: same upgrade as the 'nav' case — after the 'nav'
+      // fires and parks in 'challenge', the 'loaded' event arrives with the same
+      // URL and is where the upgrade actually sticks (nav fires mid-redirect,
+      // loaded fires when the page settles).
+      if (s.phase === 'challenge' && isUnregisteredUrl(e.url)) return { ...l, phase: 'signed-out' };
       // Paused: pages load while the user solves/signs in — none of them are
       // ours to touch. No harvesting transition means no injection (TfL-13);
       // the flow resumes only via handover.
@@ -568,12 +580,12 @@ export interface Progress {
 export function progressOf(s: FlowState): Progress | null {
   if (isTerminal(s) || isPaused(s)) return null;
   const l = s as FlowState & Live;
-  // totalCards ≤ 1 means the total is still unknown or the flow is a single
-  // home-page visit with no sub-cards (Oyster mode). A determinate bar at
-  // fraction=0 reads as "stuck at 0%", which is exactly the frozen-bar bug
-  // Luke saw on Oyster. Return null so the caller renders nothing (indeterminate)
-  // rather than a misleading filled bar that never moves.
-  if (l.totalCards <= 1) return null;
+  // totalCards === 0 means the total is still unknown (Oyster mode: single
+  // home-page visit, no sub-cards). Return null so ProgressBar renders the
+  // animated indeterminate track instead of a misleading 0% bar.
+  // A single-card contactless account (totalCards=1) is a real total — it
+  // should show "Card 1 of 1", not be suppressed.
+  if (l.totalCards === 0) return null;
   // Count card-queue items still ahead of us (mode-URL legs excluded — they
   // carry card=true only when they were added as card legs).
   const cardsLeft = l.queue.filter(q => q.card === true).length;

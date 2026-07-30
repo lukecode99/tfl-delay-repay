@@ -654,11 +654,30 @@ const CONSENT_URL = 'https://contactless.tfl.gov.uk/CookieSettings';
 // then errored. Public-release blocker (Luke, msg 4606).
 {
   const s = run([{ type: 'loaded', url: 'https://contactless.tfl.gov.uk/UnregisteredCustomer/Captcha' }]);
-  ok(s.phase === 'challenge' && isPaused(s), "TfL's own captcha → paused challenge, not a dud page");
+  ok(s.phase === 'challenge' && isPaused(s), "TfL's own captcha → paused challenge on initial load (isCaptchaUrl fires first)");
 }
 {
   const s = run([{ type: 'nav', url: 'https://contactless.tfl.gov.uk/UnregisteredCustomer/SomethingElse' }]);
   ok(s.phase === 'signed-out' && isPaused(s), 'unregistered-customer gate → signed-out, not a dud page');
+}
+{
+  // TfL-SIGNIN-DIRECT: real-world sequence. The history URL 302s to
+  // /UnregisteredCustomer/Captcha — nav fires first (isCaptchaUrl → challenge),
+  // then loaded fires on the same URL. Fix: upgrade challenge→signed-out on the
+  // loaded event so the banner and navigation are correct.
+  const CAPTCHA_URL = 'https://contactless.tfl.gov.uk/UnregisteredCustomer/Captcha';
+  const afterNav = reduceFlow(INITIAL_FLOW, { type: 'nav', url: CAPTCHA_URL });
+  ok(afterNav.phase === 'challenge', 'TfL-SIGNIN-DIRECT: captcha URL on nav → challenge (isCaptchaUrl first)');
+  const afterLoad = reduceFlow(afterNav, { type: 'loaded', url: CAPTCHA_URL });
+  ok(afterLoad.phase === 'signed-out', 'TfL-SIGNIN-DIRECT: challenge + unregistered URL on loaded → signed-out (upgrade)');
+  // The nav-event upgrade also fires if the user later navigates to another unregistered path.
+  const fromChallenge = reduceFlow(INITIAL_FLOW, { type: 'loaded', url: CAPTCHA_URL }); // → challenge (initial)
+  const upgraded = reduceFlow(fromChallenge, { type: 'nav', url: 'https://contactless.tfl.gov.uk/UnregisteredCustomer/SignIn' });
+  ok(upgraded.phase === 'signed-out', 'TfL-SIGNIN-DIRECT: challenge + unregistered URL on nav → signed-out (upgrade)');
+  // Other paused states are NOT upgraded — TfL-13/25 guarantees intact.
+  const inConsent = run([{ type: 'loaded', url: 'https://contactless.tfl.gov.uk/cookie-consent' }]);
+  ok(reduceFlow(inConsent, { type: 'nav', url: CAPTCHA_URL }) === inConsent,
+    'TfL-SIGNIN-DIRECT: consent page is not upgraded — only challenge→signed-out');
 }
 {
   // Order matters: an OIDC sign-in URL carrying a consent parameter is still a
@@ -729,10 +748,12 @@ const CONSENT_URL = 'https://contactless.tfl.gov.uk/CookieSettings';
   ok(progressOf(importing) === null, 'oyster during import: still null — no card count to display');
 }
 {
-  // both mode: starts with totalCards=1 (Oyster leg only). Bar stays hidden until
-  // contactless card discovery grows the total above 1.
+  // both mode: starts with totalCards=1 (Oyster leg). With === 0 guard,
+  // totalCards=1 is a real total — shows "Card 1 of 1" immediately.
   const s = makeInitialFlow('both');
-  ok(progressOf(s) === null, 'both mode initial: totalCards=1 → null, bar waits for card discovery');
+  const p0 = progressOf(s);
+  ok(p0 !== null && p0.total === 1 && p0.label === 'Card 1 of 1',
+    'both mode initial: totalCards=1 → determinate Card 1 of 1 (not suppressed)');
   const withCards = reduceFlow(
     reduceFlow(s, { type: 'loaded', url: CONTACTLESS_HISTORY_URL }),
     { type: 'harvest', status: 'cards', cards: [{ href: CARD_A }, { href: CARD_B }] },

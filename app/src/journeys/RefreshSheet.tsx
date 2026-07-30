@@ -22,7 +22,7 @@
 // Repay claim records the claim endpoint and payload in the log.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { Alert, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import {
   appendCsvHit,
@@ -98,6 +98,9 @@ const CAPTURE_URL = 'https://contactless.tfl.gov.uk/HomePage';
 // reads the DOM and posts back one message so the banner copy can re-evaluate
 // per navigation while the user is working through sign-in. Captcha stays
 // entirely the user's: no injection there alters the flow.
+// TfL-LOGIN-FIRST: lightweight read-only DOM scan injected during paused states.
+// TfL-SIGNIN-DIRECT: also scans by href so /UnregisteredCustomer/Captcha pages
+// (which link to sign-in but use non-standard link text) can still be steered.
 const PAUSED_SCAN_SCRIPT = `(function () {
   try {
     var pw = !!document.querySelector('input[type="password"]');
@@ -105,9 +108,20 @@ const PAUSED_SCAN_SCRIPT = `(function () {
     var quota = /recaptcha/i.test(bodyText) && /quota|exceeded|error for site owner/i.test(bodyText);
     var signinHref = null;
     var links = document.querySelectorAll('a[href]');
+    // Primary: exact "Sign in" / "Log in" anchor text (TfL-LOGIN-FIRST).
     for (var i = 0; i < links.length; i++) {
       var t = (links[i].textContent || '').trim();
       if (/^sign ?in$|^log ?in$/i.test(t)) { signinHref = links[i].href; break; }
+    }
+    // Fallback: any anchor whose href contains a sign-in path, for pages where
+    // TfL uses non-standard label text (e.g. /UnregisteredCustomer/Captcha).
+    if (!signinHref) {
+      for (var i = 0; i < links.length; i++) {
+        var h = links[i].href || '';
+        if (/\/signin|\/sign-in|\/login\b/i.test(h) && !/sign.?out|log.?out/i.test(h)) {
+          signinHref = h; break;
+        }
+      }
     }
     if (window.ReactNativeWebView) {
       window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -180,10 +194,12 @@ function BrowserBar({ web, canGoBack, url }: {
  * The progress bar Luke asked for (msg 4608: "it needs a progress bar or
  * something").
  *
- * Renders nothing when progressOf returns null — while the flow is paused the
- * machine genuinely isn't working, and a bar creeping along under "sign in,
- * then tap Continue" would be claiming progress that isn't happening. The
- * status line covers those states.
+ * Determinate (progressOf returns non-null): standard fill-track with label.
+ * Indeterminate (progressOf null, active phase): animated pulsing track with
+ *   statusText — Oyster mode never gets a card count, so "frozen at 0%"
+ *   becomes a smooth animation that confirms the machine is working.
+ * Nothing (terminal or paused): no bar — a bar under "sign in" claims progress
+ *   that isn't happening; the status line covers those states.
  *
  * The total can grow mid-refresh, because TfL only reveals how many cards are
  * on the account partway through. "Page 2 of 3" becoming "Page 2 of 5" is the
@@ -191,18 +207,47 @@ function BrowserBar({ web, canGoBack, url }: {
  */
 function ProgressBar({ state }: { state: FlowState }) {
   const p = progressOf(state);
-  if (!p) return null;
+  const isActive = !isPaused(state) && !isTerminal(state);
+  const showIndeterminate = p === null && isActive;
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!showIndeterminate) { anim.setValue(0); return; }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 700, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [showIndeterminate, anim]);
+
+  if (p !== null) {
+    return (
+      <View style={styles.progressWrap}>
+        <View style={styles.progressTrack}>
+          {/* Two flex weights rather than a percentage width: `flex` is a plain
+              number, so this can't trip over RN's DimensionValue template-literal
+              type — and there is no node_modules in this workspace to type-check
+              against, so the formulation that can't fail is the right one. */}
+          <View style={[styles.progressFill, { flex: p.fraction }]} />
+          <View style={{ flex: 1 - p.fraction }} />
+        </View>
+        <Text style={styles.progressLabel}>{p.label}</Text>
+      </View>
+    );
+  }
+
+  if (!isActive) return null;
+
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] });
   return (
     <View style={styles.progressWrap}>
       <View style={styles.progressTrack}>
-        {/* Two flex weights rather than a percentage width: `flex` is a plain
-            number, so this can't trip over RN's DimensionValue template-literal
-            type — and there is no node_modules in this workspace to type-check
-            against, so the formulation that can't fail is the right one. */}
-        <View style={[styles.progressFill, { flex: p.fraction }]} />
-        <View style={{ flex: 1 - p.fraction }} />
+        <Animated.View style={[styles.progressFill, { flex: 1, opacity }]} />
       </View>
-      <Text style={styles.progressLabel}>{p.label}</Text>
+      <Text style={styles.progressLabel}>{statusText(state)}</Text>
     </View>
   );
 }
@@ -537,6 +582,12 @@ export default function RefreshSheet({ onClose }: Props) {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.type === 'paused-page-scan') {
+        // TfL-SIGNIN-DIRECT (criterion 6): log which classifier fired, what
+        // phase we're in, and whether a sign-in href was found. Highest-value
+        // line in the audit trail — 10-minute root-cause vs a day of guessing.
+        const scanClassifier = msg.quotaNotice ? 'quota' : msg.hasPassword ? 'password'
+          : msg.signinHref ? 'signinHref' : 'none';
+        recordAudit('paused-scan', `phase=${stateRef.current.phase} classifier=${scanClassifier}${msg.signinHref ? ` href=${String(msg.signinHref).slice(0, 80)}` : ''}`);
         // TfL-LOGIN-FIRST: re-evaluate banner copy per page during pause.
         // reCAPTCHA quota notices are TfL's billing problem, not ours —
         // say so explicitly rather than leaving the user wondering.

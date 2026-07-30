@@ -24,7 +24,7 @@ import {
 } from '../claims/complete-journey-fill';
 import { buildNetCaptureScript, describeCapture } from '../journeys/claim-capture';
 import { appendAudit, AUDIT_LOG_KEY, clearedAudit, formatAudit, parseAudit } from '../journeys/audit-log';
-import { markClaimed } from '../claims/db';
+import { getClaim, markClaimed } from '../claims/db';
 import { getMeta, setMeta } from '../journeys/db';
 import type { StoredJourney } from '../journeys/db';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
@@ -73,7 +73,7 @@ export default function OverchargeWebScreen({ journey, overcharge, onDone }: Pro
   const [canGoBack, setCanGoBack] = useState(false);
   const [autoFill, setAutoFill] = useState<AutoFillState>('idle');
   const [scanNote, setScanNote] = useState<string | null>(null);
-  const [claimed, setClaimed] = useState(false);
+  const [claimed, setClaimed] = useState(() => getClaim(journey.id) != null);
   const steerredRef = useRef(false);
   // Prevent re-injecting the fill script when navigating back to the form page.
   const fillInjectedRef = useRef(false);
