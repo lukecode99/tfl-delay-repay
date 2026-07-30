@@ -47,8 +47,12 @@ import {
   isDirectCsvUrl,
   lastNPeriods,
   looksLikeCsv,
+  MAX_DIRECT_CARDS,
   mergeDeepPullCoverage,
+  PASS_PERIODS,
+  pendingDeepPullPeriods,
   periodsForRefresh,
+  PER_JOB_MS,
 } from './direct-csv';
 import { autoMatchRefunds } from '../claims/auto-match';
 import { setClaimOutcome } from '../claims/db';
@@ -268,6 +272,8 @@ export default function RefreshSheet({ onClose }: Props) {
   const dispatchInjected = useRef(false);
   // Harvest timeout — cleared whenever the phase leaves 'harvesting'.
   const harvestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Remaining backfill months shown in the status bar during direct-csv passes.
+  const [pendingPeriods, setPendingPeriods] = useState(0);
   // TfL-DEEPPULL-PROOF: capture what the current directScript() call requested
   // so the message handler can compare covered vs requested without recomputing
   // nowISO (which could shift at midnight between call and response).
@@ -337,14 +343,16 @@ export default function RefreshSheet({ onClose }: Props) {
   const directScript = () => {
     const now = new Date();
     const nowISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    // Deep pull on first import (no proven marker); routine = current+previous month.
-    // Incomplete-fare route-learning always reads the full DB so keeps its 12-month view.
-    // isDeepPullComplete rejects legacy 'done' — existing installs re-pull once.
+    // Backfill: fetch up to PASS_PERIODS uncovered months per pass. Routine:
+    // current + previous only. isDeepPullComplete rejects legacy 'done' so
+    // existing installs re-pull once to establish period-level proof.
     const meta = getMeta(deepPullMetaKeyFor(mode ?? 'contactless'));
-    const deepPullDone = isDeepPullComplete(meta, nowISO);
-    const periods = periodsForRefresh(nowISO, deepPullDone);
+    const periods = periodsForRefresh(nowISO, meta);
     requestedPeriodsRef.current = periods;
     requestedNowISORef.current = nowISO;
+    // pendingPeriods drives the status bar: shows "N months remaining" during
+    // the incremental backfill so the user knows a multi-refresh fill is underway.
+    setPendingPeriods(pendingDeepPullPeriods(nowISO, meta));
     return buildDirectCsvScript(periods, cardIdsFromLog(getMeta(CSV_LOG_KEY)));
   };
 
@@ -398,7 +406,19 @@ export default function RefreshSheet({ onClose }: Props) {
     // transition itself. The ref stops the calling handler doubling up.
     if (next.phase === 'harvesting' && directTried(next) && !directTried(prev)) {
       dispatchInjected.current = true;
-      injectDirect();
+      injectDirect(); // sets requestedPeriodsRef.current via directScript()
+      // Override the 30s classic-harvest watchdog with a budget scaled to the
+      // actual job count: periods × cards × 2 (journey pass + billing pass) ×
+      // per-job allowance. The billing pass runs AFTER journey files are
+      // reported and the phase leaves 'harvesting', so only the journey pass
+      // needs to complete within this window.
+      if (harvestTimerRef.current != null) clearTimeout(harvestTimerRef.current);
+      harvestTimerRef.current = setTimeout(() => {
+        if (stateRef.current.phase === 'harvesting') {
+          recordAudit('harvest-timeout', urlRef.current);
+          dispatch({ type: 'direct-failed', url: urlRef.current });
+        }
+      }, 30_000 + (requestedPeriodsRef.current.length || PASS_PERIODS) * MAX_DIRECT_CARDS * 2 * PER_JOB_MS);
     }
     // Paused states entered via harvest reports (e.g. bounce into signed-out)
     // get no page load, so onLoaded never fires the scan. Inject here instead.
@@ -470,6 +490,7 @@ export default function RefreshSheet({ onClose }: Props) {
     urlRef.current = '';
     sessionAutoMatchedRef.current = 0;
     sessionCorrectionsRef.current = [];
+    setPendingPeriods(0);
     stateRef.current = makeInitialFlow(m);
     setState(stateRef.current);
     // TfL-25: the WebView remounts on mode change (key={mode}), so its
@@ -696,35 +717,6 @@ export default function RefreshSheet({ onClose }: Props) {
               const shortfall = requested.filter(p => !coveredPeriods.includes(p)).length;
               recordAudit('deep-pull-partial', `${coveredPeriods.length}/${requested.length} this pass, ${shortfall} missing`);
             }
-            // Process billing CSVs (non-fatal) — extract refund credits only.
-            const billingFiles = Array.isArray(msg.billingFiles) ? msg.billingFiles : [];
-            let billingRefunds = 0;
-            for (const bf of billingFiles) {
-              try {
-                const btext = String(bf?.text ?? '');
-                const bcard = String(bf?.card ?? '').trim() || 'unknown';
-                const bperiod = String(bf?.period ?? '');
-                if (looksLikeCsv(btext)) {
-                  const bparsed = parseStatement(btext, bcard);
-                  if (bparsed.refunds.length > 0) {
-                    const { inserted: ri } = insertRefunds(bparsed.refunds, bcard, bperiod);
-                    billingRefunds += ri;
-                    const { matched, corrections } = autoMatchRefunds(bparsed.refunds);
-                    if (matched > 0) {
-                      recordAudit('auto-match', `${matched} claim(s) marked paid`);
-                      sessionAutoMatchedRef.current += matched;
-                    }
-                    if (corrections.length > 0) {
-                      recordAudit('auto-match-review', corrections
-                        .map(c => `journey ${c.journeyId}: suggested £${c.suggested.toFixed(2)}`)
-                        .join('; '));
-                      sessionCorrectionsRef.current.push(...corrections);
-                    }
-                  }
-                }
-              } catch { /* non-fatal */ }
-            }
-            if (billingFiles.length > 0) recordAudit('billing-csv', `${billingFiles.length} files, ${billingRefunds} new refunds`);
             recordAudit('imported', `${inserted} new journeys`);
             // Persist the raw statements for the Export CSV button (fire and
             // forget — the import result must not wait on a share file).
@@ -736,6 +728,39 @@ export default function RefreshSheet({ onClose }: Props) {
             recordAudit('import-failed', String(e));
             dispatch({ type: 'import-failed', message: String(e) });
           }
+        } else if (msg.status === 'billing') {
+          // Billing supplement arrives after journey files are already banked
+          // and the phase has left 'harvesting'. Process refunds without any
+          // state transition — billing is non-fatal and its delay must not
+          // block or undo the journey import.
+          const billingFiles = Array.isArray(msg.billingFiles) ? msg.billingFiles : [];
+          let billingRefunds = 0;
+          for (const bf of billingFiles) {
+            try {
+              const btext = String(bf?.text ?? '');
+              const bcard = String(bf?.card ?? '').trim() || 'unknown';
+              const bperiod = String(bf?.period ?? '');
+              if (looksLikeCsv(btext)) {
+                const bparsed = parseStatement(btext, bcard);
+                if (bparsed.refunds.length > 0) {
+                  const { inserted: ri } = insertRefunds(bparsed.refunds, bcard, bperiod);
+                  billingRefunds += ri;
+                  const { matched, corrections } = autoMatchRefunds(bparsed.refunds);
+                  if (matched > 0) {
+                    recordAudit('auto-match', `${matched} claim(s) marked paid`);
+                    sessionAutoMatchedRef.current += matched;
+                  }
+                  if (corrections.length > 0) {
+                    recordAudit('auto-match-review', corrections
+                      .map(c => `journey ${c.journeyId}: suggested £${c.suggested.toFixed(2)}`)
+                      .join('; '));
+                    sessionCorrectionsRef.current.push(...corrections);
+                  }
+                }
+              }
+            } catch { /* non-fatal */ }
+          }
+          if (billingFiles.length > 0) recordAudit('billing-csv', `${billingFiles.length} files, ${billingRefunds} new refunds`);
         } else if (msg.status === 'signed-out' || msg.status === 'challenge') {
           recordAudit('direct-csv', String(msg.status));
           dispatch({ type: 'harvest', status: msg.status });
@@ -898,9 +923,11 @@ export default function RefreshSheet({ onClose }: Props) {
               <Text style={styles.statusText}>
                 {pausedCopy != null
                   ? pausedCopy
-                  : state.phase === 'harvesting' && legLabel
-                    ? `Reading your ${legLabel} journey history…`
-                    : statusText(state)}
+                  : state.phase === 'harvesting' && pendingPeriods > 0
+                    ? `Fetching history — ${pendingPeriods} month${pendingPeriods === 1 ? '' : 's'} remaining…`
+                    : state.phase === 'harvesting' && legLabel
+                      ? `Reading your ${legLabel} journey history…`
+                      : statusText(state)}
               </Text>
               {canHandover(state) && (
                 <Pressable

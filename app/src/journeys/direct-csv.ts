@@ -91,6 +91,14 @@ export const HISTORY_MONTHS = 12;
  */
 export const DEEP_PULL_META_KEY = 'deep-pull-done-v1';
 
+/** Periods fetched per refresh pass (backfill and routine). Capped at 2 so
+ * job count (cards × periods × 2) stays ≤ 32 and completes well within the
+ * scaled harvest timeout even on a 6-card account. */
+export const PASS_PERIODS = 2;
+
+/** Budget per sequential fetch for harvest-timer scaling. */
+export const PER_JOB_MS = 2_500;
+
 /**
  * Per-mode deep-pull completion key. Contactless reuses the original key for
  * backwards compat with existing installs; Oyster and Both get distinct keys
@@ -102,11 +110,28 @@ export function deepPullMetaKeyFor(mode: 'contactless' | 'oyster' | 'both'): str
 }
 
 /**
- * Returns the statement periods to fetch for a given refresh. Deep pull (first
- * import / no completed marker) fetches HISTORY_MONTHS; routine fetches 2.
+ * Statement periods to fetch for this refresh. When the deep-pull marker is
+ * complete, returns the routine PASS_PERIODS window (current + previous month).
+ * When incomplete, returns the PASS_PERIODS newest unproven periods from the
+ * HISTORY_MONTHS window — coverage accumulates so the backfill completes over
+ * several refreshes rather than one 144-fetch run that always times out.
  */
-export function periodsForRefresh(nowISO: string, deepPullDone: boolean): string[] {
-  return deepPullDone ? lastNPeriods(nowISO, 2) : lastNPeriods(nowISO, HISTORY_MONTHS);
+export function periodsForRefresh(nowISO: string, meta: string | null): string[] {
+  if (isDeepPullComplete(meta, nowISO)) return lastNPeriods(nowISO, PASS_PERIODS);
+  const covered = deepPullCoveredPeriods(meta);
+  const uncovered = lastNPeriods(nowISO, HISTORY_MONTHS).filter(p => !covered.has(p));
+  return uncovered.slice(0, PASS_PERIODS);
+}
+
+/**
+ * Count of periods in the HISTORY_MONTHS window that still need to be proven.
+ * Zero means the deep pull is complete. Exposed for the UI's backfill status
+ * line — shows the user progress without blocking them.
+ */
+export function pendingDeepPullPeriods(nowISO: string, meta: string | null): number {
+  if (isDeepPullComplete(meta, nowISO)) return 0;
+  const covered = deepPullCoveredPeriods(meta);
+  return lastNPeriods(nowISO, HISTORY_MONTHS).filter(p => !covered.has(p)).length;
 }
 
 /**
@@ -317,8 +342,16 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
       proceed();
     };
 
-    // Same header check as looksLikeCsv — HTML 200s must not reach the parser.
-    var isCsv = function (t) {
+    // Journey CSV guard: requires both "date" AND "journey" in the header so
+    // billing CSVs (Date column, no Journey column) are excluded.
+    var isJourneyCsvGuard = function (t) {
+      var s = String(t || '').replace(/^\\uFEFF/, '').replace(/^\\s+/, '');
+      if (!s || s.charAt(0) === '<') return false;
+      var line = (s.split(/\\r?\\n/)[0] || '').toLowerCase();
+      return line.indexOf(',') !== -1 && line.indexOf('date') !== -1 && line.indexOf('journey') !== -1;
+    };
+    // Billing CSV guard: only requires "date" (billing has no Journey column).
+    var isBillingCsvGuard = function (t) {
       var s = String(t || '').replace(/^\\uFEFF/, '').replace(/^\\s+/, '');
       if (!s || s.charAt(0) === '<') return false;
       var line = s.split(/\\r?\\n/)[0] || '';
@@ -336,16 +369,27 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
         for (var p = 0; p < periods.length; p++) { jobs.push({ card: ids[c], period: periods[p] }); }
       }
       var files = [];
+      var journeyReported = false;
       // Sequential, not parallel — kinder to the WAF, and order keeps the
       // report deterministic. A failed month is skipped, not fatal.
       var next = function (k) {
         if (k >= jobs.length) {
-          // Billing CSV pass (non-fatal — for refund credit data only).
+          // Journey pass done. Report immediately so a billing-pass timeout
+          // cannot cost us the already-fetched journey data.
+          if (files.length) {
+            report({ type: 'direct-csv', status: 'csv', files: files, billingFiles: [] });
+            journeyReported = true;
+          }
+          // Billing CSV pass (non-fatal — refund credit data only). Runs after
+          // journey report so a timeout here leaves journeys safely banked.
           var billingFiles = [];
           var billingNext = function (bk) {
             if (bk >= jobs.length) {
-              if (files.length) { report({ type: 'direct-csv', status: 'csv', files: files, billingFiles: billingFiles }); }
-              else { report({ type: 'direct-csv', status: 'failed', message: 'no statement CSV came back' }); }
+              if (billingFiles.length) {
+                report({ type: 'direct-csv', status: 'billing', billingFiles: billingFiles });
+              } else if (!journeyReported) {
+                report({ type: 'direct-csv', status: 'failed', message: 'no statement CSV came back' });
+              }
               return;
             }
             var bjob = jobs[bk];
@@ -353,7 +397,7 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
               + encodeURIComponent(bjob.period) + '&CardDisplayId=' + encodeURIComponent(bjob.card);
             win.fetch(burl, { credentials: 'include' })
               .then(function (res) { return res.ok ? res.text() : ''; })
-              .then(function (t) { if (isCsv(t)) { billingFiles.push({ text: t, card: bjob.card, period: bjob.period, url: burl }); } })
+              .then(function (t) { if (isBillingCsvGuard(t)) { billingFiles.push({ text: t, card: bjob.card, period: bjob.period, url: burl }); } })
               .catch(function () { })
               .then(function () { billingNext(bk + 1); });
           };
@@ -369,7 +413,7 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
             return res.text();
           })
           .then(function (t) {
-            if (isCsv(t)) { files.push({ text: t, card: job.card, period: job.period, url: url }); }
+            if (isJourneyCsvGuard(t)) { files.push({ text: t, card: job.card, period: job.period, url: url }); }
           })
           .catch(function () { })
           .then(function () { next(k + 1); });

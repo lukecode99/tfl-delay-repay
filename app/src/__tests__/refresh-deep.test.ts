@@ -3,8 +3,10 @@
 // TfL-DEEPPULL-PROOF: period-level coverage marker helpers.
 import {
   periodsForRefresh,
+  pendingDeepPullPeriods,
   lastNPeriods,
   HISTORY_MONTHS,
+  PASS_PERIODS,
   DEEP_PULL_META_KEY,
   deepPullMetaKeyFor,
   deepPullCoveredPeriods,
@@ -14,44 +16,72 @@ import {
 import { isJourneyCsv } from '../journeys/parse';
 
 describe('periodsForRefresh', () => {
-  it('returns HISTORY_MONTHS periods when deep pull not done', () => {
-    const periods = periodsForRefresh('2026-07', false);
-    expect(periods).toHaveLength(HISTORY_MONTHS);
+  it('returns PASS_PERIODS newest months when nothing is covered', () => {
+    const periods = periodsForRefresh('2026-07', null);
+    expect(periods).toHaveLength(PASS_PERIODS);
+    expect(periods[0]).toBe('7|2026');
+    expect(periods[1]).toBe('6|2026');
   });
 
-  it('returns 2 periods when deep pull is done', () => {
-    const periods = periodsForRefresh('2026-07', true);
-    expect(periods).toHaveLength(2);
+  it('returns routine window when deep pull is complete', () => {
+    const full = JSON.stringify(lastNPeriods('2026-07', HISTORY_MONTHS));
+    const periods = periodsForRefresh('2026-07', full);
+    expect(periods).toHaveLength(PASS_PERIODS);
+    expect(periods[0]).toBe('7|2026');
+    expect(periods[1]).toBe('6|2026');
   });
 
-  it('routine periods match current and previous month', () => {
-    const periods = periodsForRefresh('2026-07', true);
-    expect(periods[0]).toBe('7|2026'); // current month unpadded
-    expect(periods[1]).toBe('6|2026'); // previous month
+  it('skips already-covered periods and returns next uncovered', () => {
+    const partial = JSON.stringify(['7|2026', '6|2026']);
+    const periods = periodsForRefresh('2026-07', partial);
+    expect(periods[0]).toBe('5|2026');
+    expect(periods[1]).toBe('4|2026');
   });
 
   it('handles year boundary correctly in routine mode', () => {
-    const periods = periodsForRefresh('2026-01', true);
+    const full = JSON.stringify(lastNPeriods('2026-01', HISTORY_MONTHS));
+    const periods = periodsForRefresh('2026-01', full);
     expect(periods[0]).toBe('1|2026');
-    expect(periods[1]).toBe('12|2025'); // crosses year boundary
-  });
-
-  it('deep pull periods start from current month going back', () => {
-    const periods = periodsForRefresh('2026-07', false);
-    expect(periods[0]).toBe('7|2026');
-    expect(periods[periods.length - 1]).toBe(`${7 - HISTORY_MONTHS + 1 > 0 ? 7 - HISTORY_MONTHS + 1 : 7 - HISTORY_MONTHS + 1 + 12}|${7 - HISTORY_MONTHS + 1 > 0 ? 2026 : 2025}`);
-  });
-
-  it('deep pull includes 12-month span crossing a year', () => {
-    const periods = periodsForRefresh('2026-03', false);
-    expect(periods).toHaveLength(12);
-    // 12 months back from March 2026 lands in April 2025
-    expect(periods[periods.length - 1]).toBe('4|2025');
+    expect(periods[1]).toBe('12|2025');
   });
 
   it('DEEP_PULL_META_KEY is a non-empty string', () => {
     expect(typeof DEEP_PULL_META_KEY).toBe('string');
     expect(DEEP_PULL_META_KEY.length).toBeGreaterThan(0);
+  });
+});
+
+describe('pendingDeepPullPeriods', () => {
+  it('returns HISTORY_MONTHS when nothing is covered', () => {
+    expect(pendingDeepPullPeriods('2026-07', null)).toBe(HISTORY_MONTHS);
+  });
+
+  it('returns 0 when complete', () => {
+    const full = JSON.stringify(lastNPeriods('2026-07', HISTORY_MONTHS));
+    expect(pendingDeepPullPeriods('2026-07', full)).toBe(0);
+  });
+
+  it('returns remaining count after partial coverage', () => {
+    const partial = JSON.stringify(['7|2026', '6|2026']);
+    expect(pendingDeepPullPeriods('2026-07', partial)).toBe(HISTORY_MONTHS - 2);
+  });
+
+  it('backfill completes in at most ceil(HISTORY_MONTHS / PASS_PERIODS) passes', () => {
+    // Verifies the 144-sequential-fetch problem cannot recur: each pass fetches
+    // at most PASS_PERIODS periods, so job count = cards × PASS_PERIODS × 2.
+    let meta: string | null = null;
+    const nowISO = '2026-07';
+    let passes = 0;
+    const maxPasses = Math.ceil(HISTORY_MONTHS / PASS_PERIODS) + 1; // +1 for the 2-month routine window
+    while (!isDeepPullComplete(meta, nowISO)) {
+      const periods = periodsForRefresh(nowISO, meta);
+      expect(periods.length).toBeLessThanOrEqual(PASS_PERIODS);
+      meta = mergeDeepPullCoverage(meta, periods);
+      passes++;
+      expect(passes).toBeLessThanOrEqual(maxPasses);
+    }
+    expect(isDeepPullComplete(meta, nowISO)).toBe(true);
+    expect(periodsForRefresh(nowISO, meta)).toHaveLength(PASS_PERIODS);
   });
 });
 

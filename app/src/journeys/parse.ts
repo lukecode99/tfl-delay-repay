@@ -95,14 +95,6 @@ function parseCharge(s: string | undefined): number | null {
 const NO_TOUCH = /no touch[- ](in|out)/i;
 
 /**
- * Parse a TfL statement CSV. Handles the Oyster export
- * (Date,Start Time,End Time,Journey/Action,Charge,Credit,Balance,Note) and
- * contactless variants; column order is taken from the header row. Rows that
- * aren't station-to-station journeys (top-ups, bus journeys, refunds) are
- * counted in `skipped`. Journeys without a tap-out are kept with
- * `incomplete: true`.
- */
-/**
  * True when text has a header row containing both "date" and "journey"
  * columns — the minimum signature of a TfL journey CSV. Billing CSVs have a
  * Date column but no Journey column and therefore fail this test. A
@@ -117,6 +109,14 @@ export function isJourneyCsv(text: string): boolean {
   });
 }
 
+/**
+ * Parse a TfL statement CSV. Handles the Oyster export
+ * (Date,Start Time,End Time,Journey/Action,Charge,Credit,Balance,Note) and
+ * contactless variants; column order is taken from the header row. Rows that
+ * aren't station-to-station journeys (top-ups, bus journeys, refunds) are
+ * counted in `skipped`. Journeys without a tap-out are kept with
+ * `incomplete: true`.
+ */
 export function parseStatement(text: string, defaultCard = 'unknown'): ParseResult {
   const rows = csvRows(text);
   const result: ParseResult = { journeys: [], refunds: [], skipped: 0, malformed: 0, diagnosticSkips: [] };
