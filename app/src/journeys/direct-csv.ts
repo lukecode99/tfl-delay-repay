@@ -110,17 +110,19 @@ export function deepPullMetaKeyFor(mode: 'contactless' | 'oyster' | 'both'): str
 }
 
 /**
- * Statement periods to fetch for this refresh. When the deep-pull marker is
- * complete, returns the routine PASS_PERIODS window (current + previous month).
- * When incomplete, returns the PASS_PERIODS newest unproven periods from the
- * HISTORY_MONTHS window — coverage accumulates so the backfill completes over
- * several refreshes rather than one 144-fetch run that always times out.
+ * Statement periods to fetch for this refresh. Always includes the routine
+ * PASS_PERIODS window (current + previous month) so recent journeys are never
+ * starved during backfill. When the deep pull is incomplete, also appends up
+ * to PASS_PERIODS uncovered months from the history window (slice(2) — the
+ * months beyond the routine window), giving up to 2×PASS_PERIODS periods
+ * total per pass. Coverage accumulates across passes until complete.
  */
 export function periodsForRefresh(nowISO: string, meta: string | null): string[] {
-  if (isDeepPullComplete(meta, nowISO)) return lastNPeriods(nowISO, PASS_PERIODS);
+  const routineWindow = lastNPeriods(nowISO, PASS_PERIODS);
+  if (isDeepPullComplete(meta, nowISO)) return routineWindow;
   const covered = deepPullCoveredPeriods(meta);
-  const uncovered = lastNPeriods(nowISO, HISTORY_MONTHS).filter(p => !covered.has(p));
-  return uncovered.slice(0, PASS_PERIODS);
+  const uncoveredHistory = lastNPeriods(nowISO, HISTORY_MONTHS).slice(2).filter(p => !covered.has(p));
+  return [...routineWindow, ...uncoveredHistory.slice(0, PASS_PERIODS)];
 }
 
 /**
@@ -131,7 +133,7 @@ export function periodsForRefresh(nowISO: string, meta: string | null): string[]
 export function pendingDeepPullPeriods(nowISO: string, meta: string | null): number {
   if (isDeepPullComplete(meta, nowISO)) return 0;
   const covered = deepPullCoveredPeriods(meta);
-  return lastNPeriods(nowISO, HISTORY_MONTHS).filter(p => !covered.has(p)).length;
+  return lastNPeriods(nowISO, HISTORY_MONTHS).slice(2).filter(p => !covered.has(p)).length;
 }
 
 /**
@@ -262,7 +264,8 @@ export const MAX_DIRECT_CARDS = 8;
  * the same header check as looksLikeCsv, and one report carries whatever
  * survived. Nothing here throws into the page.
  */
-export function buildDirectCsvScript(periods: string[], knownCards: string[] = []): string {
+export function buildDirectCsvScript(periods: string[], knownCards: string[] = [], billingPeriods: string[] = []): string {
+  const resolvedBillingPeriods = billingPeriods.length ? billingPeriods : periods.slice(0, 2);
   return `(function () {
   var report = function (msg) {
     if (window.ReactNativeWebView) { window.ReactNativeWebView.postMessage(JSON.stringify(msg)); }
@@ -271,6 +274,7 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
     var doc = document;
     var win = window;
     var periods = ${JSON.stringify(periods)};
+    var billingPeriods = ${JSON.stringify(resolvedBillingPeriods)};
     var known = ${JSON.stringify(knownCards)};
     var href = '';
     try { href = String((win.location && win.location.href) || '').toLowerCase(); } catch (e) { }
@@ -380,11 +384,16 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
             report({ type: 'direct-csv', status: 'csv', files: files, billingFiles: [] });
             journeyReported = true;
           }
-          // Billing CSV pass (non-fatal — refund credit data only). Runs after
-          // journey report so a timeout here leaves journeys safely banked.
+          // Billing CSV pass (non-fatal — refund credit data only). Restricted
+          // to the routine window (billingPeriods) so a close-before-finish
+          // cannot drop history-pass journey data already banked above.
+          var billingJobs = [];
+          for (var bc = 0; bc < ids.length; bc++) {
+            for (var bp = 0; bp < billingPeriods.length; bp++) { billingJobs.push({ card: ids[bc], period: billingPeriods[bp] }); }
+          }
           var billingFiles = [];
           var billingNext = function (bk) {
-            if (bk >= jobs.length) {
+            if (bk >= billingJobs.length) {
               if (billingFiles.length) {
                 report({ type: 'direct-csv', status: 'billing', billingFiles: billingFiles });
               } else if (!journeyReported) {
@@ -392,7 +401,7 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
               }
               return;
             }
-            var bjob = jobs[bk];
+            var bjob = billingJobs[bk];
             var burl = '${NEW_STATEMENTS_URL}/DownloadBillingCsv?Period='
               + encodeURIComponent(bjob.period) + '&CardDisplayId=' + encodeURIComponent(bjob.card);
             win.fetch(burl, { credentials: 'include' })

@@ -353,7 +353,8 @@ export default function RefreshSheet({ onClose }: Props) {
     // pendingPeriods drives the status bar: shows "N months remaining" during
     // the incremental backfill so the user knows a multi-refresh fill is underway.
     setPendingPeriods(pendingDeepPullPeriods(nowISO, meta));
-    return buildDirectCsvScript(periods, cardIdsFromLog(getMeta(CSV_LOG_KEY)));
+    const routineWindow = lastNPeriods(nowISO, PASS_PERIODS);
+    return buildDirectCsvScript(periods, cardIdsFromLog(getMeta(CSV_LOG_KEY)), routineWindow);
   };
 
   const injectHarvest = () => {

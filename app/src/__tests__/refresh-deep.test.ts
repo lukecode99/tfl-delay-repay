@@ -4,6 +4,7 @@
 import {
   periodsForRefresh,
   pendingDeepPullPeriods,
+  buildDirectCsvScript,
   lastNPeriods,
   HISTORY_MONTHS,
   PASS_PERIODS,
@@ -16,11 +17,13 @@ import {
 import { isJourneyCsv } from '../journeys/parse';
 
 describe('periodsForRefresh', () => {
-  it('returns PASS_PERIODS newest months when nothing is covered', () => {
+  it('returns routine window plus next PASS_PERIODS backfill periods when nothing is covered', () => {
     const periods = periodsForRefresh('2026-07', null);
-    expect(periods).toHaveLength(PASS_PERIODS);
+    expect(periods).toHaveLength(2 * PASS_PERIODS);
     expect(periods[0]).toBe('7|2026');
     expect(periods[1]).toBe('6|2026');
+    expect(periods[2]).toBe('5|2026');
+    expect(periods[3]).toBe('4|2026');
   });
 
   it('returns routine window when deep pull is complete', () => {
@@ -31,11 +34,13 @@ describe('periodsForRefresh', () => {
     expect(periods[1]).toBe('6|2026');
   });
 
-  it('skips already-covered periods and returns next uncovered', () => {
+  it('always includes the routine window and appends next uncovered history periods', () => {
     const partial = JSON.stringify(['7|2026', '6|2026']);
     const periods = periodsForRefresh('2026-07', partial);
-    expect(periods[0]).toBe('5|2026');
-    expect(periods[1]).toBe('4|2026');
+    expect(periods[0]).toBe('7|2026');
+    expect(periods[1]).toBe('6|2026');
+    expect(periods[2]).toBe('5|2026');
+    expect(periods[3]).toBe('4|2026');
   });
 
   it('handles year boundary correctly in routine mode', () => {
@@ -52,8 +57,8 @@ describe('periodsForRefresh', () => {
 });
 
 describe('pendingDeepPullPeriods', () => {
-  it('returns HISTORY_MONTHS when nothing is covered', () => {
-    expect(pendingDeepPullPeriods('2026-07', null)).toBe(HISTORY_MONTHS);
+  it('returns HISTORY_MONTHS - PASS_PERIODS (history window only) when nothing is covered', () => {
+    expect(pendingDeepPullPeriods('2026-07', null)).toBe(HISTORY_MONTHS - PASS_PERIODS);
   });
 
   it('returns 0 when complete', () => {
@@ -67,15 +72,15 @@ describe('pendingDeepPullPeriods', () => {
   });
 
   it('backfill completes in at most ceil(HISTORY_MONTHS / PASS_PERIODS) passes', () => {
-    // Verifies the 144-sequential-fetch problem cannot recur: each pass fetches
-    // at most PASS_PERIODS periods, so job count = cards × PASS_PERIODS × 2.
+    // Each pass fetches at most 2×PASS_PERIODS periods (routine window + backfill),
+    // so job count per pass = cards × 2×PASS_PERIODS × 2. No 144-fetch mega-run.
     let meta: string | null = null;
     const nowISO = '2026-07';
     let passes = 0;
-    const maxPasses = Math.ceil(HISTORY_MONTHS / PASS_PERIODS) + 1; // +1 for the 2-month routine window
+    const maxPasses = Math.ceil(HISTORY_MONTHS / PASS_PERIODS) + 1;
     while (!isDeepPullComplete(meta, nowISO)) {
       const periods = periodsForRefresh(nowISO, meta);
-      expect(periods.length).toBeLessThanOrEqual(PASS_PERIODS);
+      expect(periods.length).toBeLessThanOrEqual(2 * PASS_PERIODS);
       meta = mergeDeepPullCoverage(meta, periods);
       passes++;
       expect(passes).toBeLessThanOrEqual(maxPasses);
@@ -282,5 +287,29 @@ describe('isJourneyCsv', () => {
 
   it('rejects a plain text body with no commas', () => {
     expect(isJourneyCsv('Access denied')).toBe(false);
+  });
+});
+
+describe('backfill pass sequence', () => {
+  it('routine window appears in every backfill pass until complete', () => {
+    let meta: string | null = null;
+    const nowISO = '2026-07';
+    const [currentMonth, prevMonth] = lastNPeriods(nowISO, PASS_PERIODS);
+    while (!isDeepPullComplete(meta, nowISO)) {
+      const periods = periodsForRefresh(nowISO, meta);
+      expect(periods).toContain(currentMonth);
+      expect(periods).toContain(prevMonth);
+      meta = mergeDeepPullCoverage(meta, periods);
+    }
+  });
+
+  it('billing jobs in the generated script are restricted to the routine window even during backfill passes', () => {
+    const routineWindow = lastNPeriods('2026-07', PASS_PERIODS);
+    const backfillPeriods = periodsForRefresh('2026-07', null);
+    const script = buildDirectCsvScript(backfillPeriods, [], routineWindow);
+    const match = script.match(/var billingPeriods = (\[.*?\]);/);
+    expect(match).not.toBeNull();
+    expect(JSON.parse(match![1])).toEqual(routineWindow);
+    expect(JSON.parse(match![1])).toHaveLength(PASS_PERIODS);
   });
 });
