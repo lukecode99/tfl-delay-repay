@@ -600,6 +600,17 @@ export default function RefreshSheet({ onClose }: Props) {
           // routing rather than guessing a URL. The reducer enforces the
           // single-steer bounce guard (signinSteered).
           dispatch({ type: 'signin-nav', url: String(msg.signinHref) });
+        } else if (stateRef.current.phase === 'signed-out') {
+          // TfL-SIGNIN-DIRECT: both DOM scans (text + href) came back empty —
+          // gate pages like /UnregisteredCustomer/Captcha carry no discoverable
+          // sign-in anchor. Steer to the known-good URL proven in Luke's log.
+          // signinSteered latch in the reducer absorbs any repeat if TfL bounces
+          // back to the gate, so this fires at most once per run.
+          const fallbackUrl = /oyster\.tfl\.gov\.uk/i.test(urlRef.current)
+            ? 'https://accounts.tfl.gov.uk/adapter/signin'
+            : 'https://contactless.tfl.gov.uk/HomePage/Login';
+          recordAudit('signin-fallback', `mode=${mode ?? 'unknown'} url=${fallbackUrl}`);
+          dispatch({ type: 'signin-nav', url: fallbackUrl });
         }
         // Other paused pages (captcha, marketing): statusText(state) is correct.
         return;
