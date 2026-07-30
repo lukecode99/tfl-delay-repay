@@ -125,9 +125,10 @@ export default function ClaimDetailScreen({ journey, assessment: a, overcharge, 
               </Pressable>
               {!claim && (
                 // expectedValue=null: overcharge corrections are TfL fare adjustments, not
-                // direct bank credits. Null keeps this claim out of autoMatchRefunds, which
-                // matches CSV billing credits by amount — a non-null value here could
-                // false-match a delay-repay credit for the same journey in the same batch.
+                // direct bank credits. Null puts this claim in autoMatchRefunds' suggestion
+                // pool (date-window only, never auto-written) rather than the auto-write pool
+                // (amount-corroborated delay-repay claims) — the two pools are evaluated
+                // independently so a same-credit delay claim is never blocked.
                 // Schema note: delay-repay and overcharge share the claims table; if stats
                 // ever need them distinguished (separate totals), add a claim_type column —
                 // that's a separate card and migration. Today claimedValue sums both, which

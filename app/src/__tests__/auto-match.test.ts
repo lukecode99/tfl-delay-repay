@@ -25,7 +25,7 @@ function claim(overrides: Partial<ClaimRecord> & { journeyId: number }): ClaimRe
 }
 
 function refund(overrides: Partial<ParsedRefund>): ParsedRefund {
-  return { date: '2026-07-15', credit: 3.00, rawAction: 'Delay Repay', ...overrides };
+  return { date: '2026-07-05', credit: 3.00, rawAction: 'Delay Repay', ...overrides };
 }
 
 beforeEach(() => {
@@ -37,27 +37,18 @@ beforeEach(() => {
 describe('autoMatchRefunds', () => {
   it('returns zero matched when refunds is empty', () => {
     mockListClaims.mockReturnValue([]);
-    expect(autoMatchRefunds([])).toEqual({ matched: 0, corrections: [] });
+    expect(autoMatchRefunds([])).toEqual({ matched: 0, corrections: [], suggestions: [] });
   });
 
-  it('matches a claimed claim by date + amount', () => {
+  it('auto-writes a claimed claim matched by date + amount', () => {
     const c = claim({ journeyId: 1 });
     mockListClaims.mockReturnValue([c]);
     mockGetClaim.mockReturnValue(c);
 
-    const result = autoMatchRefunds([refund({ date: '2026-07-15', credit: 3.00 })]);
+    const result = autoMatchRefunds([refund({ date: '2026-07-08', credit: 3.00 })]);
     expect(result.matched).toBe(1);
+    expect(result.suggestions).toHaveLength(0);
     expect(mockSetClaimOutcome).toHaveBeenCalledWith(1, 'paid', 3.00);
-  });
-
-  it('matches a null-expectedValue overcharge claim within the date window', () => {
-    const c = claim({ journeyId: 2, expectedValue: null });
-    mockListClaims.mockReturnValue([c]);
-    mockGetClaim.mockReturnValue(c);
-
-    const result = autoMatchRefunds([refund({ date: '2026-07-20', credit: 5.50 })]);
-    expect(result.matched).toBe(1);
-    expect(mockSetClaimOutcome).toHaveBeenCalledWith(2, 'paid', 5.50);
   });
 
   it('does not match when refund date is before claim date', () => {
@@ -69,16 +60,16 @@ describe('autoMatchRefunds', () => {
     expect(mockSetClaimOutcome).not.toHaveBeenCalled();
   });
 
-  it('does not match when refund date is outside 90-day window', () => {
-    const c = claim({ journeyId: 4, claimedAt: '2026-01-01T00:00:00.000Z' });
+  it('does not match when refund date is outside 14-day window', () => {
+    const c = claim({ journeyId: 4, claimedAt: '2026-07-01T00:00:00.000Z' });
     mockListClaims.mockReturnValue([c]);
 
-    // 2026-07-01 is 181 days after 2026-01-01 — outside 90-day window
-    const result = autoMatchRefunds([refund({ date: '2026-07-01', credit: 3.00 })]);
+    // 2026-07-16 is 15 days after 2026-07-01 — outside 14-day window
+    const result = autoMatchRefunds([refund({ date: '2026-07-16', credit: 3.00 })]);
     expect(result.matched).toBe(0);
   });
 
-  it('does not match when two candidates have similar amounts (ambiguous)', () => {
+  it('does not match when two claimed claims have similar amounts (ambiguous)', () => {
     const c1 = claim({ journeyId: 5, expectedValue: 3.00 });
     const c2 = claim({ journeyId: 6, expectedValue: 3.20 });
     mockListClaims.mockReturnValue([c1, c2]);
@@ -92,7 +83,6 @@ describe('autoMatchRefunds', () => {
   it('skips a match if the claim was already resolved between list and get', () => {
     const c = claim({ journeyId: 7 });
     mockListClaims.mockReturnValue([c]);
-    // Simulate concurrent resolution — getClaim returns paid status
     mockGetClaim.mockReturnValue({ ...c, status: 'paid', paidAmount: 3.00 });
 
     const result = autoMatchRefunds([refund({ credit: 3.00 })]);
@@ -107,5 +97,39 @@ describe('autoMatchRefunds', () => {
     const result = autoMatchRefunds([refund({ credit: 4.00 })]);
     expect(result.matched).toBe(0);
     expect(result.corrections).toEqual([{ journeyId: 8, suggested: 4.00 }]);
+  });
+
+  it('routes a null-expectedValue overcharge claim to suggestions, never auto-writes', () => {
+    const c = claim({ journeyId: 9, expectedValue: null });
+    mockListClaims.mockReturnValue([c]);
+
+    const result = autoMatchRefunds([refund({ date: '2026-07-05', credit: 15.00 })]);
+    expect(result.matched).toBe(0);
+    expect(mockSetClaimOutcome).not.toHaveBeenCalled();
+    expect(result.suggestions).toEqual([{ journeyId: 9, credit: 15.00 }]);
+  });
+
+  it('delay claim and overcharge claim with same credit do not collide — separate pools', () => {
+    // Delay claim: expectedValue known → auto-write pool
+    const delay = claim({ journeyId: 10, expectedValue: 3.00 });
+    // Overcharge claim: null expectedValue → suggestion pool
+    const overcharge = claim({ journeyId: 11, expectedValue: null });
+    mockListClaims.mockReturnValue([delay, overcharge]);
+    mockGetClaim.mockReturnValue(delay);
+
+    const result = autoMatchRefunds([refund({ date: '2026-07-05', credit: 3.00 })]);
+    // Delay claim gets auto-written (1 candidate in its pool)
+    expect(result.matched).toBe(1);
+    expect(mockSetClaimOutcome).toHaveBeenCalledWith(10, 'paid', 3.00);
+    // Overcharge claim goes to suggestions (1 candidate in its pool)
+    expect(result.suggestions).toEqual([{ journeyId: 11, credit: 3.00 }]);
+  });
+
+  it('does not suggest an overcharge claim when refund is outside the 14-day window', () => {
+    const c = claim({ journeyId: 12, expectedValue: null });
+    mockListClaims.mockReturnValue([c]);
+
+    const result = autoMatchRefunds([refund({ date: '2026-07-16', credit: 5.00 })]);
+    expect(result.suggestions).toHaveLength(0);
   });
 });

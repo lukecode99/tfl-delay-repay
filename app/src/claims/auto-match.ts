@@ -2,23 +2,24 @@
 // Requires exactly one candidate to prevent mis-matching when multiple open
 // claims have similar values. Side-effects: marks matched claimed→paid.
 //
-// Matching rules (both must hold):
-//   date: refund.date is on or after claimedAt date AND within 90 days
-//   amount: |expectedValue - credit| ≤ £0.50 when expectedValue is known;
-//           any credit amount when expectedValue is null (overcharge claims)
+// Three output buckets — never conflate them:
+//   matched:     claimed→paid written (expectedValue known, amount corroborated)
+//   corrections: already-paid claims with a bad amount where a refund matches
+//   suggestions: overcharge claims (null expectedValue) that match on date only —
+//                returned for the caller/UI to confirm; never auto-written
 //
-// Returns { matched, corrections }: matched = claims written; corrections =
-// claims already marked paid with a bad amount (0 or null) where a refund
-// matches. Corrections are returned, never written — caller decides.
+// Matching window: 14 days from claimedAt date. TfL pays delay-repay in 5
+// business days; 14 provides buffer without buying many collisions.
 import type { ParsedRefund } from '../journeys/parse';
 import { getClaim, listClaims, setClaimOutcome } from './db';
 
 export interface AutoMatchResult {
   matched: number;
   corrections: Array<{ journeyId: number; suggested: number }>;
+  suggestions: Array<{ journeyId: number; credit: number }>;
 }
 
-const MATCH_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+const MATCH_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
 function inWindow(refundDate: string, claimedAt: string): boolean {
   const refund = new Date(refundDate).getTime();
@@ -27,16 +28,17 @@ function inWindow(refundDate: string, claimedAt: string): boolean {
 }
 
 export function autoMatchRefunds(refunds: ParsedRefund[]): AutoMatchResult {
-  if (!refunds.length) return { matched: 0, corrections: [] };
+  if (!refunds.length) return { matched: 0, corrections: [], suggestions: [] };
 
-  const claimedClaims = listClaims().filter(c => c.status === 'claimed');
+  // Auto-write pool: only claims with a known expectedValue (amount-corroborated).
+  // Null-expectedValue overcharge claims are intentionally excluded here — they
+  // go into suggestions below, never auto-written.
+  const claimedWithAmount = listClaims().filter(c => c.status === 'claimed' && c.expectedValue != null);
   let matched = 0;
   for (const refund of refunds) {
-    const candidates = claimedClaims.filter(c => {
-      if (!inWindow(refund.date, c.claimedAt)) return false;
-      if (c.expectedValue != null) return Math.abs(c.expectedValue - refund.credit) <= 0.50;
-      return true; // overcharge claim (null expectedValue): date match is sufficient
-    });
+    const candidates = claimedWithAmount.filter(
+      c => inWindow(refund.date, c.claimedAt) && Math.abs((c.expectedValue as number) - refund.credit) <= 0.50,
+    );
     if (candidates.length === 1) {
       // Re-fetch to guard against double-match within the same import batch
       const current = getClaim(candidates[0].journeyId);
@@ -64,5 +66,16 @@ export function autoMatchRefunds(refunds: ParsedRefund[]): AutoMatchResult {
     }
   }
 
-  return { matched, corrections };
+  // Suggestion pool: overcharge claims (null expectedValue) matched on date only.
+  // Returned for the caller to surface — user confirms before any write happens.
+  const overchargeClaims = listClaims().filter(c => c.status === 'claimed' && c.expectedValue === null);
+  const suggestions: Array<{ journeyId: number; credit: number }> = [];
+  for (const refund of refunds) {
+    const candidates = overchargeClaims.filter(c => inWindow(refund.date, c.claimedAt));
+    if (candidates.length === 1) {
+      suggestions.push({ journeyId: candidates[0].journeyId, credit: refund.credit });
+    }
+  }
+
+  return { matched, corrections, suggestions };
 }

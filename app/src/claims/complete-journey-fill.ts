@@ -37,6 +37,9 @@ export function isCompleteJourneyFormPage(url: string): boolean {
   // Path segments: /IncompleteJourney/… or /CompleteJourney (singular, not plural list)
   // (?!s) excludes /IncompleteJourneys which is the list page, not the form
   if (/\/(?:in)?complete.{0,4}journey(?!s)/i.test(url)) return true;
+  // /CorrectJourney — TfL's alternate phrasing. (?!s) excludes /CorrectableJourneys
+  // (the list page): "Correct" + "able" (4 chars) + "Journeys" — lookahead fires on the s.
+  if (/\/correct.{0,4}journey(?!s)/i.test(url)) return true;
   return false;
 }
 
