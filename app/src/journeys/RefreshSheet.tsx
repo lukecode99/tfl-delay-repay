@@ -54,7 +54,7 @@ import { autoMatchRefunds } from '../claims/auto-match';
 import { setClaimOutcome } from '../claims/db';
 import { getMeta, insertRefunds, listCards, setMeta } from './db';
 import { importCsvText, ImportOutcome } from './import';
-import { parseStatement } from './parse';
+import { isJourneyCsv, parseStatement } from './parse';
 import { saveRawStatements } from './raw-export-io';
 import type { RawStatement } from './raw-export';
 import {
@@ -677,7 +677,10 @@ export default function RefreshSheet({ onClose }: Props) {
             // HISTORY_MONTHS period. Legacy 'done' is treated as unproven by
             // isDeepPullComplete, so existing installs re-pull once automatically.
             // Partial passes update the marker but don't trigger the mode switch.
-            const coveredPeriods = files.map((f: any) => String(f?.period ?? '')).filter(Boolean);
+            const coveredPeriods = files
+              .filter((f: any) => isJourneyCsv(String(f?.text ?? '')))
+              .map((f: any) => String(f?.period ?? ''))
+              .filter(Boolean);
             const requested = requestedPeriodsRef.current;
             // scopeComplete: this specific run covered every period it requested.
             // False on a partial pass — withholds "already up to date" in doneMessage.

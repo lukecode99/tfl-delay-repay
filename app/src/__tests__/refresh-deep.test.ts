@@ -11,6 +11,7 @@ import {
   isDeepPullComplete,
   mergeDeepPullCoverage,
 } from '../journeys/direct-csv';
+import { isJourneyCsv } from '../journeys/parse';
 
 describe('periodsForRefresh', () => {
   it('returns HISTORY_MONTHS periods when deep pull not done', () => {
@@ -156,9 +157,17 @@ describe('isDeepPullComplete', () => {
     expect(isDeepPullComplete(full, '2026-07')).toBe(true);
   });
 
-  it('returns false when marker is full but nowISO has moved forward a month', () => {
-    const oldFull = JSON.stringify(lastNPeriods('2026-06', HISTORY_MONTHS));
-    // 2026-07 requires '7|2026' which isn't in oldFull
+  it('remains complete on month rollover — July full pull proves August window', () => {
+    // The routine 2-month window (Aug+Jul) is excluded from the completeness
+    // check, so a July full pull still satisfies August's history requirement.
+    const julFull = JSON.stringify(lastNPeriods('2026-07', HISTORY_MONTHS));
+    expect(isDeepPullComplete(julFull, '2026-08')).toBe(true);
+  });
+
+  it('returns false when marker is too old to cover the history window', () => {
+    // A marker from March 2026 is missing May and April 2026, which are
+    // within the history window (slice(2)) for July 2026.
+    const oldFull = JSON.stringify(lastNPeriods('2026-03', HISTORY_MONTHS));
     expect(isDeepPullComplete(oldFull, '2026-07')).toBe(false);
   });
 });
@@ -206,5 +215,42 @@ describe('mergeDeepPullCoverage', () => {
     const all = lastNPeriods('2026-07', HISTORY_MONTHS);
     const result = mergeDeepPullCoverage(null, all);
     expect(isDeepPullComplete(result, '2026-07')).toBe(true);
+  });
+});
+
+describe('isJourneyCsv', () => {
+  const JOURNEY_HEADER = 'Date,Start Time,End Time,Journey/Action,Charge,Credit,Balance,Note';
+  const JOURNEY_ROW = '30-Jul-2026,08:00,08:32,"Waterloo [London Underground] to Bank [London Underground]",£1.75,,£10.00,';
+
+  it('accepts a full journey CSV', () => {
+    expect(isJourneyCsv(`${JOURNEY_HEADER}\n${JOURNEY_ROW}`)).toBe(true);
+  });
+
+  it('accepts a header-only month (0 journey rows)', () => {
+    // Months before the account existed return a valid header with no data rows.
+    // These must count as covered — they prove TfL returned a statement.
+    expect(isJourneyCsv(JOURNEY_HEADER)).toBe(true);
+  });
+
+  it('accepts BOM-prefixed journey CSV', () => {
+    expect(isJourneyCsv(`﻿${JOURNEY_HEADER}\n${JOURNEY_ROW}`)).toBe(true);
+  });
+
+  it('rejects an HTML body (TfL 404 or login redirect)', () => {
+    expect(isJourneyCsv('<!DOCTYPE html><html><head></head><body></body></html>')).toBe(false);
+  });
+
+  it('rejects a billing CSV — has Date but no Journey column', () => {
+    const billingHeader = 'Date,Description,Amount,Balance';
+    const billingRow = '30-Jul-2026,DIRECT DEBIT,£15.00,£0.00';
+    expect(isJourneyCsv(`${billingHeader}\n${billingRow}`)).toBe(false);
+  });
+
+  it('rejects an empty string', () => {
+    expect(isJourneyCsv('')).toBe(false);
+  });
+
+  it('rejects a plain text body with no commas', () => {
+    expect(isJourneyCsv('Access denied')).toBe(false);
   });
 });

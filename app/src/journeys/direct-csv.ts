@@ -128,7 +128,10 @@ export function deepPullCoveredPeriods(meta: string | null): Set<string> {
  */
 export function isDeepPullComplete(meta: string | null, nowISO: string): boolean {
   const covered = deepPullCoveredPeriods(meta);
-  return lastNPeriods(nowISO, HISTORY_MONTHS).every(p => covered.has(p));
+  // Exclude the routine 2-month window (current + previous month) from the
+  // completeness check. Routine pulls always cover those two, so requiring them
+  // proven would force a 12-month re-pull on every calendar month rollover.
+  return lastNPeriods(nowISO, HISTORY_MONTHS).slice(2).every(p => covered.has(p));
 }
 
 /**

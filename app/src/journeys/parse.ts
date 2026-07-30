@@ -102,6 +102,21 @@ const NO_TOUCH = /no touch[- ](in|out)/i;
  * counted in `skipped`. Journeys without a tap-out are kept with
  * `incomplete: true`.
  */
+/**
+ * True when text has a header row containing both "date" and "journey"
+ * columns — the minimum signature of a TfL journey CSV. Billing CSVs have a
+ * Date column but no Journey column and therefore fail this test. A
+ * header-only month (zero data rows) still passes: the valid header is enough
+ * proof that TfL returned a statement for that period.
+ */
+export function isJourneyCsv(text: string): boolean {
+  const rows = csvRows(text);
+  return rows.some(r => {
+    const lower = r.map(c => c.toLowerCase());
+    return lower.some(c => c.includes('date')) && lower.some(c => c.includes('journey'));
+  });
+}
+
 export function parseStatement(text: string, defaultCard = 'unknown'): ParseResult {
   const rows = csvRows(text);
   const result: ParseResult = { journeys: [], refunds: [], skipped: 0, malformed: 0, diagnosticSkips: [] };
