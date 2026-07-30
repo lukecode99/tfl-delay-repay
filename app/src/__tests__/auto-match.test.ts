@@ -132,4 +132,15 @@ describe('autoMatchRefunds', () => {
     const result = autoMatchRefunds([refund({ date: '2026-07-16', credit: 5.00 })]);
     expect(result.suggestions).toHaveLength(0);
   });
+
+  it('an undefined expectedValue falls into the suggestion pool, not the void', () => {
+    // expectedValue != null excludes undefined from the auto-write pool;
+    // == null in the suggestion pool captures it so nothing is silently dropped.
+    const c = { ...claim({ journeyId: 13 }), expectedValue: undefined as unknown as null };
+    mockListClaims.mockReturnValue([c]);
+
+    const result = autoMatchRefunds([refund({ date: '2026-07-05', credit: 2.00 })]);
+    expect(result.matched).toBe(0);
+    expect(result.suggestions).toEqual([{ journeyId: 13, credit: 2.00 }]);
+  });
 });

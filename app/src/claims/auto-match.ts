@@ -66,9 +66,10 @@ export function autoMatchRefunds(refunds: ParsedRefund[]): AutoMatchResult {
     }
   }
 
-  // Suggestion pool: overcharge claims (null expectedValue) matched on date only.
+  // Suggestion pool: overcharge claims (null/undefined expectedValue) matched on date only.
+  // == null covers both so this is the exact complement of the claimedWithAmount pool.
   // Returned for the caller to surface — user confirms before any write happens.
-  const overchargeClaims = listClaims().filter(c => c.status === 'claimed' && c.expectedValue === null);
+  const overchargeClaims = listClaims().filter(c => c.status === 'claimed' && c.expectedValue == null);
   const suggestions: Array<{ journeyId: number; credit: number }> = [];
   for (const refund of refunds) {
     const candidates = overchargeClaims.filter(c => inWindow(refund.date, c.claimedAt));

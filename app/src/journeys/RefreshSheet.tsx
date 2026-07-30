@@ -267,6 +267,7 @@ export default function RefreshSheet({ onClose }: Props) {
   // REFUND-AUTO-MATCH: accumulated across billing files in this session.
   const sessionAutoMatchedRef = useRef(0);
   const sessionCorrectionsRef = useRef<Array<{ journeyId: number; suggested: number }>>([]);
+  const sessionSuggestionsRef = useRef<Array<{ journeyId: number; credit: number }>>([]);
   // TfL-18: set while a dispatch() call injects the in-place direct script,
   // so the handler that triggered it doesn't inject a second time.
   const dispatchInjected = useRef(false);
@@ -447,11 +448,33 @@ export default function RefreshSheet({ onClose }: Props) {
         seenJourneys.add(c.journeyId);
         return true;
       });
+      // Dedupe suggestions by journeyId across billing files.
+      const seenSuggestions = new Set<number>();
+      const pendingSuggestions = sessionSuggestionsRef.current.filter(s => {
+        if (seenSuggestions.has(s.journeyId)) return false;
+        seenSuggestions.add(s.journeyId);
+        return true;
+      });
+
+      // Chain: corrections first, then suggestions, then close.
+      const offerSuggestion = (remaining: typeof pendingSuggestions) => {
+        if (!remaining.length) { doClose(); return; }
+        const [s, ...rest] = remaining;
+        Alert.alert(
+          'Overcharge refund found',
+          `Your billing statement shows a £${s.credit.toFixed(2)} credit within 14 days of you filing an overcharge correction for this journey. Mark the correction as received with £${s.credit.toFixed(2)}?`,
+          [
+            { text: 'Skip', style: 'cancel', onPress: () => offerSuggestion(rest) },
+            { text: 'Record', onPress: () => { setClaimOutcome(s.journeyId, 'paid', s.credit); offerSuggestion(rest); } },
+          ],
+        );
+      };
+
       if (pendingCorrections.length > 0) {
         // Present each correction in sequence. Never auto-writes — the user
-        // decides whether each suggested amount is right. Close after all handled.
+        // decides whether each suggested amount is right. Suggestions follow.
         const offerNext = (remaining: typeof pendingCorrections) => {
-          if (!remaining.length) { doClose(); return; }
+          if (!remaining.length) { setTimeout(() => offerSuggestion(pendingSuggestions), 0); return; }
           const [c, ...rest] = remaining;
           Alert.alert(
             'Refund amount found',
@@ -463,6 +486,8 @@ export default function RefreshSheet({ onClose }: Props) {
           );
         };
         setTimeout(() => offerNext(pendingCorrections), DISMISS_DELAY_MS);
+      } else if (pendingSuggestions.length > 0) {
+        setTimeout(() => offerSuggestion(pendingSuggestions), DISMISS_DELAY_MS);
       } else {
         setTimeout(doClose, DISMISS_DELAY_MS);
       }
@@ -491,6 +516,7 @@ export default function RefreshSheet({ onClose }: Props) {
     urlRef.current = '';
     sessionAutoMatchedRef.current = 0;
     sessionCorrectionsRef.current = [];
+    sessionSuggestionsRef.current = [];
     setPendingPeriods(0);
     stateRef.current = makeInitialFlow(m);
     setState(stateRef.current);
@@ -746,7 +772,7 @@ export default function RefreshSheet({ onClose }: Props) {
                 if (bparsed.refunds.length > 0) {
                   const { inserted: ri } = insertRefunds(bparsed.refunds, bcard, bperiod);
                   billingRefunds += ri;
-                  const { matched, corrections } = autoMatchRefunds(bparsed.refunds);
+                  const { matched, corrections, suggestions } = autoMatchRefunds(bparsed.refunds);
                   if (matched > 0) {
                     recordAudit('auto-match', `${matched} claim(s) marked paid`);
                     sessionAutoMatchedRef.current += matched;
@@ -756,6 +782,12 @@ export default function RefreshSheet({ onClose }: Props) {
                       .map(c => `journey ${c.journeyId}: suggested £${c.suggested.toFixed(2)}`)
                       .join('; '));
                     sessionCorrectionsRef.current.push(...corrections);
+                  }
+                  if (suggestions.length > 0) {
+                    recordAudit('auto-match-suggest', suggestions
+                      .map(s => `journey ${s.journeyId}: credit £${s.credit.toFixed(2)}`)
+                      .join('; '));
+                    sessionSuggestionsRef.current.push(...suggestions);
                   }
                 }
               }
