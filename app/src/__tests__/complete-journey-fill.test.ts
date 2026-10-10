@@ -28,14 +28,17 @@ describe('isCompleteJourneyFormPage', () => {
     )).toBe(true);
   });
 
-  it('does not match ApplyForRefund without query params (list page)', () => {
-    expect(isCompleteJourneyFormPage('https://contactless.tfl.gov.uk/Refunds/ApplyForRefund')).toBe(false);
+  // On-device capture (10-Oct) confirmed the form URL is /Refunds/ApplyForRefund
+  // itself — bare or with a journeyId query — not a list page. Earlier
+  // assertions assumed the bare path was a list; superseded by the real capture.
+  it('matches ApplyForRefund bare path (on-device form URL)', () => {
+    expect(isCompleteJourneyFormPage('https://contactless.tfl.gov.uk/Refunds/ApplyForRefund')).toBe(true);
   });
 
-  it('does not match ApplyForRefund with only cardDisplayId', () => {
+  it('matches ApplyForRefund with a journeyId query', () => {
     expect(isCompleteJourneyFormPage(
-      'https://contactless.tfl.gov.uk/Refunds/ApplyForRefund?cardDisplayId=1234',
-    )).toBe(false);
+      'https://contactless.tfl.gov.uk/Refunds/ApplyForRefund?journeyId=42',
+    )).toBe(true);
   });
 
   it('does not match the incomplete journeys LIST page (plural)', () => {

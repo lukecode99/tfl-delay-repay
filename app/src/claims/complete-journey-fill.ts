@@ -29,9 +29,14 @@ const TFL_CONTACTLESS = /contactless\.tfl\.gov\.uk/i;
  */
 export function isCompleteJourneyFormPage(url: string): boolean {
   if (!TFL_CONTACTLESS.test(url)) return false;
-  // Real apply-for-refund form — requires both cardDisplayId and journeyDisplayId params
-  // to avoid matching the list page (/Refunds/ApplyForRefund without params).
-  if (/\/Refunds\/ApplyForRefund/i.test(url) && /cardDisplayId=/i.test(url) && /journeyDisplayId=/i.test(url)) return true;
+  // Real apply-for-refund form. On-device capture (10-Oct) confirmed the form
+  // URL is /Refunds/ApplyForRefund itself — bare, or carrying a journeyId query
+  // — NOT only the cardDisplayId+journeyDisplayId variant assumed earlier. Match
+  // the path regardless of params; the sibling list page is
+  // /Refunds/CorrectableJourneys, which this literal path never matches. A stray
+  // list-page match would only re-inject harmlessly (fill is graceful, never
+  // auto-submits).
+  if (/\/Refunds\/ApplyForRefund/i.test(url)) return true;
   // "complete my journey" phrasing — the word "my" is absent from list-page URLs
   if (/complete.{0,4}my.{0,4}journey/i.test(url)) return true;
   // Path segments: /IncompleteJourney/… or /CompleteJourney (singular, not plural list)
