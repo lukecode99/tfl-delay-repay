@@ -648,12 +648,15 @@ export default function RefreshSheet({ onClose }: Props) {
         const scanClassifier = msg.quotaNotice ? 'quota' : msg.hasPassword ? 'password'
           : msg.signinHref ? 'signinHref' : 'none';
         recordAudit('paused-scan', `phase=${stateRef.current.phase} classifier=${scanClassifier}${msg.signinHref ? ` href=${String(msg.signinHref).slice(0, 80)}` : ''}`);
-        // TfL-LOGIN-FIRST: re-evaluate banner copy per page during pause.
-        // reCAPTCHA quota notices are TfL's billing problem, not ours —
-        // say so explicitly rather than leaving the user wondering.
-        if (msg.quotaNotice) {
-          setPausedCopy("TfL's reCAPTCHA is over its daily quota — this is a TfL issue, not ours. Try again later.");
-        } else if (msg.hasPassword) {
+        // TfL-SIGNIN-QUOTA: when we're signed-out and trying to reach the login
+        // form, routing to sign-in ALWAYS wins over the reCAPTCHA-quota notice.
+        // The quota gate is TfL's UnregisteredCustomer robot-check — for checking
+        // history WITHOUT an account; the sign-in form sits on a different path
+        // that never hits that check. Showing "try again later" first short-
+        // circuited the steer and stranded the user on the intro page (Luke,
+        // 10-Oct). Quota copy is now the last resort — only shown when there is
+        // no sign-in route to take.
+        if (msg.hasPassword) {
           setPausedCopy('Enter your TfL login details, then tap Continue.');
         } else if (msg.signinHref) {
           // Sign In anchor found on the signed-out page — follow TfL's own
@@ -671,6 +674,10 @@ export default function RefreshSheet({ onClose }: Props) {
             : 'https://contactless.tfl.gov.uk/HomePage/Login';
           recordAudit('signin-fallback', `mode=${mode ?? 'unknown'} url=${fallbackUrl}`);
           dispatch({ type: 'signin-nav', url: fallbackUrl });
+        } else if (msg.quotaNotice) {
+          // reCAPTCHA quota notices are TfL's billing problem, not ours — say so
+          // explicitly. Only reached when we are NOT signed-out (no sign-in route).
+          setPausedCopy("TfL's reCAPTCHA is over its daily quota — this is a TfL issue, not ours. Try again later.");
         }
         // Other paused pages (captcha, marketing): statusText(state) is correct.
         return;

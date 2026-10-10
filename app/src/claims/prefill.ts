@@ -367,11 +367,15 @@ export function buildFillScript(fields: PrefillField[]): string {
 export const CLAIM_START_URL = 'https://tfl.gov.uk/fares/refunds/apply-for-a-service-delay-refund';
 
 /**
- * TfL-22: the claim WebView opens here — the logged-in contactless card list,
- * one tap from the Apply form — rather than the tfl.gov.uk marketing page (which
- * made the user click "Apply", get bounced to sign-in, and sometimes hit a stale
- * id_token error before reaching the form). Not signed in → TfL login → its OAuth
- * returns to /Dashboard, from which ClaimWebScreen advances here once. The user
- * still picks their card and submits on TfL's own pages.
+ * TfL-23: the claim WebView opens the Service Delay Refund form directly. The
+ * earlier /MyCards staging (TfL-22) stranded the user on the contactless card
+ * list — when the only card is expired it shows "Unable to travel" and no way
+ * forward (Luke, 10-Oct). The Apply form carries its own card selector
+ * (CardDisplayId in its POST), so it is self-sufficient — no card must be
+ * picked first. We still avoid the tfl.gov.uk marketing page (which bounced
+ * users through Apply→sign-in and sometimes a stale id_token error). Not
+ * signed in → TfL login → its OAuth returns to /Dashboard, from which
+ * ClaimWebScreen advances here once. The user signs in and submits on TfL's
+ * own pages.
  */
-export const CLAIM_APPLY_URL = 'https://contactless.tfl.gov.uk/MyCards';
+export const CLAIM_APPLY_URL = 'https://contactless.tfl.gov.uk/ServiceDelayRefunds/Apply';

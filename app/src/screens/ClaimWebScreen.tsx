@@ -40,9 +40,10 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   // Web-history back: TfL's flow spans several pages (sign-in → cards → Apply)
   // and a wrong tap previously meant closing and reopening the whole screen.
   const [canGoBack, setCanGoBack] = useState(false);
-  // TfL-22: after TfL's sign-in the OAuth flow returns to the contactless
-  // Dashboard, not the card list we opened. Advance to MyCards once so login
-  // never strands the user on the dashboard. One-shot — never loops.
+  // TfL-22/TfL-23: after TfL's sign-in the OAuth flow returns to the
+  // contactless Dashboard, not the Apply form we opened. Advance to the Apply
+  // form once so login never strands the user on the dashboard. One-shot —
+  // never loops.
   const advancedRef = useRef(false);
 
   // The Apply form is the only page with the mode/station dropdowns. On every
@@ -161,9 +162,9 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
           const url = String(nav.url);
           recordAudit('claim-nav', url);
           setCurrentUrl(url);
-          // TfL-22: TfL's post-login OAuth lands on the contactless Dashboard.
-          // Advance to the card list once so the user reaches their cards →
-          // Apply form. We never auto-select a card (wrong card = wrong claim).
+          // TfL-22/TfL-23: TfL's post-login OAuth lands on the contactless
+          // Dashboard. Advance to the Apply form once (it carries its own card
+          // selector, so no card-list detour). We never auto-select a card.
           if (!advancedRef.current && /contactless\.tfl\.gov\.uk\/Dashboard/i.test(url)) {
             advancedRef.current = true;
             webRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(CLAIM_APPLY_URL)}; true;`);
