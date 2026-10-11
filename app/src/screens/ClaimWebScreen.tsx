@@ -11,9 +11,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { markClaimed } from '../claims/db';
-import { buildClaimApplyUrl, buildFillScript, buildPrefill, PrefillField } from '../claims/prefill';
+import { buildFillScript, buildPrefill, PrefillField } from '../claims/prefill';
 import { buildApplyPlan, buildDirectFillScript } from '../claims/apply-fill';
 import { buildClaimConfirmScanScript } from '../claims/claim-confirm-scan';
+import { buildCardSelectScript, CONTACTLESS_MYCARDS_URL, isDashboardPage, isMyCardsPage } from '../claims/card-select';
 import { primaryCardDisplayId } from '../journeys/direct-csv';
 import { CSV_LOG_KEY } from '../journeys/autofetch';
 import type { Assessment } from '../eligibility/engine';
@@ -37,14 +38,14 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   // Start-/FinishNlcId). This plan resolves those exact fields from the journey
   // so we can fill them directly by name once the user reaches the Apply form.
   const applyPlan = useMemo(() => buildApplyPlan(journey, assessment), [journey, assessment]);
-  // TfL-27: scope the claim entry URL to the account's CardDisplayId. Opening
-  // the bare Apply URL returns TfL's error page (it needs a card in context);
-  // the card-scoped URL loads the form directly. Falls back to the bare URL
-  // when no id has been captured yet.
-  const claimUrl = useMemo(
-    () => buildClaimApplyUrl(primaryCardDisplayId(getMeta(CSV_LOG_KEY))),
-    [],
-  );
+  // TfL-28: the Apply form can't be reached by a URL — the classic contactless
+  // portal keeps the "selected card" in server-side session, set by a POST to
+  // /Card/SelectedCard. So we enter at MyCards and reproduce TfL's own card
+  // selection (see the Dashboard/MyCards steers below), which then lets Apply
+  // load. primaryCardId is the CardDisplayId we already mined from statement
+  // links; the select script falls back to scanning the page when it's absent.
+  const claimUrl = CONTACTLESS_MYCARDS_URL;
+  const primaryCardId = useMemo(() => primaryCardDisplayId(getMeta(CSV_LOG_KEY)), []);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [fillNote, setFillNote] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string>(claimUrl);
@@ -56,6 +57,9 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   // form once so login never strands the user on the dashboard. One-shot —
   // never loops.
   const advancedRef = useRef(false);
+  // TfL-28: one-shot guard for the MyCards → SelectedCard → Apply card-selection
+  // steer, so it fires once per session and never loops.
+  const cardSelectedRef = useRef(false);
   // TfL-26: when the claim WebView reaches TfL's confirmation page we offer —
   // once — to mark the claim submitted. One-shot so a re-render can't re-prompt.
   const confirmPromptedRef = useRef(false);
@@ -124,6 +128,14 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
       if (msg.type === 'net-capture') { recordAudit('net-capture', describeCapture(msg)); return; }
       // TfL-26: the scan found TfL's confirmation page — prompt (once) to mark claimed.
       if (msg.type === 'claim-confirmation') { promptMarkClaimed(); return; }
+      // TfL-28: result of the MyCards card-selection steer. On success it's
+      // already navigating to Apply (nothing to do). On failure, tell the user
+      // to tap their card by hand so they still reach the form.
+      if (msg.type === 'card-select') {
+        recordAudit('card-select', msg.ok ? (msg.stage ?? 'ok') : `failed:${msg.reason ?? 'unknown'}`);
+        if (!msg.ok) { setFillNote('Tap your card above to open the claim form.'); }
+        return;
+      }
       // TfL-21: direct-fill result from the Apply form. Report what filled,
       // name anything left for the user (unmapped station/mode + not-found
       // fields), and remind them to tick the reCAPTCHA — we never auto-solve
@@ -204,12 +216,20 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
           const url = String(nav.url);
           recordAudit('claim-nav', url);
           setCurrentUrl(url);
-          // TfL-22/TfL-23: TfL's post-login OAuth lands on the contactless
-          // Dashboard. Advance to the Apply form once (it carries its own card
-          // selector, so no card-list detour). We never auto-select a card.
-          if (!advancedRef.current && /contactless\.tfl\.gov\.uk\/Dashboard/i.test(url)) {
+          // TfL-28: TfL's post-login OAuth lands on the contactless Dashboard.
+          // Advance to MyCards once, where the card-selection steer below runs.
+          if (!advancedRef.current && isDashboardPage(url)) {
             advancedRef.current = true;
-            webRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(claimUrl)}; true;`);
+            webRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(CONTACTLESS_MYCARDS_URL)}; true;`);
+            return;
+          }
+          // TfL-28: on MyCards, reproduce TfL's own card selection (POST
+          // /Card/SelectedCard with the card id + anti-forgery token) so the
+          // server puts a card in session, then navigate to the Apply form —
+          // which otherwise returns TfL's "Sorry, there was a problem" error.
+          if (!cardSelectedRef.current && isMyCardsPage(url)) {
+            cardSelectedRef.current = true;
+            webRef.current?.injectJavaScript(buildCardSelectScript(primaryCardId));
           }
         }}
         // TfL-10: shared system cookie store, so the session from signing in
