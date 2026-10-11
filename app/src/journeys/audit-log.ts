@@ -61,6 +61,38 @@ export function formatAudit(entries: AuditEntry[]): string {
   return entries.map(formatAuditLine).join('\n');
 }
 
+/**
+ * True when the entry's timestamp falls on the same calendar day as `ref`,
+ * in local time. Powers the Log tab's "Today" filter so a stalled-run export
+ * carries just the current session's lines, not the whole ring buffer (Luke,
+ * 11-Oct — the all-time log was too noisy to paste into chat). Uses the local
+ * getters so "today" means the user's day, not UTC's. A malformed timestamp
+ * returns false (it isn't today's, and must never throw). */
+export function isSameDay(iso: string, ref: Date): boolean {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return false;
+  return (
+    d.getFullYear() === ref.getFullYear() &&
+    d.getMonth() === ref.getMonth() &&
+    d.getDate() === ref.getDate()
+  );
+}
+
+/**
+ * True when the entry falls within the last `days` calendar days up to and
+ * including `ref`'s local day. days=1 is "today"; days=3 is today plus the two
+ * prior days (so last night's attempts show up alongside this morning's —
+ * Luke, 11-Oct). The window starts at local midnight of the earliest day, so
+ * boundaries are whole days, not a rolling 72h clock. Malformed timestamp →
+ * false; must never throw. */
+export function isWithinDays(iso: string, ref: Date, days: number): boolean {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return false;
+  const startOfRefDay = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
+  const windowStart = startOfRefDay.getTime() - (days - 1) * 86_400_000;
+  return d.getTime() >= windowStart;
+}
+
 /** `2026-07-12T21:03:07.123Z`-ish ISO → `12 Jul 21:03:07`; anything else
  * passes through untouched rather than throwing. */
 function shortTime(iso: string): string {

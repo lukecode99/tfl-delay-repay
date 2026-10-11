@@ -9,6 +9,8 @@ import {
   clearedAudit,
   formatAudit,
   formatAuditLine,
+  isSameDay,
+  isWithinDays,
   parseAudit,
 } from './audit-log.ts';
 
@@ -79,6 +81,25 @@ ok(parseAudit(clearedAudit()).length === 0, 'clearedAudit persists an empty log'
   ok(text.split('\n').length === 2 && text.includes('refresh-start') && text.endsWith('https://x'),
     'formatAudit joins lines oldest-first');
   ok(formatAudit([]).includes('empty'), 'empty log formats to a friendly message');
+}
+
+// --- date filters: Log tab's Today / 3-day windows (TfL-LOG-TODAY) ---
+{
+  // Reference: 11 Oct 2026, 07:28 local. Windows are whole local days.
+  const ref = new Date(2026, 9, 11, 7, 28);
+  const thisMorning = '2026-10-11T06:30:00.000Z';
+  const lastNight = '2026-10-10T22:00:00.000Z';
+  const fourDaysAgo = '2026-10-07T09:00:00.000Z';
+
+  ok(isSameDay(thisMorning, ref), 'isSameDay: this morning is today');
+  ok(!isSameDay(lastNight, ref), 'isSameDay: last night is not today');
+  ok(!isSameDay('not-a-date', ref), 'isSameDay: malformed timestamp is not today');
+
+  ok(isWithinDays(thisMorning, ref, 1), 'Today window keeps this morning');
+  ok(!isWithinDays(lastNight, ref, 1), 'Today window excludes last night');
+  ok(isWithinDays(lastNight, ref, 3), '3-day window keeps last night');
+  ok(!isWithinDays(fourDaysAgo, ref, 3), '3-day window excludes four days ago');
+  ok(!isWithinDays('not-a-date', ref, 3), 'window excludes malformed timestamps, never throws');
 }
 
 console.log(`\ntest-audit-log: all ${passed} assertions passed.`);
