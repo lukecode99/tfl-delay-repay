@@ -5,6 +5,7 @@ import { JOURNEY_HISTORY_URL } from './autofetch.ts';
 import {
   canHandover,
   CONTACTLESS_HISTORY_URL,
+  CONTACTLESS_LOGIN_URL,
   doneMessage,
   type FlowEvent,
   type FlowState,
@@ -657,27 +658,39 @@ const CONSENT_URL = 'https://contactless.tfl.gov.uk/CookieSettings';
   ok(s.phase === 'challenge' && isPaused(s), "TfL's own captcha → paused challenge on initial load (isCaptchaUrl fires first)");
 }
 {
+  // TfL-SIGNIN-DIRECT-2: the UnregisteredCustomer gate is a signed-out dead-end,
+  // so instead of parking there (and relying on the DOM scan to find the right
+  // link — it silently didn't on Luke's 11-Oct 21:27/07:06 runs, stranding him
+  // on /Show) we steer straight to HomePage/Login, the proven OAuth bounce.
   const s = run([{ type: 'nav', url: 'https://contactless.tfl.gov.uk/UnregisteredCustomer/SomethingElse' }]);
-  ok(s.phase === 'signed-out' && isPaused(s), 'unregistered-customer gate → signed-out, not a dud page');
+  ok(s.phase === 'steering' && 'target' in s && s.target === CONTACTLESS_LOGIN_URL,
+    'unregistered-customer gate → steer to HomePage/Login (the real sign-in), not park on the dead-end');
 }
 {
   // TfL-SIGNIN-DIRECT: real-world sequence. The history URL 302s to
   // /UnregisteredCustomer/Captcha — nav fires first (isCaptchaUrl → challenge),
-  // then loaded fires on the same URL. Fix: upgrade challenge→signed-out on the
-  // loaded event so the banner and navigation are correct.
+  // then loaded fires on the same URL. Fix: the challenge→unregistered transition
+  // now steers to HomePage/Login (TfL-SIGNIN-DIRECT-2) instead of parking.
   const CAPTCHA_URL = 'https://contactless.tfl.gov.uk/UnregisteredCustomer/Captcha';
   const afterNav = reduceFlow(INITIAL_FLOW, { type: 'nav', url: CAPTCHA_URL });
   ok(afterNav.phase === 'challenge', 'TfL-SIGNIN-DIRECT: captcha URL on nav → challenge (isCaptchaUrl first)');
   const afterLoad = reduceFlow(afterNav, { type: 'loaded', url: CAPTCHA_URL });
-  ok(afterLoad.phase === 'signed-out', 'TfL-SIGNIN-DIRECT: challenge + unregistered URL on loaded → signed-out (upgrade)');
-  // The nav-event upgrade also fires if the user later navigates to another unregistered path.
+  ok(afterLoad.phase === 'steering' && 'target' in afterLoad && afterLoad.target === CONTACTLESS_LOGIN_URL,
+    'TfL-SIGNIN-DIRECT: challenge + unregistered URL on loaded → steer to HomePage/Login');
+  // Bounce guard: HomePage/Login is proven not to bounce, but if it did and we
+  // land back on the gate, the signinSteered one-shot parks as signed-out — no loop.
+  const bounced = reduceFlow(afterLoad, { type: 'nav', url: 'https://contactless.tfl.gov.uk/UnregisteredCustomer/Show' });
+  ok(bounced.phase === 'signed-out' && isPaused(bounced),
+    'TfL-SIGNIN-DIRECT-2: a second gate hit after one steer parks as signed-out — cannot loop');
+  // The nav-event transition also fires if the user later navigates to another unregistered path.
   const fromChallenge = reduceFlow(INITIAL_FLOW, { type: 'loaded', url: CAPTCHA_URL }); // → challenge (initial)
   const upgraded = reduceFlow(fromChallenge, { type: 'nav', url: 'https://contactless.tfl.gov.uk/UnregisteredCustomer/SignIn' });
-  ok(upgraded.phase === 'signed-out', 'TfL-SIGNIN-DIRECT: challenge + unregistered URL on nav → signed-out (upgrade)');
-  // Other paused states are NOT upgraded — TfL-13/25 guarantees intact.
+  ok(upgraded.phase === 'steering' && 'target' in upgraded && upgraded.target === CONTACTLESS_LOGIN_URL,
+    'TfL-SIGNIN-DIRECT: challenge + unregistered URL on nav → steer to HomePage/Login');
+  // Other paused states are NOT touched — TfL-13/25 guarantees intact.
   const inConsent = run([{ type: 'loaded', url: 'https://contactless.tfl.gov.uk/cookie-consent' }]);
   ok(reduceFlow(inConsent, { type: 'nav', url: CAPTCHA_URL }) === inConsent,
-    'TfL-SIGNIN-DIRECT: consent page is not upgraded — only challenge→signed-out');
+    'TfL-SIGNIN-DIRECT: consent page is not touched — only challenge/signed-out gate steers');
 }
 {
   // Order matters: an OIDC sign-in URL carrying a consent parameter is still a

@@ -29,6 +29,13 @@
  * extensionless, node needs .ts) — the test suite asserts the two match. */
 export const CONTACTLESS_HISTORY_URL = 'https://contactless.tfl.gov.uk/HomePage/7DayHistory';
 
+/** TfL's signed-out gate (/UnregisteredCustomer/*, including its no-op captcha
+ * widget) is a dead-end whose only route forward is a "Sign in or Create an
+ * account" link — not a usable form. HomePage/Login deterministically redirects
+ * to the real OAuth sign-in (proven: Luke's audit log, 10-Oct 21:19:
+ * HomePage/Login → LoginTimedOut → account.tfl.gov.uk/oauth2 authorize). */
+export const CONTACTLESS_LOGIN_URL = 'https://contactless.tfl.gov.uk/HomePage/Login';
+
 /** Oyster journey history — a different site with its own login. */
 export const OYSTER_HISTORY_URL = 'https://oyster.tfl.gov.uk/oyster/journeyHistory.do';
 
@@ -326,6 +333,18 @@ const liveOf = (s: FlowState): Live => ({
   scopeComplete: 'scopeComplete' in s ? (s as any).scopeComplete : true,
 });
 
+/** TfL-SIGNIN-DIRECT-2: landing on the UnregisteredCustomer gate means "signed
+ * out". Rather than park on that dead-end page and hope the DOM paused-scan
+ * finds and follows the right anchor (it silently didn't on the 11-Oct 21:27 /
+ * 07:06 runs — stranding the user on /Show), steer straight to HomePage/Login,
+ * which is proven to bounce to the real OAuth sign-in. One-shot via signinSteered:
+ * if we've already steered this episode, park as signed-out instead so a bad
+ * bounce can't loop and the user can still drive manually. */
+const toSignIn = (l: Live): FlowState =>
+  l.signinSteered
+    ? { ...l, phase: 'signed-out' }
+    : { ...l, phase: 'steering', target: CONTACTLESS_LOGIN_URL, signinSteered: true };
+
 /**
  * Done with the current page: steer to the next queued page; if the queue is
  * exhausted, run the direct CSV fetch in place on whatever page is showing
@@ -423,7 +442,7 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       // challenge→signed-out so the banner and navigation are correct.
       // Scope: challenge only, unregistered URL only. Any other paused state
       // stays paused — yanking a consent or real-challenge page is TfL-13/25.
-      if (s.phase === 'challenge' && isUnregisteredUrl(e.url)) return { ...l, phase: 'signed-out' };
+      if (s.phase === 'challenge' && isUnregisteredUrl(e.url)) return toSignIn(l);
       if (isPaused(s)) return s; // user browsing freely — stay out of the way
       // Robot check spotted from the reported page title — no injection needed.
       if (e.title != null && isChallengeTitle(e.title)) return { ...l, phase: 'challenge' };
@@ -434,7 +453,7 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       // steering that used to yank the page away mid-tap.
       if (isConsentUrl(e.url)) return { ...l, phase: 'consent' };
       if (isCaptchaUrl(e.url)) return { ...l, phase: 'challenge' };
-      if (isUnregisteredUrl(e.url)) return { ...l, phase: 'signed-out' };
+      if (isUnregisteredUrl(e.url)) return toSignIn(l);
       // TfL-17: the contactless Dashboard gets a direct attempt on 'loaded' —
       // don't park on the mid-navigation event (parking blocks injection).
       if (isContactlessDashboard(e.url) && l.directCsv && !l.directTried) return s;
@@ -447,7 +466,7 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       // fires and parks in 'challenge', the 'loaded' event arrives with the same
       // URL and is where the upgrade actually sticks (nav fires mid-redirect,
       // loaded fires when the page settles).
-      if (s.phase === 'challenge' && isUnregisteredUrl(e.url)) return { ...l, phase: 'signed-out' };
+      if (s.phase === 'challenge' && isUnregisteredUrl(e.url)) return toSignIn(l);
       // Paused: pages load while the user solves/signs in — none of them are
       // ours to touch. No harvesting transition means no injection (TfL-13);
       // the flow resumes only via handover.
@@ -457,7 +476,7 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       // the harvest being injected into a consent or captcha page at all.
       if (isConsentUrl(e.url)) return { ...l, phase: 'consent' };
       if (isCaptchaUrl(e.url)) return { ...l, phase: 'challenge' };
-      if (isUnregisteredUrl(e.url)) return { ...l, phase: 'signed-out' };
+      if (isUnregisteredUrl(e.url)) return toSignIn(l);
       // TfL-17: signed-in contactless Dashboard — TfL bounces every steer
       // here, so run the direct CSV fetch in place instead of parking. One
       // shot per refresh; directCsv clears so a success advances to done (or
