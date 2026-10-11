@@ -68,6 +68,12 @@ final class ScreenshotUITests: XCTestCase {
         // 2. Home dashboard.
         snapshot("02_Home")
 
+        // DIAGNOSTIC: dump the a11y tree so we can read the real tab labels and
+        // frames from the CI log (coordinate + label taps both missed).
+        print("A11Y_TREE_START")
+        print(app.debugDescription)
+        print("A11Y_TREE_END")
+
         // 3. Alerts tab.
         tapTab(app, "Alerts", fallbackX: 0.72)
         snapshot("03_Alerts")
