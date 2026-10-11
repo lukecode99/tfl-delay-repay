@@ -26,15 +26,18 @@ final class ScreenshotUITests: XCTestCase {
         }
     }
 
-    // Tab the bottom bar by its accessibility label (RN exposes each Pressable
-    // as a labelled button). Coordinate fallback if the a11y tree is missing it.
+    // Tab the bottom bar. Each tab Pressable now carries an explicit
+    // accessibilityLabel/testID of the form "tab-<Label>" (App.tsx), so it is
+    // guaranteed to surface as a queryable button. Coordinate fallback remains
+    // as a last resort.
     @MainActor
     private func tapTab(_ app: XCUIApplication, _ label: String, fallbackX: CGFloat) {
-        let b = app.buttons[label]
-        if b.waitForExistence(timeout: 2) {
+        let id = "tab-\(label)"
+        let b = app.buttons[id]
+        if b.waitForExistence(timeout: 3) {
             b.tap()
-        } else if app.staticTexts[label].exists {
-            app.staticTexts[label].tap()
+        } else if app.otherElements[id].waitForExistence(timeout: 1) {
+            app.otherElements[id].tap()
         } else {
             app.coordinate(withNormalizedOffset: CGVector(dx: fallbackX, dy: 0.835)).tap()
         }
@@ -67,12 +70,6 @@ final class ScreenshotUITests: XCTestCase {
 
         // 2. Home dashboard.
         snapshot("02_Home")
-
-        // DIAGNOSTIC: dump the a11y tree so we can read the real tab labels and
-        // frames from the CI log (coordinate + label taps both missed).
-        print("A11Y_TREE_START")
-        print(app.debugDescription)
-        print("A11Y_TREE_END")
 
         // 3. Alerts tab.
         tapTab(app, "Alerts", fallbackX: 0.72)
