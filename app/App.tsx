@@ -393,6 +393,9 @@ export default function App() {
                 key={m}
                 style={[styles.tab, mode === m && styles.tabActive]}
                 onPress={() => { setMode(m); if (m === 'rail') refreshRail(); }}
+                accessibilityRole="button"
+                accessibilityLabel={`tab-${label}`}
+                testID={`tab-${label}`}
               >
                 <Text
                   style={[styles.tabText, mode === m && styles.tabTextActive]}

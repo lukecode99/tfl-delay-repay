@@ -1,0 +1,162 @@
+name: Capture real iOS screenshots
+
+on:
+  workflow_dispatch:
+
+jobs:
+  screenshots:
+    runs-on: macos-26
+    timeout-minutes: 90
+
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+
+      - name: Install tar
+        run: node -e "require('tar')" 2>/dev/null || npm install --no-save --force tar@6
+
+      - name: Patch metro exports
+        run: |
+          node -e "
+            const path = require.resolve('metro/package.json');
+            const pkg = JSON.parse(require('fs').readFileSync(path, 'utf8'));
+            if (!pkg.exports['./src/lib/*']) {
+              pkg.exports['./src/lib/*'] = './src/lib/*.js';
+              require('fs').writeFileSync(path, JSON.stringify(pkg));
+              console.log('metro exports patched');
+            } else { console.log('metro exports already patched'); }
+          "
+
+      - name: Create getUserState shim
+        run: |
+          node -e "
+            const path = require('path');
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+            const code = [
+              '\"use strict\";',
+              'Object.defineProperty(exports, \"__esModule\", { value: true });',
+              'const os = require(\"os\");',
+              'const p = require(\"path\");',
+              'const expoDir = p.join(os.homedir(), \".expo\");',
+              'const stateFile = p.join(expoDir, \"state.json\");',
+              'exports.getExpoHomeDirectory = function() { return expoDir; };',
+              'exports.getUserStatePath = function() { return stateFile; };',
+              'exports.getAsync = function() { return Promise.resolve({}); };',
+              'exports.setAsync = function() { return Promise.resolve(); };',
+              'exports.getUserState = function(filename) {',
+              '  const f = filename ? p.join(expoDir, filename) : stateFile;',
+              '  return {',
+              '    getUserStatePath: function() { return f; },',
+              '    getExpoHomeDirectory: function() { return expoDir; },',
+              '    getAsync: function() { return Promise.resolve({}); },',
+              '    setAsync: function() { return Promise.resolve(); }',
+              '  };',
+              '};'
+            ].join(\"\n\");
+            let locs;
+            try {
+              const out = execSync('find node_modules -name package.json -path */@expo/config/package.json 2>/dev/null', {encoding:\"utf8\"}).trim();
+              locs = out.split(\"\n\").filter(Boolean).map(p2 => path.join(path.dirname(p2), 'build', 'getUserState.js'));
+            } catch(e) { locs = ['node_modules/@expo/config/build/getUserState.js']; }
+            for (const loc of locs) {
+              fs.mkdirSync(path.dirname(loc), { recursive: true });
+              fs.writeFileSync(loc, code);
+              console.log('Shim written:', loc);
+            }
+          "
+
+      - name: Create @expo/env shim
+        run: |
+          node -e "
+            const path = require('path');
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+            const code = [
+              '\"use strict\";',
+              'Object.defineProperty(exports, \"__esModule\", { value: true });',
+              'exports.createControlledEnvironment = createControlledEnvironment;',
+              'exports.getFiles = getFiles;',
+              'exports.isEnabled = isEnabled;',
+              'function isEnabled() { return false; }',
+              'function getFiles() { return []; }',
+              'function createControlledEnvironment() {',
+              '  function load() { return process.env; }',
+              '  function get() { return { env: {}, files: [] }; }',
+              '  function _getForce() { return { env: {}, files: [] }; }',
+              '  return { load, get, _getForce };',
+              '}'
+            ].join(\"\n\");
+            let locs;
+            try {
+              const out = execSync('find node_modules -name package.json -path */@expo/env/package.json 2>/dev/null', {encoding:\"utf8\"}).trim();
+              locs = out.split(\"\n\").filter(Boolean).map(p2 => path.join(path.dirname(p2), 'build', 'env.js'));
+            } catch(e) { locs = ['node_modules/@expo/env/build/env.js']; }
+            for (const loc of locs) {
+              fs.mkdirSync(path.dirname(loc), { recursive: true });
+              if (!fs.existsSync(loc)) { fs.writeFileSync(loc, code); console.log('env.js shim written:', loc); }
+            }
+          "
+
+      - name: Prebuild iOS native project
+        env:
+          EXPO_NO_TELEMETRY: "1"
+        run: CI=1 npx expo prebuild --platform ios --clean --no-install
+
+      - name: Install CocoaPods
+        run: cd ios && pod install --repo-update
+
+      - name: Generate SnapshotHelper + inject UI-test target
+        run: |
+          gem install xcodeproj --no-document || sudo gem install xcodeproj --no-document
+          mkdir -p ios/ScreenshotUITests
+          cp screenshots/ScreenshotUITests.swift ios/ScreenshotUITests/ScreenshotUITests.swift
+          fastlane snapshot init
+          # snapshot init writes SnapshotHelper.swift to CWD
+          cp SnapshotHelper.swift ios/ScreenshotUITests/SnapshotHelper.swift
+          ruby screenshots/add_uitest_target.rb
+
+      - name: Discover workspace + scheme
+        id: xc
+        run: |
+          WS=$(find ios -maxdepth 1 -name "*.xcworkspace" -type d | head -1)
+          SCHEME=$(basename "$WS" .xcworkspace)
+          echo "workspace=$WS" >> "$GITHUB_OUTPUT"
+          echo "scheme=$SCHEME" >> "$GITHUB_OUTPUT"
+          echo "Using workspace=$WS scheme=$SCHEME"
+          xcrun simctl list devices available | grep -i "iphone" || true
+
+      - name: Run fastlane snapshot (real simulator captures)
+        run: |
+          fastlane snapshot \
+            --workspace "${{ steps.xc.outputs.workspace }}" \
+            --scheme "${{ steps.xc.outputs.scheme }}" \
+            --devices "iPhone 17 Pro Max" \
+            --languages "en-GB" \
+            --configuration "Release" \
+            --output_directory "./screenshots_out" \
+            --clear_previous_screenshots true \
+            --override_status_bar true \
+            --concurrent_simulators false \
+            --stop_after_first_error true \
+            --number_of_retries 1 \
+            --xcargs "CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO"
+
+      - name: Upload screenshots artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfl-screenshots
+          path: app/screenshots_out/**/*.png
+          retention-days: 30
