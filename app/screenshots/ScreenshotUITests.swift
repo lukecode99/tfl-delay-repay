@@ -26,11 +26,18 @@ final class ScreenshotUITests: XCTestCase {
         }
     }
 
+    // Tab the bottom bar by its accessibility label (RN exposes each Pressable
+    // as a labelled button). Coordinate fallback if the a11y tree is missing it.
     @MainActor
-    private func tapTab(_ app: XCUIApplication, x: CGFloat) {
-        // Tab bar is inset by padding — its row centres sit ~96.5%→83.5% down.
-        let pt = app.coordinate(withNormalizedOffset: CGVector(dx: x, dy: 0.835))
-        pt.tap()
+    private func tapTab(_ app: XCUIApplication, _ label: String, fallbackX: CGFloat) {
+        let b = app.buttons[label]
+        if b.waitForExistence(timeout: 2) {
+            b.tap()
+        } else if app.staticTexts[label].exists {
+            app.staticTexts[label].tap()
+        } else {
+            app.coordinate(withNormalizedOffset: CGVector(dx: fallbackX, dy: 0.835)).tap()
+        }
         sleep(1)
     }
 
@@ -61,12 +68,12 @@ final class ScreenshotUITests: XCTestCase {
         // 2. Home dashboard.
         snapshot("02_Home")
 
-        // 3. Alerts tab (5th of six: x-centre ~0.72).
-        tapTab(app, x: 0.72)
+        // 3. Alerts tab.
+        tapTab(app, "Alerts", fallbackX: 0.72)
         snapshot("03_Alerts")
 
-        // 4. About tab (6th of six: x-centre ~0.87).
-        tapTab(app, x: 0.87)
+        // 4. About tab.
+        tapTab(app, "About", fallbackX: 0.87)
         snapshot("04_About")
     }
 }
