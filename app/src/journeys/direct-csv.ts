@@ -76,6 +76,36 @@ export function cardIdsFromLog(logJson: string | null): string[] {
 }
 
 /**
+ * TfL-27: the single best CardDisplayId to scope the claim Apply form to — the
+ * one seen most often in the endpoint log (ties resolve to the earliest seen).
+ * For a one-card account that is simply that card; for a multi-card account it
+ * is the card with the most statement activity, the likeliest owner of a
+ * claimable journey. Null when the log holds no id (never refreshed).
+ */
+export function primaryCardDisplayId(logJson: string | null): string | null {
+  try {
+    const entries = JSON.parse(logJson ?? '[]');
+    if (!Array.isArray(entries)) return null;
+    const counts = new Map<string, number>();
+    const order: string[] = [];
+    for (const e of entries) {
+      const id = extractCardDisplayId(String(e?.url ?? ''));
+      if (!id) continue;
+      const k = id.toLowerCase();
+      if (!counts.has(k)) { order.push(id); }
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    let best: string | null = null;
+    let bestCount = 0;
+    for (const id of order) {
+      const c = counts.get(id.toLowerCase()) ?? 0;
+      if (c > bestCount) { best = id; bestCount = c; }
+    }
+    return best;
+  } catch { return null; }
+}
+
+/**
  * How many months of statements a deep refresh pulls (TfL-22). Twelve months
  * gives the incomplete-fare detector enough history to learn each origin's
  * regular route AND surfaces older missing tap-outs the user was overcharged

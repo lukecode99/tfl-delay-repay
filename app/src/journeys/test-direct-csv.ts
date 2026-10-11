@@ -10,6 +10,7 @@ import {
   cardIdsFromLog,
   currentAndPreviousPeriods,
   extractCardDisplayId,
+  primaryCardDisplayId,
   HISTORY_MONTHS,
   isCsvDownloadUrl,
   isDirectCsvUrl,
@@ -31,6 +32,7 @@ import {
   reduceFlow,
   startUrlFor,
 } from './refresh-flow.ts';
+import { buildClaimApplyUrl, CLAIM_APPLY_URL } from '../claims/prefill.ts';
 
 let passed = 0;
 function ok(cond: boolean, msg: string) {
@@ -69,6 +71,36 @@ ok(cardIdsFromLog(JSON.stringify([
   { source: 'net', url: 'https://contactless.tfl.gov.uk/Dashboard', at: 'x' },
 ])).join(',') === `${CARD_A},${CARD_B}`,
   'log ids: extracted from logged endpoint URLs, case-insensitively deduped, non-card URLs skipped');
+
+// --- primaryCardDisplayId: TfL-27 claim-URL card scoping ---
+ok(primaryCardDisplayId(null) === null && primaryCardDisplayId('not json') === null
+  && primaryCardDisplayId('[]') === null && primaryCardDisplayId('{"a":1}') === null,
+  'primary card: missing/corrupt/empty log → null, never throws');
+ok(primaryCardDisplayId(JSON.stringify([
+  { source: 'nav', url: buildCsvUrl('5|2026', CARD_A), at: 'x' },
+])) === CARD_A,
+  'primary card: single card → that card');
+ok(primaryCardDisplayId(JSON.stringify([
+  { source: 'nav', url: buildCsvUrl('5|2026', CARD_A), at: 'x' },
+  { source: 'nav', url: buildCsvUrl('6|2026', CARD_B), at: 'x' },
+  { source: 'nav', url: buildCsvUrl('7|2026', CARD_B.toUpperCase()), at: 'x' },
+  { source: 'nav', url: buildCsvUrl('8|2026', CARD_B), at: 'x' },
+])) === CARD_B,
+  'primary card: most-frequent id wins (case-insensitive count)');
+ok(primaryCardDisplayId(JSON.stringify([
+  { source: 'nav', url: buildCsvUrl('5|2026', CARD_C), at: 'x' },
+  { source: 'nav', url: buildCsvUrl('6|2026', CARD_A), at: 'x' },
+])) === CARD_C,
+  'primary card: tie → earliest seen');
+
+// --- buildClaimApplyUrl: TfL-27 (bare Apply errors; card-scoped loads) ---
+ok(buildClaimApplyUrl(CARD_A) === `${CLAIM_APPLY_URL}?cardDisplayId=${CARD_A}`,
+  'claim url: scopes to cardDisplayId when present');
+ok(buildClaimApplyUrl(null) === CLAIM_APPLY_URL
+  && buildClaimApplyUrl(undefined) === CLAIM_APPLY_URL
+  && buildClaimApplyUrl('') === CLAIM_APPLY_URL
+  && buildClaimApplyUrl('   ') === CLAIM_APPLY_URL,
+  'claim url: no/blank id → bare Apply URL (unchanged behaviour)');
 
 // --- periods: <month>|<year>, current + previous, unpadded month ---
 ok(currentAndPreviousPeriods('2026-07-07T10:00:00.000Z').join(',') === '7|2026,6|2026',

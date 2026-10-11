@@ -11,9 +11,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { markClaimed } from '../claims/db';
-import { buildFillScript, buildPrefill, CLAIM_APPLY_URL, PrefillField } from '../claims/prefill';
+import { buildClaimApplyUrl, buildFillScript, buildPrefill, PrefillField } from '../claims/prefill';
 import { buildApplyPlan, buildDirectFillScript } from '../claims/apply-fill';
 import { buildClaimConfirmScanScript } from '../claims/claim-confirm-scan';
+import { primaryCardDisplayId } from '../journeys/direct-csv';
+import { CSV_LOG_KEY } from '../journeys/autofetch';
 import type { Assessment } from '../eligibility/engine';
 import type { StoredJourney } from '../journeys/db';
 import { getMeta, setMeta } from '../journeys/db';
@@ -35,9 +37,17 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   // Start-/FinishNlcId). This plan resolves those exact fields from the journey
   // so we can fill them directly by name once the user reaches the Apply form.
   const applyPlan = useMemo(() => buildApplyPlan(journey, assessment), [journey, assessment]);
+  // TfL-27: scope the claim entry URL to the account's CardDisplayId. Opening
+  // the bare Apply URL returns TfL's error page (it needs a card in context);
+  // the card-scoped URL loads the form directly. Falls back to the bare URL
+  // when no id has been captured yet.
+  const claimUrl = useMemo(
+    () => buildClaimApplyUrl(primaryCardDisplayId(getMeta(CSV_LOG_KEY))),
+    [],
+  );
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [fillNote, setFillNote] = useState<string | null>(null);
-  const [currentUrl, setCurrentUrl] = useState<string>(CLAIM_APPLY_URL);
+  const [currentUrl, setCurrentUrl] = useState<string>(claimUrl);
   // Web-history back: TfL's flow spans several pages (sign-in → cards → Apply)
   // and a wrong tap previously meant closing and reopening the whole screen.
   const [canGoBack, setCanGoBack] = useState(false);
@@ -64,7 +74,7 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
     } catch { /* capture only */ }
   };
 
-  useEffect(() => { recordAudit('claim-open', CLAIM_APPLY_URL); }, []);
+  useEffect(() => { recordAudit('claim-open', claimUrl); }, []);
 
   // Shared by the "Mark claimed" button and the confirmation-page prompt.
   const doMarkClaimed = () => {
@@ -177,7 +187,7 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
 
       <WebView
         ref={webRef}
-        source={{ uri: CLAIM_APPLY_URL }}
+        source={{ uri: claimUrl }}
         style={styles.web}
         onMessage={onMessage}
         // TfL-20: record the page's outbound traffic (fetch/XHR/form/beacon)
@@ -199,7 +209,7 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
           // selector, so no card-list detour). We never auto-select a card.
           if (!advancedRef.current && /contactless\.tfl\.gov\.uk\/Dashboard/i.test(url)) {
             advancedRef.current = true;
-            webRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(CLAIM_APPLY_URL)}; true;`);
+            webRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(claimUrl)}; true;`);
           }
         }}
         // TfL-10: shared system cookie store, so the session from signing in

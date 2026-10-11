@@ -379,3 +379,18 @@ export const CLAIM_START_URL = 'https://tfl.gov.uk/fares/refunds/apply-for-a-ser
  * own pages.
  */
 export const CLAIM_APPLY_URL = 'https://contactless.tfl.gov.uk/ServiceDelayRefunds/Apply';
+
+/**
+ * TfL-27: the bare /ServiceDelayRefunds/Apply URL is NOT self-sufficient after
+ * all — opened without a card in context TfL returns its generic "Sorry, there
+ * was a problem" error page, and the user has to navigate MyCards → pick a card
+ * → Apply by hand (Luke, 11-Oct, on-device). The route that actually loads is
+ * `Apply?cardDisplayId=<32 hex>` (confirmed from the on-device nav capture).
+ * So when we hold the account's CardDisplayId (mined from statement links on an
+ * earlier refresh) we open the Apply form scoped to it. No id → bare URL, same
+ * as before (a user with no captured statements has no journey to claim yet).
+ */
+export function buildClaimApplyUrl(cardDisplayId?: string | null): string {
+  const id = String(cardDisplayId || '').trim();
+  return id ? `${CLAIM_APPLY_URL}?cardDisplayId=${encodeURIComponent(id)}` : CLAIM_APPLY_URL;
+}
