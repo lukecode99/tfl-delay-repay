@@ -8,11 +8,12 @@
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { markClaimed } from '../claims/db';
 import { buildFillScript, buildPrefill, CLAIM_APPLY_URL, PrefillField } from '../claims/prefill';
 import { buildApplyPlan, buildDirectFillScript } from '../claims/apply-fill';
+import { buildClaimConfirmScanScript } from '../claims/claim-confirm-scan';
 import type { Assessment } from '../eligibility/engine';
 import type { StoredJourney } from '../journeys/db';
 import { getMeta, setMeta } from '../journeys/db';
@@ -45,6 +46,9 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   // form once so login never strands the user on the dashboard. One-shot —
   // never loops.
   const advancedRef = useRef(false);
+  // TfL-26: when the claim WebView reaches TfL's confirmation page we offer —
+  // once — to mark the claim submitted. One-shot so a re-render can't re-prompt.
+  const confirmPromptedRef = useRef(false);
 
   // The Apply form is the only page with the mode/station dropdowns. On every
   // other page (sign-in, card list) fall back to the keyword fill.
@@ -61,6 +65,30 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   };
 
   useEffect(() => { recordAudit('claim-open', CLAIM_APPLY_URL); }, []);
+
+  // Shared by the "Mark claimed" button and the confirmation-page prompt.
+  const doMarkClaimed = () => {
+    markClaimed(journey.id, assessment?.refundValue ?? null);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onDone(true);
+  };
+
+  // TfL-26: fired when the injected scan detects TfL's confirmation page.
+  // Prompt the user to mark the claim submitted — we never mark automatically.
+  const promptMarkClaimed = () => {
+    if (confirmPromptedRef.current) return;
+    confirmPromptedRef.current = true;
+    recordAudit('claim-confirmation', 'detected TfL confirmation page');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert(
+      'Claim submitted?',
+      "Looks like TfL confirmed your service delay refund. Mark this claim as submitted?",
+      [
+        { text: 'Not yet', style: 'cancel' },
+        { text: 'Mark claimed', onPress: doMarkClaimed },
+      ],
+    );
+  };
 
   const copy = async (f: PrefillField) => {
     await Clipboard.setStringAsync(f.value);
@@ -84,6 +112,8 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
       const msg = JSON.parse(event.nativeEvent.data);
       // TfL-20: instrumented page traffic → straight to the audit log.
       if (msg.type === 'net-capture') { recordAudit('net-capture', describeCapture(msg)); return; }
+      // TfL-26: the scan found TfL's confirmation page — prompt (once) to mark claimed.
+      if (msg.type === 'claim-confirmation') { promptMarkClaimed(); return; }
       // TfL-21: direct-fill result from the Apply form. Report what filled,
       // name anything left for the user (unmapped station/mode + not-found
       // fields), and remind them to tick the reCAPTCHA — we never auto-solve
@@ -127,7 +157,7 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
           <Text style={[styles.back, !canGoBack && styles.backDisabled]}>‹ Back</Text>
         </Pressable>
         <Text style={styles.topTitle} numberOfLines={1}>File claim on tfl.gov.uk</Text>
-        <Pressable style={styles.claimedButton} onPress={() => { markClaimed(journey.id, assessment?.refundValue ?? null); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onDone(true); }}>
+        <Pressable style={styles.claimedButton} onPress={doMarkClaimed}>
           <Text style={styles.claimedButtonText}>Mark claimed</Text>
         </Pressable>
       </View>
@@ -154,7 +184,9 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
         // so filing one real claim reveals its endpoint + payload for later
         // direct submission. Injected into every frame (the claim form may be
         // in an iframe); the script's window flag stops double-patching.
-        injectedJavaScript={buildNetCaptureScript()}
+        // TfL-26: also scan for the claim confirmation page so we can offer to
+        // mark the claim submitted. Both IIFEs end "; true;" — safe to concat.
+        injectedJavaScript={buildNetCaptureScript() + '\n' + buildClaimConfirmScanScript()}
         injectedJavaScriptForMainFrameOnly={false}
         onNavigationStateChange={(nav: { url?: string; canGoBack?: boolean }) => {
           setCanGoBack(!!nav?.canGoBack);
