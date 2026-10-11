@@ -74,6 +74,7 @@ import {
   reduceFlow,
   startUrlFor,
   statusText,
+  CONTACTLESS_LOGIN_URL,
 } from './refresh-flow';
 import { colors, spacing } from '../theme';
 
@@ -671,7 +672,7 @@ export default function RefreshSheet({ onClose }: Props) {
           // back to the gate, so this fires at most once per run.
           const fallbackUrl = /oyster\.tfl\.gov\.uk/i.test(urlRef.current)
             ? 'https://accounts.tfl.gov.uk/adapter/signin'
-            : 'https://contactless.tfl.gov.uk/HomePage/Login';
+            : CONTACTLESS_LOGIN_URL;
           recordAudit('signin-fallback', `mode=${mode ?? 'unknown'} url=${fallbackUrl}`);
           dispatch({ type: 'signin-nav', url: fallbackUrl });
         } else if (msg.quotaNotice) {

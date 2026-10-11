@@ -658,13 +658,24 @@ const CONSENT_URL = 'https://contactless.tfl.gov.uk/CookieSettings';
   ok(s.phase === 'challenge' && isPaused(s), "TfL's own captcha → paused challenge on initial load (isCaptchaUrl fires first)");
 }
 {
+  // TfL-SIGNIN-DEADURL (11-Oct): /HomePage/Login now 302s to /Error/NotFound from a
+  // cold session (Luke's evening run = "Page not found"). The live sign-in entry is a
+  // protected page — /Dashboard 302s to LoginTimedOut → Azure B2C OAuth — and is also
+  // where the harvest lands, so a warm session goes straight through. Lock it here so
+  // the dead URL can never creep back in.
+  ok(CONTACTLESS_LOGIN_URL === 'https://contactless.tfl.gov.uk/Dashboard',
+    'TfL-SIGNIN-DEADURL: sign-in entry is /Dashboard (live OAuth bounce), NOT /HomePage/Login (404s cold)');
+  ok(!/HomePage\/Login/i.test(CONTACTLESS_LOGIN_URL),
+    'TfL-SIGNIN-DEADURL: the dead /HomePage/Login URL must not be the sign-in target');
+}
+{
   // TfL-SIGNIN-DIRECT-2: the UnregisteredCustomer gate is a signed-out dead-end,
   // so instead of parking there (and relying on the DOM scan to find the right
   // link — it silently didn't on Luke's 11-Oct 21:27/07:06 runs, stranding him
-  // on /Show) we steer straight to HomePage/Login, the proven OAuth bounce.
+  // on /Show) we steer straight to CONTACTLESS_LOGIN_URL, the live OAuth bounce.
   const s = run([{ type: 'nav', url: 'https://contactless.tfl.gov.uk/UnregisteredCustomer/SomethingElse' }]);
   ok(s.phase === 'steering' && 'target' in s && s.target === CONTACTLESS_LOGIN_URL,
-    'unregistered-customer gate → steer to HomePage/Login (the real sign-in), not park on the dead-end');
+    'unregistered-customer gate → steer to the live sign-in URL, not park on the dead-end');
 }
 {
   // TfL-SIGNIN-DIRECT: real-world sequence. The history URL 302s to

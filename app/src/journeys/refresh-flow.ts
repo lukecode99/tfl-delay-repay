@@ -31,10 +31,16 @@ export const CONTACTLESS_HISTORY_URL = 'https://contactless.tfl.gov.uk/HomePage/
 
 /** TfL's signed-out gate (/UnregisteredCustomer/*, including its no-op captcha
  * widget) is a dead-end whose only route forward is a "Sign in or Create an
- * account" link — not a usable form. HomePage/Login deterministically redirects
- * to the real OAuth sign-in (proven: Luke's audit log, 10-Oct 21:19:
- * HomePage/Login → LoginTimedOut → account.tfl.gov.uk/oauth2 authorize). */
-export const CONTACTLESS_LOGIN_URL = 'https://contactless.tfl.gov.uk/HomePage/Login';
+ * account" link — not a usable form.
+ *
+ * TfL-SIGNIN-DEADURL (11-Oct): /HomePage/Login now 302s to /Error/NotFound from
+ * a cold session (proven by curl + Luke's evening run landing on "Page not
+ * found"). A protected page is the live sign-in entry instead: /Dashboard 302s
+ * to /HomePage/LoginTimedOut, which chains to the Azure B2C OAuth sign-in
+ * (account.tfl.gov.uk/.../b2c_1a_signin authorize, client 6c51263c,
+ * redirect_uri contactless.tfl.gov.uk/signin-oidc). /Dashboard is also exactly
+ * where the harvest wants to land, so a warm session goes straight through. */
+export const CONTACTLESS_LOGIN_URL = 'https://contactless.tfl.gov.uk/Dashboard';
 
 /** Oyster journey history — a different site with its own login. */
 export const OYSTER_HISTORY_URL = 'https://oyster.tfl.gov.uk/oyster/journeyHistory.do';
@@ -336,8 +342,9 @@ const liveOf = (s: FlowState): Live => ({
 /** TfL-SIGNIN-DIRECT-2: landing on the UnregisteredCustomer gate means "signed
  * out". Rather than park on that dead-end page and hope the DOM paused-scan
  * finds and follows the right anchor (it silently didn't on the 11-Oct 21:27 /
- * 07:06 runs — stranding the user on /Show), steer straight to HomePage/Login,
- * which is proven to bounce to the real OAuth sign-in. One-shot via signinSteered:
+ * 07:06 runs — stranding the user on /Show), steer straight to CONTACTLESS_LOGIN_URL
+ * (/Dashboard), which bounces a cold session to the real OAuth sign-in and a warm
+ * one straight to the harvest page. One-shot via signinSteered:
  * if we've already steered this episode, park as signed-out instead so a bad
  * bounce can't loop and the user can still drive manually. */
 const toSignIn = (l: Live): FlowState =>
