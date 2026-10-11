@@ -34,6 +34,27 @@ export function isDashboardPage(url: string): boolean {
   return /contactless\.tfl\.gov\.uk\/Dashboard/i.test(String(url || ''));
 }
 
+/**
+ * True when the URL is a sign-in / session-timeout bounce rather than a real
+ * contactless content page — the TfL B2C OAuth host, the signin-oidc callback,
+ * or the /HomePage/Login(TimedOut) stubs.
+ *
+ * TfL-29 (Luke, 11-Oct evening): opening the claim with a timed-out session hits
+ * /MyCards for a split second before it 302s to /HomePage/LoginTimedOut → OAuth.
+ * That transient MyCards would burn the claim screen's one-shot card-selection
+ * guard, so the steer never fired on the *real* MyCards after login and the user
+ * was stranded on the card list. The claim screen resets its one-shot guards on
+ * any URL this matches, so the Dashboard→MyCards→SelectedCard steer runs fresh
+ * once sign-in completes.
+ */
+export function isLoginRedirectUrl(url: string): boolean {
+  var u = String(url || '');
+  return /account\.tfl\.gov\.uk/i.test(u)
+    || /signin-oidc/i.test(u)
+    || /\/HomePage\/LoginTimedOut/i.test(u)
+    || /\/HomePage\/Login(\/|$|[?#])/i.test(u);
+}
+
 /** A 32-hex CardDisplayId, or '' when the input isn't one (used to safely embed). */
 function safeCardId(id: string | null | undefined): string {
   return /^[0-9a-fA-F]{32}$/.test(String(id || '')) ? String(id) : '';

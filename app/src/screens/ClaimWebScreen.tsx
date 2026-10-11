@@ -14,7 +14,7 @@ import { markClaimed } from '../claims/db';
 import { buildFillScript, buildPrefill, PrefillField } from '../claims/prefill';
 import { buildApplyPlan, buildDirectFillScript } from '../claims/apply-fill';
 import { buildClaimConfirmScanScript } from '../claims/claim-confirm-scan';
-import { buildCardSelectScript, CONTACTLESS_MYCARDS_URL, isDashboardPage, isMyCardsPage } from '../claims/card-select';
+import { buildCardSelectScript, CONTACTLESS_MYCARDS_URL, isDashboardPage, isLoginRedirectUrl, isMyCardsPage } from '../claims/card-select';
 import { primaryCardDisplayId } from '../journeys/direct-csv';
 import { CSV_LOG_KEY } from '../journeys/autofetch';
 import type { Assessment } from '../eligibility/engine';
@@ -216,6 +216,17 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
           const url = String(nav.url);
           recordAudit('claim-nav', url);
           setCurrentUrl(url);
+          // TfL-29: a timed-out session bounces /MyCards → /HomePage/LoginTimedOut
+          // → OAuth sign-in. That transient pre-login MyCards would otherwise burn
+          // the one-shot guards below, so the card-selection steer never fires on
+          // the real MyCards after login (Luke, 11-Oct: claim stranded on the card
+          // list). Reset both guards on any sign-in bounce so the
+          // Dashboard→MyCards→SelectedCard steer runs fresh once login completes.
+          if (isLoginRedirectUrl(url)) {
+            advancedRef.current = false;
+            cardSelectedRef.current = false;
+            return;
+          }
           // TfL-28: TfL's post-login OAuth lands on the contactless Dashboard.
           // Advance to MyCards once, where the card-selection steer below runs.
           if (!advancedRef.current && isDashboardPage(url)) {

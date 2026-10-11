@@ -6,6 +6,7 @@ import {
   CLAIM_APPLY_PATH,
   CONTACTLESS_MYCARDS_URL,
   isDashboardPage,
+  isLoginRedirectUrl,
   isMyCardsPage,
 } from './card-select.ts';
 
@@ -27,6 +28,20 @@ ok(!isMyCardsPage('https://contactless.tfl.gov.uk/MyCardsOld'), 'MyCardsOld → 
 ok(!isMyCardsPage('https://contactless.tfl.gov.uk/ServiceDelayRefunds/Apply'), 'Apply → not MyCards');
 ok(isDashboardPage('https://contactless.tfl.gov.uk/Dashboard'), 'Dashboard → true');
 ok(!isDashboardPage('https://contactless.tfl.gov.uk/MyCards'), 'MyCards → not Dashboard');
+
+// ── TfL-29: sign-in bounce detection resets the one-shot steer guards ─────────────
+// The real 11-Oct evening cold-session claim sequence; each of these must reset so
+// card-selection re-fires on the post-login MyCards instead of stranding the user.
+ok(isLoginRedirectUrl('https://contactless.tfl.gov.uk/HomePage/LoginTimedOut'), 'LoginTimedOut → sign-in bounce');
+ok(isLoginRedirectUrl('https://contactless.tfl.gov.uk/HomePage/LoginTimedOut?ReturnUrl=%2fHomePage%2fLoginTimedOut'), 'LoginTimedOut (ReturnUrl) → sign-in bounce');
+ok(isLoginRedirectUrl('https://account.tfl.gov.uk/c00064e1-def7-4087-8468-a50e3894f95e/oauth2/v2.0/authorize?p=b2c_1a_signin'), 'B2C authorize → sign-in bounce');
+ok(isLoginRedirectUrl('https://contactless.tfl.gov.uk/signin-oidc'), 'signin-oidc callback → sign-in bounce');
+ok(isLoginRedirectUrl('https://contactless.tfl.gov.uk/HomePage/Login'), 'HomePage/Login → sign-in bounce');
+// Real content pages must NOT read as a bounce, or the steer would reset forever and never fire.
+ok(!isLoginRedirectUrl('https://contactless.tfl.gov.uk/MyCards'), 'MyCards → not a bounce');
+ok(!isLoginRedirectUrl('https://contactless.tfl.gov.uk/Dashboard'), 'Dashboard → not a bounce');
+ok(!isLoginRedirectUrl('https://contactless.tfl.gov.uk/ServiceDelayRefunds/Apply?cardDisplayId=' + CARD_A), 'Apply → not a bounce');
+ok(!isLoginRedirectUrl('https://contactless.tfl.gov.uk/HomePage/ValidateOAuth'), 'ValidateOAuth (post-login) → not a bounce');
 
 // ── injected script behaviour (ES5, run via new Function) ────────────────────────
 
