@@ -7,9 +7,9 @@
 // and the shared text. "3 days" catches last night's attempts next to this
 // morning's.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, Share, StyleSheet, Text, View } from 'react-native';
-import { AUDIT_LOG_KEY, type AuditEntry, formatAudit, formatAuditLine, isWithinDays, parseAudit } from '../journeys/audit-log';
-import { getMeta } from '../journeys/db';
+import { Alert, FlatList, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { AUDIT_LOG_KEY, type AuditEntry, clearedAudit, formatAudit, formatAuditLine, isWithinDays, parseAudit } from '../journeys/audit-log';
+import { getMeta, setMeta } from '../journeys/db';
 import { colors, spacing } from '../theme';
 
 // null = All time. The number is a window of calendar days up to today.
@@ -44,6 +44,25 @@ export default function AuditLogScreen() {
     Share.share({ message: formatAudit(oldestFirst) }).catch(() => { /* user dismissed */ });
   }, [visible]);
 
+  // TfL-LOG-CLEAR (Luke, 12-Oct): wipe the whole ring buffer so the next
+  // reproduction starts from an empty log — no scrolling past stale runs when
+  // pasting a fresh trace. Clears everything (not just the visible window);
+  // confirmed first so a mistap can't lose a run mid-debug.
+  const onClear = useCallback(() => {
+    Alert.alert(
+      'Clear the log?',
+      'This wipes every logged entry. Share the log first if you still need it.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => { setMeta(AUDIT_LOG_KEY, clearedAudit()); reload(); },
+        },
+      ],
+    );
+  }, [reload]);
+
   const rangeLabel = RANGES.find(r => r.days === rangeDays)?.label ?? 'All time';
 
   return (
@@ -74,6 +93,13 @@ export default function AuditLogScreen() {
         </Pressable>
         <Pressable style={[styles.buttonSecondary, styles.buttonRowItem]} onPress={reload}>
           <Text style={styles.buttonSecondaryText}>Reload</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.buttonDanger, styles.buttonRowItem]}
+          onPress={onClear}
+          disabled={!entries.length}
+        >
+          <Text style={styles.buttonDangerText}>Clear</Text>
         </Pressable>
       </View>
 
@@ -131,8 +157,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: spacing.m,
     alignItems: 'center',
+    marginRight: spacing.s,
   },
   buttonSecondaryText: { color: colors.accentBright, fontSize: 16, fontWeight: '700' },
+  buttonDanger: {
+    backgroundColor: colors.card,
+    borderColor: colors.bad,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: spacing.m,
+    alignItems: 'center',
+  },
+  buttonDangerText: { color: colors.bad, fontSize: 16, fontWeight: '700' },
   list: { flex: 1, marginTop: spacing.m },
   empty: { color: colors.textDim, fontSize: 14, marginTop: spacing.m },
   line: {
