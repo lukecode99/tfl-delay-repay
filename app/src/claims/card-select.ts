@@ -72,6 +72,28 @@ export function buildCardSelectScript(preferredId?: string | null): string {
   if (window.__tflCardSelect) { return; }
   var post = function (o) { try { if (window.ReactNativeWebView) { window.ReactNativeWebView.postMessage(JSON.stringify(o)); } } catch (e) {} };
   var preferred = ${JSON.stringify(pref)};
+  // TfL-28 DIAG (12-Oct): on a warm session the steer posted nothing back —
+  // no 'posting', no 'timeout'. One unconditional probe so the log shows
+  // whether the script ran at all and what the real MyCards DOM exposes (token
+  // input, scannable 32-hex id, link/button/form counts). Guides the real fix.
+  if (/MyCards/i.test(String(location.href))) {
+    try {
+      var dTok = document.querySelector('input[name="__RequestVerificationToken"]');
+      var dHtml = document.documentElement ? (document.documentElement.innerHTML || '') : '';
+      var dM = /CardDisplayId=([0-9a-fA-F]{32})/i.exec(dHtml);
+      if (!dM) { dM = /\\/Card\\/([0-9a-fA-F]{32})/i.exec(dHtml); }
+      post({
+        type: 'card-diag',
+        href: String(location.href),
+        hasToken: !!dTok,
+        prefOk: /^[0-9a-fA-F]{32}$/.test(preferred),
+        scannedId: dM ? dM[1] : '',
+        anchors: document.querySelectorAll ? document.querySelectorAll('a').length : -1,
+        buttons: document.querySelectorAll ? document.querySelectorAll('button').length : -1,
+        forms: document.querySelectorAll ? document.querySelectorAll('form').length : -1
+      });
+    } catch (de) { post({ type: 'card-diag', error: String(de) }); }
+  }
   var attempt = function () {
     try {
       if (!/MyCards/i.test(String(location.href))) { return false; }

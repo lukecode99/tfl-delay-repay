@@ -136,6 +136,17 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
         if (!msg.ok) { setFillNote('Tap your card above to open the claim form.'); }
         return;
       }
+      // TfL-28 DIAG (12-Oct): one-shot probe of the real MyCards DOM so the log
+      // shows whether the steer script ran and what it can see (token input,
+      // scannable 32-hex id, link/button/form counts) — the warm-session steer
+      // posted nothing at all, so this pins down why before the real fix.
+      if (msg.type === 'card-diag') {
+        const detail = msg.error
+          ? `error=${msg.error}`
+          : `token=${msg.hasToken} prefId=${msg.prefOk} scanned=${msg.scannedId ? String(msg.scannedId).slice(0, 8) : 'none'} a=${msg.anchors} btn=${msg.buttons} form=${msg.forms}`;
+        recordAudit('card-diag', detail);
+        return;
+      }
       // TfL-21: direct-fill result from the Apply form. Report what filled,
       // name anything left for the user (unmapped station/mode + not-found
       // fields), and remind them to tick the reCAPTCHA — we never auto-solve
@@ -240,6 +251,10 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
           // which otherwise returns TfL's "Sorry, there was a problem" error.
           if (!cardSelectedRef.current && isMyCardsPage(url)) {
             cardSelectedRef.current = true;
+            // RN-side marker: guaranteed to log even if the injected script
+            // never runs, so the log cleanly bisects "inject never requested"
+            // from "inject ran but posted nothing" (TfL-28 DIAG, 12-Oct).
+            recordAudit('card-select-inject', url);
             webRef.current?.injectJavaScript(buildCardSelectScript(primaryCardId));
           }
         }}

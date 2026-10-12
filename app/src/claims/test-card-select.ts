@@ -100,7 +100,9 @@ function runSelect(opts: {
 // Happy path: preferred id + token present → selects card, posts, navigates to Apply.
 {
   const r = runSelect({ preferred: CARD_A, token: TOKEN });
-  ok(r.posted.length === 1 && r.posted[0].type === 'card-select' && r.posted[0].ok === true, 'posts card-select ok:true');
+  const sel = r.posted.filter((p: any) => p.type === 'card-select');
+  ok(r.posted.some((p: any) => p.type === 'card-diag'), 'emits a card-diag probe on MyCards');
+  ok(sel.length === 1 && sel[0].ok === true, 'posts card-select ok:true');
   ok(!!r.fetched && r.fetched.url === '/Card/SelectedCard', 'POSTs to /Card/SelectedCard');
   ok(!!r.fetched && r.fetched.opts.method === 'POST', 'uses POST');
   ok(!!r.fetched && r.fetched.opts.credentials === 'include', 'sends credentials (session cookie)');
@@ -129,7 +131,7 @@ function runSelect(opts: {
   const r = runSelect({ preferred: CARD_A, token: null });
   ok(r.fetched === null, 'no anti-forgery token → does not POST');
   ok(r.located === null, 'no token → stays on MyCards');
-  ok(r.posted.length === 0, 'no token → posts nothing synchronously');
+  ok(r.posted.filter((p: any) => p.type === 'card-select').length === 0, 'no token → posts no card-select synchronously');
 }
 
 // No card id anywhere → does not POST.
@@ -173,7 +175,7 @@ function runSelect(opts: {
   const script = buildCardSelectScript(CARD_A);
   new Function('window', 'document', 'location', 'fetch', 'setInterval', 'clearInterval', script)(win, doc, location, fetch, si, ci);
   new Function('window', 'document', 'location', 'fetch', 'setInterval', 'clearInterval', script)(win, doc, location, fetch, si, ci);
-  ok(posted.length === 1, 'window.__tflCardSelect latch prevents a double selection');
+  ok(posted.filter((p: any) => p.type === 'card-select').length === 1, 'window.__tflCardSelect latch prevents a double selection');
 }
 
 console.log(`\ntest-card-select: all ${passed} assertions passed`);
