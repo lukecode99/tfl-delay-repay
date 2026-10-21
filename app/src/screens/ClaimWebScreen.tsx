@@ -236,10 +236,24 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
           if (isLoginRedirectUrl(url)) {
             advancedRef.current = false;
             cardSelectedRef.current = false;
-            return;
           }
+          // TfL-30: the Dashboard→MyCards advance and the MyCards card-selection
+          // steer used to fire from here. But onNavigationStateChange runs at
+          // nav-commit time — before the WebView's JS context is ready — so iOS
+          // silently dropped the imperative injectJavaScript (Luke's 21-Oct warm
+          // trace: 'card-select-inject' logged, but the injected script's own
+          // unconditional diag probe never posted → it never executed). Both
+          // steers now run from onLoadEnd, which fires once the page is loaded
+          // and can actually accept injected JS.
+        }}
+        // TfL-30: inject the steers here, not on nav-state-change — the JS
+        // context is only reliably ready at load end (see note above).
+        onLoadEnd={(e: { nativeEvent?: { url?: string } }) => {
+          const url = String(e?.nativeEvent?.url ?? currentUrl);
+          // Don't act on the sign-in bounce pages; the guard-reset above handles them.
+          if (isLoginRedirectUrl(url)) return;
           // TfL-28: TfL's post-login OAuth lands on the contactless Dashboard.
-          // Advance to MyCards once, where the card-selection steer below runs.
+          // Advance to MyCards once, where the card-selection steer then runs.
           if (!advancedRef.current && isDashboardPage(url)) {
             advancedRef.current = true;
             webRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(CONTACTLESS_MYCARDS_URL)}; true;`);
