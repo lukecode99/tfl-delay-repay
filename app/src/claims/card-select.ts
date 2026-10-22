@@ -1,15 +1,19 @@
 // TfL-28: card-selection steer. Pure module — node-testable.
 //
-// The service-delay-refund Apply form (/ServiceDelayRefunds/Apply) is NOT
-// reachable by a plain GET — not even with a ?cardDisplayId= query (TfL-27's
-// wrong assumption). The classic contactless portal keeps the "selected card"
-// in server-side session state, set by a POST /Card/SelectedCard. Loading Apply
-// without a card selected returns TfL's generic "Sorry, there was a problem"
-// error page (Luke, on-device, 11-Oct). The real flow we captured in July is:
-//   Dashboard → MyCards → POST /Card/SelectedCard (cardDisplayId + CSRF) → Apply
-// (project-notes/tfl-refund-app.md, TfL-20 capture). This module reproduces
-// exactly what TfL's own MyCards page does when the user taps a card, so the
-// Apply form then loads with the card in context.
+// The service-delay-refund Apply form (/ServiceDelayRefunds/Apply) needs BOTH:
+//   (1) the card selected server-side via POST /Card/SelectedCard (cardDisplayId
+//       + CSRF), and
+//   (2) the SAME card id passed on the Apply URL as ?cardDisplayId=<id>.
+// A bare /Apply (no query) bounces back to MyCards even after a 200 select;
+// a ?cardDisplayId= with no prior select hits the "Sorry, there was a problem"
+// page. TfL's own per-card link on MyCards is exactly
+//   /ServiceDelayRefunds/Apply?cardDisplayId=<id>
+// and the tap first fires an xhr POST /Card/SelectedCard. Confirmed end-to-end
+// from Luke's manual run (22-Oct build-83 trace): select → 200, navigate to
+// /Apply?cardDisplayId=<id> → the Apply form loads and autofills.
+// The real flow:
+//   Dashboard → MyCards → POST /Card/SelectedCard → Apply?cardDisplayId=<id>
+// This module reproduces exactly what TfL's own MyCards tap does.
 //
 // The injected script runs on the MyCards page: it reads the anti-forgery
 // token from the page's hidden input and the 32-hex CardDisplayId (preferring
@@ -118,20 +122,33 @@ export function buildCardSelectScript(preferredId?: string | null): string {
       if (!/MyCards/i.test(String(location.href))) { return false; }
       var tokEl = document.querySelector('input[name="__RequestVerificationToken"]');
       var tok = tokEl ? (tokEl.value || tokEl.getAttribute('value') || '') : '';
+      if (!tok) { return false; }
       var html = document.documentElement ? (document.documentElement.innerHTML || '') : '';
-      // TfL-31: our stored (statement-mined) id can be stale/foreign — the
-      // build-82 trace POSTed one the MyCards page didn't list and got a 404.
-      // Only trust the stored id when the page actually shows it; otherwise use
-      // the 32-hex CardDisplayId the page itself exposes.
+      // Collect the DISTINCT 32-hex CardDisplayIds the MyCards page presents.
+      var ids = [];
+      var seen = {};
+      var re = /(?:CardDisplayId=|\\/Card\\/)([0-9a-fA-F]{32})/ig;
+      var mm;
+      while ((mm = re.exec(html)) !== null) {
+        var cid = mm[1].toLowerCase();
+        if (!seen[cid]) { seen[cid] = true; ids.push(mm[1]); }
+      }
+      // Pick the card: our stored (statement-mined) id ONLY if the page lists it;
+      // else the sole card when there's exactly one. With several cards and no
+      // match we must NOT guess — filing against the wrong card is worse than one
+      // manual tap (TfL's own per-card Apply link works). TfL-31, Luke 22-Oct:
+      // stored 6b58… wasn't on the list and the page had multiple cards.
       var id = '';
       if (/^[0-9a-fA-F]{32}$/.test(preferred) && html.indexOf(preferred) >= 0) {
         id = preferred;
-      } else {
-        var m = /CardDisplayId=([0-9a-fA-F]{32})/i.exec(html);
-        if (!m) { m = /\\/Card\\/([0-9a-fA-F]{32})/i.exec(html); }
-        id = m ? m[1] : '';
+      } else if (ids.length === 1) {
+        id = ids[0];
+      } else if (ids.length > 1) {
+        window.__tflCardSelect = true;
+        post({ type: 'card-select', ok: false, reason: 'ambiguous-cards', count: ids.length });
+        return true;
       }
-      if (!id || !tok) { return false; }
+      if (!id) { return false; }
       window.__tflCardSelect = true;
       post({ type: 'card-select', ok: true, stage: 'posting' });
       var body = 'cardDisplayId=' + encodeURIComponent(id) + '&__RequestVerificationToken=' + encodeURIComponent(tok);
@@ -143,7 +160,11 @@ export function buildCardSelectScript(preferredId?: string | null): string {
       }).then(function (res) {
         if (res && (res.ok || res.status === 200)) {
           post({ type: 'card-select', ok: true, stage: 'selected' });
-          window.location.href = '${CLAIM_APPLY_PATH}';
+          // TfL-31: the Apply page keys off the cardDisplayId *query param* — the
+          // page's own card link is /ServiceDelayRefunds/Apply?cardDisplayId=<id>,
+          // and a bare /Apply bounced back to MyCards even after a 200 select
+          // (Luke 22-Oct). Replicate the page's link exactly.
+          window.location.href = '${CLAIM_APPLY_PATH}?cardDisplayId=' + encodeURIComponent(id);
         } else {
           // Don't bounce through a card-less Apply on a 404 — stay on MyCards so
           // a manual tap lets net-capture record TfL's real select endpoint.

@@ -113,7 +113,7 @@ function runSelect(opts: {
   ok(!!r.fetched && r.fetched.opts.credentials === 'include', 'sends credentials (session cookie)');
   ok(!!r.fetched && r.fetched.opts.body.indexOf('cardDisplayId=' + CARD_A) >= 0, 'body carries the cardDisplayId');
   ok(!!r.fetched && r.fetched.opts.body.indexOf('__RequestVerificationToken=' + TOKEN) >= 0, 'body carries the anti-forgery token');
-  ok(r.located === CLAIM_APPLY_PATH, 'navigates to the Apply form on success');
+  ok(r.located === CLAIM_APPLY_PATH + '?cardDisplayId=' + CARD_A, 'navigates to Apply WITH ?cardDisplayId= on success');
 }
 
 // TfL-31: stored id is NOT on the page → ignore it, use the page's own id (the
@@ -140,7 +140,29 @@ function runSelect(opts: {
   const html = `<a href="/NewStatements/Billing?CardDisplayId=${CARD_A}">statement</a>`;
   const r = runSelect({ preferred: null, token: TOKEN, html });
   ok(!!r.fetched && r.fetched.opts.body.indexOf('cardDisplayId=' + CARD_A) >= 0, 'scans the page for a CardDisplayId when none stored');
-  ok(r.located === CLAIM_APPLY_PATH, 'DOM-scan path still reaches Apply');
+  ok(r.located === CLAIM_APPLY_PATH + '?cardDisplayId=' + CARD_A, 'DOM-scan path reaches Apply WITH ?cardDisplayId=');
+}
+
+// TfL-31: MULTIPLE cards, none matching the stored id → do NOT guess a card.
+// Report ambiguous-cards so the UI asks the user to tap (filing against the wrong
+// card is worse than one tap). Luke 22-Oct: page listed 02821f09/f8985f9d/5a806fcd.
+{
+  const CARD_B = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6';
+  const html = `<a href="/Card/${CARD_A}/x">one</a><a href="/Card/${CARD_B}/x">two</a>`;
+  const r = runSelect({ preferred: null, token: TOKEN, html });
+  ok(r.fetched === null, 'multiple cards, no stored match → does NOT POST a guessed card');
+  ok(r.located === null, 'multiple cards → stays on MyCards for a manual tap');
+  const amb = r.posted.filter((p: any) => p.type === 'card-select' && p.ok === false && p.reason === 'ambiguous-cards');
+  ok(amb.length === 1 && amb[0].count === 2, 'multiple cards → posts ok:false reason:ambiguous-cards count:2');
+}
+
+// TfL-31: multiple cards BUT the stored id is one of them → use the stored id.
+{
+  const CARD_B = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6';
+  const html = `<a href="/Card/${CARD_A}/x">one</a><a href="/Card/${CARD_B}/x">two</a>`;
+  const r = runSelect({ preferred: CARD_B, token: TOKEN, html });
+  ok(!!r.fetched && r.fetched.opts.body.indexOf('cardDisplayId=' + CARD_B) >= 0, 'stored id present among many → selects it');
+  ok(r.located === CLAIM_APPLY_PATH + '?cardDisplayId=' + CARD_B, 'stored-among-many → Apply WITH its ?cardDisplayId=');
 }
 
 // DOM-scan fallback via /Card/<id> path form.

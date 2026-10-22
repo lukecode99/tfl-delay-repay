@@ -132,9 +132,15 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
       // already navigating to Apply (nothing to do). On failure, tell the user
       // to tap their card by hand so they still reach the form.
       if (msg.type === 'card-select') {
-        const failDetail = `failed:${msg.reason ?? 'unknown'}${msg.status ? ` ${msg.status}` : ''}`;
+        const failDetail = `failed:${msg.reason ?? 'unknown'}${msg.status ? ` ${msg.status}` : ''}${msg.count ? ` (${msg.count})` : ''}`;
         recordAudit('card-select', msg.ok ? (msg.stage ?? 'ok') : failDetail);
-        if (!msg.ok) { setFillNote('Tap your card above to open the claim form.'); }
+        if (!msg.ok) {
+          // TfL-31: with several registered cards we can't safely guess which one
+          // (filing against the wrong card is worse than a tap) — ask explicitly.
+          setFillNote(msg.reason === 'ambiguous-cards'
+            ? 'Tap the card you travelled on to open the claim form.'
+            : 'Tap your card above to open the claim form.');
+        }
         return;
       }
       // TfL-28 DIAG (12-Oct): one-shot probe of the real MyCards DOM so the log
