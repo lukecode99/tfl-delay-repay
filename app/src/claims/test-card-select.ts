@@ -57,6 +57,8 @@ function runSelect(opts: {
   token?: string | null; // null → no hidden input
   html?: string; // documentElement.innerHTML for the DOM-scan fallback
   fetchResolves?: boolean; // true → onFulfilled, false → onRejected
+  fetchOk?: boolean; // HTTP response.ok (default true → 2xx)
+  fetchStatus?: number; // HTTP status code passed to .then
   autoPoll?: boolean; // whether setInterval fires its callback
 }): Run {
   const startHref = opts.href ?? CONTACTLESS_MYCARDS_URL;
@@ -73,11 +75,12 @@ function runSelect(opts: {
     documentElement: { innerHTML: opts.html ?? '' },
   };
   const resolves = opts.fetchResolves !== false;
+  const res = { ok: opts.fetchOk !== false, status: opts.fetchStatus ?? 200 };
   const fetch = (url: string, o: any) => {
     fetched = { url, opts: o };
     return {
-      then: (onF: () => void, onR: (e: any) => void) => {
-        if (resolves) { onF(); } else { onR(new Error('network')); }
+      then: (onF: (r: any) => void, onR: (e: any) => void) => {
+        if (resolves) { onF(res); } else { onR(new Error('network')); }
         return { then: () => {} };
       },
     };
@@ -97,18 +100,39 @@ function runSelect(opts: {
   return { posted, fetched, located: location.href === startHref ? null : location.href };
 }
 
-// Happy path: preferred id + token present → selects card, posts, navigates to Apply.
+// Happy path: stored id present *on the page* + token → selects card, navigates to Apply.
 {
-  const r = runSelect({ preferred: CARD_A, token: TOKEN });
+  const html = `<a href="/Card/${CARD_A}/History">card</a>`;
+  const r = runSelect({ preferred: CARD_A, token: TOKEN, html });
   const sel = r.posted.filter((p: any) => p.type === 'card-select');
   ok(r.posted.some((p: any) => p.type === 'card-diag'), 'emits a card-diag probe on MyCards');
-  ok(sel.length === 1 && sel[0].ok === true, 'posts card-select ok:true');
+  ok(sel.filter((p: any) => p.ok === true && p.stage === 'posting').length === 1, 'posts one card-select ok:true/posting');
+  ok(sel.some((p: any) => p.ok === true && p.stage === 'selected'), 'posts card-select ok:true/selected on 2xx');
   ok(!!r.fetched && r.fetched.url === '/Card/SelectedCard', 'POSTs to /Card/SelectedCard');
   ok(!!r.fetched && r.fetched.opts.method === 'POST', 'uses POST');
   ok(!!r.fetched && r.fetched.opts.credentials === 'include', 'sends credentials (session cookie)');
   ok(!!r.fetched && r.fetched.opts.body.indexOf('cardDisplayId=' + CARD_A) >= 0, 'body carries the cardDisplayId');
   ok(!!r.fetched && r.fetched.opts.body.indexOf('__RequestVerificationToken=' + TOKEN) >= 0, 'body carries the anti-forgery token');
   ok(r.located === CLAIM_APPLY_PATH, 'navigates to the Apply form on success');
+}
+
+// TfL-31: stored id is NOT on the page → ignore it, use the page's own id (the
+// build-82 404 cause: we POSTed a foreign stored id the MyCards page never listed).
+{
+  const stale = 'ffffffffffffffffffffffffffffffff';
+  const html = `<a href="/Card/${CARD_A}/History">card</a>`;
+  const r = runSelect({ preferred: stale, token: TOKEN, html });
+  ok(!!r.fetched && r.fetched.opts.body.indexOf('cardDisplayId=' + CARD_A) >= 0, 'uses the page id, not the stale stored id');
+  ok(!!r.fetched && r.fetched.opts.body.indexOf(stale) < 0, 'stale stored id never leaves the device');
+}
+
+// TfL-31: selection endpoint 404s → do NOT navigate to Apply; report select-http.
+{
+  const html = `<a href="/Card/${CARD_A}/History">card</a>`;
+  const r = runSelect({ preferred: CARD_A, token: TOKEN, html, fetchOk: false, fetchStatus: 404 });
+  ok(r.located === null, '404 select → stays on MyCards (no card-less Apply bounce)');
+  const fail = r.posted.filter((p: any) => p.ok === false && p.reason === 'select-http');
+  ok(fail.length === 1 && fail[0].status === 404, '404 select → posts ok:false reason:select-http status:404');
 }
 
 // DOM-scan fallback: no preferred id, but the page HTML carries a CardDisplayId link.
@@ -148,7 +172,8 @@ function runSelect(opts: {
 
 // fetch rejects → reports the failure, does not navigate.
 {
-  const r = runSelect({ preferred: CARD_A, token: TOKEN, fetchResolves: false });
+  const html = `<a href="/Card/${CARD_A}/History">card</a>`;
+  const r = runSelect({ preferred: CARD_A, token: TOKEN, html, fetchResolves: false });
   ok(r.located === null, 'POST failure → does not navigate to Apply');
   const fail = r.posted.filter((p: any) => p.ok === false && p.reason === 'post-failed');
   ok(fail.length === 1, 'POST failure → posts ok:false reason:post-failed');
@@ -168,14 +193,14 @@ function runSelect(opts: {
   const win: any = { ReactNativeWebView: { postMessage: (s: string) => posted.push(JSON.parse(s)) }, location, __tflCardSelect: false };
   const doc: any = {
     querySelector: () => ({ value: TOKEN, getAttribute: () => TOKEN }),
-    documentElement: { innerHTML: '' },
+    documentElement: { innerHTML: `<a href="/Card/${CARD_A}/x">c</a>` },
   };
-  const fetch = () => ({ then: (f: () => void) => { f(); return { then: () => {} }; } });
+  const fetch = () => ({ then: (f: (r: any) => void) => { f({ ok: true, status: 200 }); return { then: () => {} }; } });
   const si = () => 1; const ci = () => {};
   const script = buildCardSelectScript(CARD_A);
   new Function('window', 'document', 'location', 'fetch', 'setInterval', 'clearInterval', script)(win, doc, location, fetch, si, ci);
   new Function('window', 'document', 'location', 'fetch', 'setInterval', 'clearInterval', script)(win, doc, location, fetch, si, ci);
-  ok(posted.filter((p: any) => p.type === 'card-select').length === 1, 'window.__tflCardSelect latch prevents a double selection');
+  ok(posted.filter((p: any) => p.type === 'card-select' && p.stage === 'posting').length === 1, 'window.__tflCardSelect latch prevents a double selection');
 }
 
 console.log(`\ntest-card-select: all ${passed} assertions passed`);

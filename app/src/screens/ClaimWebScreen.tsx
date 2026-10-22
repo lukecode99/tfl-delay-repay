@@ -132,7 +132,8 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
       // already navigating to Apply (nothing to do). On failure, tell the user
       // to tap their card by hand so they still reach the form.
       if (msg.type === 'card-select') {
-        recordAudit('card-select', msg.ok ? (msg.stage ?? 'ok') : `failed:${msg.reason ?? 'unknown'}`);
+        const failDetail = `failed:${msg.reason ?? 'unknown'}${msg.status ? ` ${msg.status}` : ''}`;
+        recordAudit('card-select', msg.ok ? (msg.stage ?? 'ok') : failDetail);
         if (!msg.ok) { setFillNote('Tap your card above to open the claim form.'); }
         return;
       }
@@ -141,9 +142,21 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
       // scannable 32-hex id, link/button/form counts) — the warm-session steer
       // posted nothing at all, so this pins down why before the real fix.
       if (msg.type === 'card-diag') {
-        const detail = msg.error
-          ? `error=${msg.error}`
-          : `token=${msg.hasToken} prefId=${msg.prefOk} scanned=${msg.scannedId ? String(msg.scannedId).slice(0, 8) : 'none'} a=${msg.anchors} btn=${msg.buttons} form=${msg.forms}`;
+        let detail: string;
+        if (msg.error) {
+          detail = `error=${msg.error}`;
+        } else {
+          const scanned = msg.scannedId ? String(msg.scannedId).slice(0, 8) : 'none';
+          detail = `token=${msg.hasToken} prefId=${msg.prefOk} prefInDom=${msg.prefInDom} scanned=${scanned} a=${msg.anchors} btn=${msg.buttons} form=${msg.forms}`;
+          // TfL-31: the page's real form actions + card/apply links — reveals the
+          // live selection endpoint now that the July /Card/SelectedCard 404s.
+          if (Array.isArray(msg.formActions) && msg.formActions.length) {
+            detail += `\nforms: ${msg.formActions.join(' | ')}`;
+          }
+          if (Array.isArray(msg.cardLinks) && msg.cardLinks.length) {
+            detail += `\nlinks: ${msg.cardLinks.join(' | ')}`;
+          }
+        }
         recordAudit('card-diag', detail);
         return;
       }

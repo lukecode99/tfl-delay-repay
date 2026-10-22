@@ -82,12 +82,31 @@ export function buildCardSelectScript(preferredId?: string | null): string {
       var dHtml = document.documentElement ? (document.documentElement.innerHTML || '') : '';
       var dM = /CardDisplayId=([0-9a-fA-F]{32})/i.exec(dHtml);
       if (!dM) { dM = /\\/Card\\/([0-9a-fA-F]{32})/i.exec(dHtml); }
+      // TfL-31 (build-82 trace, 22-Oct): POST /Card/SelectedCard 404s, so the
+      // July endpoint is stale. Dump the page's real form actions + card/apply
+      // links so the next build can hit the mechanism TfL's own tap uses.
+      var dForms = [];
+      var dLinks = [];
+      if (document.querySelectorAll) {
+        var fEls = document.querySelectorAll('form');
+        for (var fi = 0; fi < fEls.length && fi < 20; fi++) {
+          dForms.push(((fEls[fi].getAttribute('method') || 'get') + ' ' + (fEls[fi].getAttribute('action') || '')).slice(0, 120));
+        }
+        var aEls = document.querySelectorAll('a');
+        for (var ai = 0; ai < aEls.length && dLinks.length < 12; ai++) {
+          var hr = aEls[ai].getAttribute('href') || '';
+          if (/Card|Apply|Select|Refund/i.test(hr)) { dLinks.push(hr.slice(0, 120)); }
+        }
+      }
       post({
         type: 'card-diag',
         href: String(location.href),
         hasToken: !!dTok,
         prefOk: /^[0-9a-fA-F]{32}$/.test(preferred),
+        prefInDom: /^[0-9a-fA-F]{32}$/.test(preferred) && dHtml.indexOf(preferred) >= 0,
         scannedId: dM ? dM[1] : '',
+        formActions: dForms,
+        cardLinks: dLinks,
         anchors: document.querySelectorAll ? document.querySelectorAll('a').length : -1,
         buttons: document.querySelectorAll ? document.querySelectorAll('button').length : -1,
         forms: document.querySelectorAll ? document.querySelectorAll('form').length : -1
@@ -99,9 +118,15 @@ export function buildCardSelectScript(preferredId?: string | null): string {
       if (!/MyCards/i.test(String(location.href))) { return false; }
       var tokEl = document.querySelector('input[name="__RequestVerificationToken"]');
       var tok = tokEl ? (tokEl.value || tokEl.getAttribute('value') || '') : '';
-      var id = preferred;
-      if (!/^[0-9a-fA-F]{32}$/.test(id)) {
-        var html = document.documentElement ? (document.documentElement.innerHTML || '') : '';
+      var html = document.documentElement ? (document.documentElement.innerHTML || '') : '';
+      // TfL-31: our stored (statement-mined) id can be stale/foreign — the
+      // build-82 trace POSTed one the MyCards page didn't list and got a 404.
+      // Only trust the stored id when the page actually shows it; otherwise use
+      // the 32-hex CardDisplayId the page itself exposes.
+      var id = '';
+      if (/^[0-9a-fA-F]{32}$/.test(preferred) && html.indexOf(preferred) >= 0) {
+        id = preferred;
+      } else {
         var m = /CardDisplayId=([0-9a-fA-F]{32})/i.exec(html);
         if (!m) { m = /\\/Card\\/([0-9a-fA-F]{32})/i.exec(html); }
         id = m ? m[1] : '';
@@ -115,9 +140,18 @@ export function buildCardSelectScript(preferredId?: string | null): string {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
         body: body,
         credentials: 'include'
-      }).then(function () {
-        window.location.href = '${CLAIM_APPLY_PATH}';
+      }).then(function (res) {
+        if (res && (res.ok || res.status === 200)) {
+          post({ type: 'card-select', ok: true, stage: 'selected' });
+          window.location.href = '${CLAIM_APPLY_PATH}';
+        } else {
+          // Don't bounce through a card-less Apply on a 404 — stay on MyCards so
+          // a manual tap lets net-capture record TfL's real select endpoint.
+          window.__tflCardSelect = false;
+          post({ type: 'card-select', ok: false, reason: 'select-http', status: res ? res.status : 0 });
+        }
       }, function (e) {
+        window.__tflCardSelect = false;
         post({ type: 'card-select', ok: false, reason: 'post-failed', error: String(e) });
       });
       return true;
