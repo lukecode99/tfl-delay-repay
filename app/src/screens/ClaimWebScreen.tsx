@@ -14,7 +14,7 @@ import { markClaimed } from '../claims/db';
 import { buildFillScript, buildPrefill, PrefillField } from '../claims/prefill';
 import { buildApplyPlan, buildDirectFillScript } from '../claims/apply-fill';
 import { buildClaimConfirmScanScript } from '../claims/claim-confirm-scan';
-import { buildCardSelectScript, CONTACTLESS_MYCARDS_URL, isDashboardPage, isLoginRedirectUrl, isMyCardsPage } from '../claims/card-select';
+import { buildCardSelectScript, cardIdFromSelectBody, CONTACTLESS_MYCARDS_URL, isDashboardPage, isLoginRedirectUrl, isMyCardsPage, PREFERRED_CARD_KEY, tidyNavLogUrl } from '../claims/card-select';
 import { primaryCardDisplayId } from '../journeys/direct-csv';
 import { CSV_LOG_KEY } from '../journeys/autofetch';
 import type { Assessment } from '../eligibility/engine';
@@ -45,7 +45,13 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   // load. primaryCardId is the CardDisplayId we already mined from statement
   // links; the select script falls back to scanning the page when it's absent.
   const claimUrl = CONTACTLESS_MYCARDS_URL;
-  const primaryCardId = useMemo(() => primaryCardDisplayId(getMeta(CSV_LOG_KEY)), []);
+  // TfL-32: prefer the card the user last tapped by hand (learned below) over the
+  // statement-mined id, which can be stale/re-tokenised and absent from MyCards.
+  const primaryCardId = useMemo(() => {
+    const learned = getMeta(PREFERRED_CARD_KEY);
+    if (learned && /^[0-9a-fA-F]{32}$/.test(learned)) return learned;
+    return primaryCardDisplayId(getMeta(CSV_LOG_KEY));
+  }, []);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [fillNote, setFillNote] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string>(claimUrl);
@@ -125,7 +131,18 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
       // TfL-20: instrumented page traffic → straight to the audit log.
-      if (msg.type === 'net-capture') { recordAudit('net-capture', describeCapture(msg)); return; }
+      if (msg.type === 'net-capture') {
+        recordAudit('net-capture', describeCapture(msg));
+        // TfL-32: learn the card the user genuinely taps. TfL's own tap fires an
+        // xhr POST /Card/SelectedCard; our auto-select uses fetch, so keying on
+        // kind==='xhr' records the user's real choice, not our guess. Next claim
+        // then auto-selects it (see primaryCardId above).
+        if (msg.kind === 'xhr' && /\/Card\/SelectedCard/i.test(String(msg.url ?? ''))) {
+          const learned = cardIdFromSelectBody(msg.body);
+          if (learned) { setMeta(PREFERRED_CARD_KEY, learned); }
+        }
+        return;
+      }
       // TfL-26: the scan found TfL's confirmation page — prompt (once) to mark claimed.
       if (msg.type === 'claim-confirmation') { promptMarkClaimed(); return; }
       // TfL-28: result of the MyCards card-selection steer. On success it's
@@ -244,7 +261,9 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
           setCanGoBack(!!nav?.canGoBack);
           if (!nav?.url) return;
           const url = String(nav.url);
-          recordAudit('claim-nav', url);
+          // TfL-32: log a tidied URL (the B2C sign-in step's query is a giant JWT
+          // that floods the Log); keep the real url for the navigation logic below.
+          recordAudit('claim-nav', tidyNavLogUrl(url));
           setCurrentUrl(url);
           // TfL-29: a timed-out session bounces /MyCards → /HomePage/LoginTimedOut
           // → OAuth sign-in. That transient pre-login MyCards would otherwise burn

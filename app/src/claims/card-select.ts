@@ -28,6 +28,35 @@
 export const CONTACTLESS_MYCARDS_URL = 'https://contactless.tfl.gov.uk/MyCards';
 export const CLAIM_APPLY_PATH = '/ServiceDelayRefunds/Apply';
 
+/**
+ * Meta-table key for the card the user last tapped by hand. TfL-32: when the
+ * account has several registered cards we can't safely guess which one is
+ * theirs, so the app learns it from the user's genuine manual tap (the xhr
+ * POST /Card/SelectedCard) and reuses it next time — survives card
+ * re-tokenisation and needs no hardcoded id in this (public) repo.
+ */
+export const PREFERRED_CARD_KEY = 'tflPreferredCardId';
+
+/** Pull a 32-hex cardDisplayId from a SelectedCard POST body, or '' if absent. */
+export function cardIdFromSelectBody(body: string | null | undefined): string {
+  const m = /cardDisplayId=([0-9a-fA-F]{32})/i.exec(String(body || ''));
+  return m ? m[1] : '';
+}
+
+/**
+ * Trim a navigation URL for the audit log. The Azure B2C sign-in step carries a
+ * giant id_token_hint JWT + nonce in its query string (TfL-32, Luke 22-Oct:
+ * floods the Log tab and eats the share buffer) with zero diagnostic value — so
+ * for the sign-in/OAuth hosts keep just the path. Everything else keeps its
+ * query: we rely on seeing ?cardDisplayId= on the Apply URL.
+ */
+export function tidyNavLogUrl(url: string): string {
+  const u = String(url || '');
+  if (!/account\.tfl\.gov\.uk|signin-oidc/i.test(u)) return u;
+  const q = u.indexOf('?');
+  return q >= 0 ? u.slice(0, q) + '?…' : u;
+}
+
 /** True when the WebView is on the contactless MyCards list page. */
 export function isMyCardsPage(url: string): boolean {
   return /contactless\.tfl\.gov\.uk\/MyCards(\/|$|[?#])/i.test(String(url || ''));

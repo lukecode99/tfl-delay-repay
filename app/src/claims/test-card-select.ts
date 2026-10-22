@@ -3,11 +3,13 @@
 import assert from 'node:assert/strict';
 import {
   buildCardSelectScript,
+  cardIdFromSelectBody,
   CLAIM_APPLY_PATH,
   CONTACTLESS_MYCARDS_URL,
   isDashboardPage,
   isLoginRedirectUrl,
   isMyCardsPage,
+  tidyNavLogUrl,
 } from './card-select.ts';
 
 let passed = 0;
@@ -42,6 +44,23 @@ ok(!isLoginRedirectUrl('https://contactless.tfl.gov.uk/MyCards'), 'MyCards → n
 ok(!isLoginRedirectUrl('https://contactless.tfl.gov.uk/Dashboard'), 'Dashboard → not a bounce');
 ok(!isLoginRedirectUrl('https://contactless.tfl.gov.uk/ServiceDelayRefunds/Apply?cardDisplayId=' + CARD_A), 'Apply → not a bounce');
 ok(!isLoginRedirectUrl('https://contactless.tfl.gov.uk/HomePage/ValidateOAuth'), 'ValidateOAuth (post-login) → not a bounce');
+
+// ── TfL-32: learn-the-card from a genuine manual tap (xhr SelectedCard body) ──────
+ok(cardIdFromSelectBody('cardDisplayId=' + CARD_A) === CARD_A, 'cardIdFromSelectBody pulls the 32-hex id from a select body');
+ok(cardIdFromSelectBody('cardDisplayId=' + CARD_A + '&__RequestVerificationToken=x') === CARD_A, 'cardIdFromSelectBody ignores trailing fields');
+ok(cardIdFromSelectBody('CardDisplayId=' + CARD_A.toUpperCase()) === CARD_A.toUpperCase(), 'cardIdFromSelectBody is case-insensitive on the key');
+ok(cardIdFromSelectBody('foo=bar') === '', 'cardIdFromSelectBody → "" when no cardDisplayId present');
+ok(cardIdFromSelectBody('cardDisplayId=notahexid') === '', 'cardIdFromSelectBody → "" when value is not 32 hex');
+ok(cardIdFromSelectBody(null) === '' && cardIdFromSelectBody(undefined) === '', 'cardIdFromSelectBody tolerates null/undefined');
+
+// ── TfL-32: tidy the Azure B2C sign-in noise out of the audit log ─────────────────
+ok(tidyNavLogUrl('https://account.tfl.gov.uk/oauth2/v2.0/authorize?id_token_hint=eyJ&nonce=abc') === 'https://account.tfl.gov.uk/oauth2/v2.0/authorize?…', 'tidyNavLogUrl strips the B2C authorize query');
+ok(tidyNavLogUrl('https://contactless.tfl.gov.uk/signin-oidc?code=zzz&state=yyy') === 'https://contactless.tfl.gov.uk/signin-oidc?…', 'tidyNavLogUrl strips the signin-oidc callback query');
+ok(tidyNavLogUrl('https://account.tfl.gov.uk/logout') === 'https://account.tfl.gov.uk/logout', 'tidyNavLogUrl leaves a sign-in host alone when it has no query');
+const applyUrl = 'https://contactless.tfl.gov.uk/ServiceDelayRefunds/Apply?cardDisplayId=' + CARD_A;
+ok(tidyNavLogUrl(applyUrl) === applyUrl, 'tidyNavLogUrl keeps the Apply ?cardDisplayId= query intact');
+ok(tidyNavLogUrl('https://contactless.tfl.gov.uk/MyCards') === 'https://contactless.tfl.gov.uk/MyCards', 'tidyNavLogUrl passes non-sign-in URLs through unchanged');
+ok(tidyNavLogUrl('') === '', 'tidyNavLogUrl tolerates empty input');
 
 // ── injected script behaviour (ES5, run via new Function) ────────────────────────
 
