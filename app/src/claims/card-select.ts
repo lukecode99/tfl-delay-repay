@@ -44,6 +44,22 @@ export function cardIdFromSelectBody(body: string | null | undefined): string {
 }
 
 /**
+ * Pull the card's last-4 digits from a label or page block. TfL-34 (Luke
+ * 23-Oct): the journey statement records its card as "Visa ending in 5006" and
+ * each MyCards block prints "ending in NNNN" too — so the claim's own last-4 can
+ * pick the right card among several travel-ready ones. Returns '' when none is
+ * present. NB several reissued cards can share a last-4 (Luke's all end 5006),
+ * so this is a tiebreaker on top of the travel-status check, not a sole key.
+ */
+export function lastFourOf(label: string | null | undefined): string {
+  const s = String(label || '');
+  const m = /ending in\s*(\d{3,4})/i.exec(s)
+    || /[•·*]\s*(\d{4})/.exec(s)
+    || /(\d{4})(?!.*\d)/.exec(s);
+  return m ? m[1] : '';
+}
+
+/**
  * Trim a navigation URL for the audit log. The Azure B2C sign-in step carries a
  * giant id_token_hint JWT + nonce in its query string (TfL-32, Luke 22-Oct:
  * floods the Log tab and eats the share buffer) with zero diagnostic value — so
@@ -99,12 +115,15 @@ function safeCardId(id: string | null | undefined): string {
  * (from statement links); when it isn't a valid 32-hex id the script scans the
  * page for one instead.
  */
-export function buildCardSelectScript(preferredId?: string | null): string {
+export function buildCardSelectScript(preferredId?: string | null, claimLast4?: string | null): string {
   const pref = safeCardId(preferredId);
+  const claim4m = /(\d{3,4})/.exec(String(claimLast4 || ''));
+  const claim4 = claim4m ? claim4m[1] : '';
   return `(function () {
   if (window.__tflCardSelect) { return; }
   var post = function (o) { try { if (window.ReactNativeWebView) { window.ReactNativeWebView.postMessage(JSON.stringify(o)); } } catch (e) {} };
   var preferred = ${JSON.stringify(pref)};
+  var claimLast4 = ${JSON.stringify(claim4)};
   // TfL-28 DIAG (12-Oct): on a warm session the steer posted nothing back —
   // no 'posting', no 'timeout'. One unconditional probe so the log shows
   // whether the script ran at all and what the real MyCards DOM exposes (token
@@ -177,9 +196,17 @@ export function buildCardSelectScript(preferredId?: string | null): string {
         if (/ready for travel/i.test(t)) { return 'active'; }
         return 'unknown';
       };
-      // Walk the card links, dedup by id, and tag each with its block status.
+      // TfL-34: each card's block prints "ending in NNNN" — the same last-4 the
+      // claim's journey carries — so we can match the claim to its exact card.
+      var last4Of = function (t) {
+        if (!t) { return ''; }
+        var mL = /ending in\\s*(\\d{3,4})/i.exec(t) || /[•·*]\\s*(\\d{4})/.exec(t);
+        return mL ? mL[1] : '';
+      };
+      // Walk the card links, dedup by id, and tag each with its block status + last-4.
       var ids = [];
       var status = {};
+      var last4 = {};
       var seen = {};
       var anchors = document.querySelectorAll ? document.querySelectorAll('a') : [];
       for (var ai = 0; ai < anchors.length; ai++) {
@@ -191,7 +218,9 @@ export function buildCardSelectScript(preferredId?: string | null): string {
         if (seen[akey]) { continue; }
         seen[akey] = true;
         ids.push(aid);
-        status[akey] = statusOf(blockText(anchors[ai]));
+        var bt = blockText(anchors[ai]);
+        status[akey] = statusOf(bt);
+        last4[akey] = last4Of(bt);
       }
       // Fallback for an unexpected DOM (no anchors): scan the raw HTML, status unknown.
       if (ids.length === 0) {
@@ -199,27 +228,37 @@ export function buildCardSelectScript(preferredId?: string | null): string {
         var mm;
         while ((mm = re.exec(html)) !== null) {
           var cid = mm[1].toLowerCase();
-          if (!seen[cid]) { seen[cid] = true; ids.push(mm[1]); status[cid] = 'unknown'; }
+          if (!seen[cid]) { seen[cid] = true; ids.push(mm[1]); status[cid] = 'unknown'; last4[cid] = ''; }
         }
       }
       var active = [];
       for (var ii = 0; ii < ids.length; ii++) {
         if (status[ids[ii].toLowerCase()] === 'active') { active.push(ids[ii]); }
       }
+      // TfL-34: among the travel-ready cards, which match the claim's last-4?
+      var matchActive = [];
+      if (claimLast4) {
+        for (var mi = 0; mi < active.length; mi++) {
+          if (last4[active[mi].toLowerCase()] === claimLast4) { matchActive.push(active[mi]); }
+        }
+      }
       // Pick, in order: a card we learned from a manual tap (if still listed) wins;
-      // else the single travel-ready card; else the sole card. With several viable
-      // cards and no learned match we must NOT guess — filing against the wrong
-      // card is worse than one tap (TfL's own per-card Apply link works).
+      // else the single travel-ready card whose last-4 matches this claim; else the
+      // single travel-ready card; else the sole card. With several viable cards and
+      // no decisive signal we must NOT guess — filing against the wrong card is
+      // worse than one tap (TfL's own per-card Apply link works).
       var id = '';
       if (/^[0-9a-fA-F]{32}$/.test(preferred) && html.indexOf(preferred) >= 0) {
         id = preferred;
+      } else if (matchActive.length === 1) {
+        id = matchActive[0];
       } else if (active.length === 1) {
         id = active[0];
       } else if (ids.length === 1) {
         id = ids[0];
       } else {
         window.__tflCardSelect = true;
-        post({ type: 'card-select', ok: false, reason: 'ambiguous-cards', count: ids.length, active: active.length });
+        post({ type: 'card-select', ok: false, reason: 'ambiguous-cards', count: ids.length, active: active.length, matched: matchActive.length });
         return true;
       }
       if (!id) { return false; }

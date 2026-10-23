@@ -9,6 +9,7 @@ import {
   isDashboardPage,
   isLoginRedirectUrl,
   isMyCardsPage,
+  lastFourOf,
   tidyNavLogUrl,
 } from './card-select.ts';
 
@@ -75,7 +76,8 @@ function runSelect(opts: {
   href?: string;
   token?: string | null; // null → no hidden input
   html?: string; // documentElement.innerHTML for the DOM-scan fallback
-  cards?: Array<{ id: string; status?: 'active' | 'expired' | 'unknown'; href?: string }>; // TfL-33 DOM mock
+  cards?: Array<{ id: string; status?: 'active' | 'expired' | 'unknown'; last4?: string; href?: string }>; // TfL-33/34 DOM mock
+  claimLast4?: string | null; // TfL-34: the claim journey's card last-4
   fetchResolves?: boolean; // true → onFulfilled, false → onRejected
   fetchOk?: boolean; // HTTP response.ok (default true → 2xx)
   fetchStatus?: number; // HTTP status code passed to .then
@@ -104,7 +106,7 @@ function runSelect(opts: {
             : '';
       const href = c.href ?? (CLAIM_APPLY_PATH + '?cardDisplayId=' + c.id);
       // block = smallest ancestor with exactly one "Reference number" label.
-      const block: any = { textContent: `ending in 0000 ${statusText} Expires: 04/2030 Reference number: 100000000`, parentNode: null };
+      const block: any = { textContent: `ending in ${c.last4 ?? '0000'} ${statusText} Expires: 04/2030 Reference number: 100000000`, parentNode: null };
       const anchor: any = {
         getAttribute: (k: string) => (k === 'href' ? href : null),
         parentNode: block,
@@ -139,7 +141,7 @@ function runSelect(opts: {
     if (opts.autoPoll) { for (let i = 0; i < 12 && !cleared; i++) fn(); }
     return 1;
   };
-  new Function('window', 'document', 'location', 'fetch', 'setInterval', 'clearInterval', buildCardSelectScript(opts.preferred))(
+  new Function('window', 'document', 'location', 'fetch', 'setInterval', 'clearInterval', buildCardSelectScript(opts.preferred, opts.claimLast4))(
     win, doc, location, fetch, setInterval, clearInterval,
   );
   return { posted, fetched, located: location.href === startHref ? null : location.href };
@@ -333,6 +335,66 @@ const CARD_D = 'c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8';
   ok(r.fetched === null, 'all cards expired → does NOT POST');
   const amb = r.posted.filter((p: any) => p.type === 'card-select' && p.reason === 'ambiguous-cards');
   ok(amb.length === 1 && amb[0].active === 0, 'all expired → ambiguous active:0');
+}
+
+// ── TfL-34: pull the card last-4 from a label / block ─────────────────────────────
+ok(lastFourOf('Visa ending in 5006') === '5006', 'lastFourOf reads "ending in 5006"');
+ok(lastFourOf('Mastercard •••• 4886') === '4886', 'lastFourOf reads the bullet-masked form');
+ok(lastFourOf('card with no number') === '', 'lastFourOf → "" when no digits');
+ok(lastFourOf(null) === '' && lastFourOf(undefined) === '', 'lastFourOf tolerates null/undefined');
+
+// ── TfL-34: last-4 tiebreaker across multiple travel-ready cards (Luke 23-Oct) ─────
+
+// (e) two active cards, DIFFERENT last-4s, claim is for 5006 → pick the 5006 card.
+{
+  const r = runSelect({
+    preferred: null, token: TOKEN, claimLast4: '5006',
+    cards: [
+      { id: CARD_A, status: 'active', last4: '1234' },
+      { id: CARD_B, status: 'active', last4: '5006' },
+      { id: CARD_C, status: 'expired', last4: '9999' },
+    ],
+  });
+  ok(!!r.fetched && r.fetched.opts.body.indexOf('cardDisplayId=' + CARD_B) >= 0, 'two actives, claim last-4 matches one → selects that card');
+  ok(r.located === CLAIM_APPLY_PATH + '?cardDisplayId=' + CARD_B, 'last-4 match → navigates straight to Apply (no tap)');
+}
+
+// (f) two active cards SHARING the claim's last-4 (Luke's reissues) → still can't choose.
+{
+  const r = runSelect({
+    preferred: null, token: TOKEN, claimLast4: '5006',
+    cards: [
+      { id: CARD_A, status: 'active', last4: '5006' },
+      { id: CARD_B, status: 'active', last4: '5006' },
+    ],
+  });
+  ok(r.fetched === null, 'two actives same last-4 → does NOT guess');
+  const amb = r.posted.filter((p: any) => p.type === 'card-select' && p.reason === 'ambiguous-cards');
+  ok(amb.length === 1 && amb[0].active === 2 && amb[0].matched === 2, 'shared last-4 → ambiguous active:2 matched:2');
+}
+
+// (g) claim last-4 matches NO active card → fall back to the single-active rule.
+{
+  const r = runSelect({
+    preferred: null, token: TOKEN, claimLast4: '7777',
+    cards: [
+      { id: CARD_A, status: 'active', last4: '5006' },
+      { id: CARD_B, status: 'expired', last4: '1234' },
+    ],
+  });
+  ok(!!r.fetched && r.fetched.opts.body.indexOf('cardDisplayId=' + CARD_A) >= 0, 'no last-4 match but one active → still selects the active card');
+}
+
+// (h) learned card still outranks a last-4 match.
+{
+  const r = runSelect({
+    preferred: CARD_A, token: TOKEN, claimLast4: '5006',
+    cards: [
+      { id: CARD_A, status: 'active', last4: '1234' },
+      { id: CARD_B, status: 'active', last4: '5006' },
+    ],
+  });
+  ok(!!r.fetched && r.fetched.opts.body.indexOf('cardDisplayId=' + CARD_A) >= 0, 'learned card wins over a last-4 match');
 }
 
 console.log(`\ntest-card-select: all ${passed} assertions passed`);

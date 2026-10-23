@@ -14,7 +14,7 @@ import { markClaimed } from '../claims/db';
 import { buildFillScript, buildPrefill, PrefillField } from '../claims/prefill';
 import { buildApplyPlan, buildDirectFillScript } from '../claims/apply-fill';
 import { buildClaimConfirmScanScript } from '../claims/claim-confirm-scan';
-import { buildCardSelectScript, cardIdFromSelectBody, CONTACTLESS_MYCARDS_URL, isDashboardPage, isLoginRedirectUrl, isMyCardsPage, PREFERRED_CARD_KEY, tidyNavLogUrl } from '../claims/card-select';
+import { buildCardSelectScript, cardIdFromSelectBody, CONTACTLESS_MYCARDS_URL, isDashboardPage, isLoginRedirectUrl, isMyCardsPage, lastFourOf, PREFERRED_CARD_KEY, tidyNavLogUrl } from '../claims/card-select';
 import { primaryCardDisplayId } from '../journeys/direct-csv';
 import { CSV_LOG_KEY } from '../journeys/autofetch';
 import type { Assessment } from '../eligibility/engine';
@@ -29,6 +29,10 @@ interface Props {
   assessment: Assessment | undefined;
   onDone: (claimed: boolean) => void;
 }
+
+// TfL-34: the guided claim's visible stages, in order. Index drives the
+// progress stepper at the top of the screen (see stageIdx / bumpStage).
+const STAGES = ['Sign in', 'Identify card', 'Open form', 'Fill form', 'Submit'];
 
 export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   const webRef = useRef<WebView>(null);
@@ -52,9 +56,18 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
     if (learned && /^[0-9a-fA-F]{32}$/.test(learned)) return learned;
     return primaryCardDisplayId(getMeta(CSV_LOG_KEY));
   }, []);
+  // TfL-34: the claim's own card last-4 (from the journey's masked label, e.g.
+  // "Visa ending in 5006"). Used as a tiebreaker when several cards are
+  // travel-ready — the select script matches it to each active card's last-4.
+  const claimLast4 = useMemo(() => lastFourOf(journey.card), [journey]);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [fillNote, setFillNote] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string>(claimUrl);
+  // TfL-34: a forward-only progress stepper so the user can see where the guided
+  // claim flow is (TfL's own pages give no cross-step signal). Driven by the
+  // nav/steer events below; bumpStage never moves it backwards.
+  const [stageIdx, setStageIdx] = useState(0);
+  const bumpStage = (n: number) => setStageIdx(s => (n > s ? n : s));
   // Web-history back: TfL's flow spans several pages (sign-in → cards → Apply)
   // and a wrong tap previously meant closing and reopening the whole screen.
   const [canGoBack, setCanGoBack] = useState(false);
@@ -69,6 +82,8 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   // TfL-26: when the claim WebView reaches TfL's confirmation page we offer —
   // once — to mark the claim submitted. One-shot so a re-render can't re-prompt.
   const confirmPromptedRef = useRef(false);
+  // TfL-34: one-shot guard so the Apply form auto-fills exactly once.
+  const autoFilledRef = useRef(false);
 
   // The Apply form is the only page with the mode/station dropdowns. On every
   // other page (sign-in, card list) fall back to the keyword fill.
@@ -144,18 +159,22 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
         return;
       }
       // TfL-26: the scan found TfL's confirmation page — prompt (once) to mark claimed.
-      if (msg.type === 'claim-confirmation') { promptMarkClaimed(); return; }
+      if (msg.type === 'claim-confirmation') { bumpStage(5); promptMarkClaimed(); return; }
       // TfL-28: result of the MyCards card-selection steer. On success it's
       // already navigating to Apply (nothing to do). On failure, tell the user
       // to tap their card by hand so they still reach the form.
       if (msg.type === 'card-select') {
         const failDetail = `failed:${msg.reason ?? 'unknown'}${msg.status ? ` ${msg.status}` : ''}${msg.count ? ` (${msg.count})` : ''}`;
         recordAudit('card-select', msg.ok ? (msg.stage ?? 'ok') : failDetail);
-        if (!msg.ok) {
-          // TfL-31: with several registered cards we can't safely guess which one
-          // (filing against the wrong card is worse than a tap) — ask explicitly.
+        if (msg.ok) {
+          // Card picked server-side — the script is navigating to the Apply form.
+          bumpStage(2);
+        } else {
+          // TfL-31/TfL-34: with several travel-ready cards and no last-4 split we
+          // can't safely guess (filing against the wrong card is worse than a
+          // tap) — show Luke's exact wording and leave the user to pick.
           setFillNote(msg.reason === 'ambiguous-cards'
-            ? 'Tap the card you travelled on to open the claim form.'
+            ? "Unable to identify the correct card, please select the right card & click 'claim for a service delay'"
             : 'Tap your card above to open the claim form.');
         }
         return;
@@ -199,6 +218,8 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
           ? `Filled all ${msg.total} fields — check them,`
           : `Filled ${msg.filled}/${msg.total} — enter ${leftover.join(', ')} yourself,`;
         setFillNote(`${base} then tick "I'm not a robot" and submit.`);
+        // Form filled — only the reCAPTCHA + submit remain (both the user's).
+        bumpStage(4);
         return;
       }
       if (msg.type === 'prefill') {
@@ -229,6 +250,21 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
         <Pressable style={styles.claimedButton} onPress={doMarkClaimed}>
           <Text style={styles.claimedButtonText}>Mark claimed</Text>
         </Pressable>
+      </View>
+
+      <View style={styles.progressRow}>
+        {STAGES.map((label, i) => {
+          const done = i < stageIdx;
+          const active = i === stageIdx;
+          return (
+            <View key={label} style={styles.progressStep}>
+              <View style={[styles.progressDot, done && styles.progressDotDone, active && styles.progressDotActive]}>
+                <Text style={[styles.progressDotText, (done || active) && styles.progressDotTextOn]}>{done ? '✓' : String(i + 1)}</Text>
+              </View>
+              <Text style={[styles.progressLabel, (done || active) && styles.progressLabelOn]} numberOfLines={1}>{label}</Text>
+            </View>
+          );
+        })}
       </View>
 
       <ScrollView horizontal style={styles.assistBar} contentContainerStyle={styles.assistContent} showsHorizontalScrollIndicator={false}>
@@ -294,6 +330,7 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
           // Advance to MyCards once, where the card-selection steer then runs.
           if (!advancedRef.current && isDashboardPage(url)) {
             advancedRef.current = true;
+            bumpStage(1);
             webRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(CONTACTLESS_MYCARDS_URL)}; true;`);
             return;
           }
@@ -303,11 +340,24 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
           // which otherwise returns TfL's "Sorry, there was a problem" error.
           if (!cardSelectedRef.current && isMyCardsPage(url)) {
             cardSelectedRef.current = true;
+            bumpStage(1);
             // RN-side marker: guaranteed to log even if the injected script
             // never runs, so the log cleanly bisects "inject never requested"
             // from "inject ran but posted nothing" (TfL-28 DIAG, 12-Oct).
             recordAudit('card-select-inject', url);
-            webRef.current?.injectJavaScript(buildCardSelectScript(primaryCardId));
+            // TfL-34: pass the claim's last-4 so the steer can split several
+            // travel-ready cards by matching it to each card's last-4.
+            webRef.current?.injectJavaScript(buildCardSelectScript(primaryCardId, claimLast4));
+            return;
+          }
+          // TfL-34: once the Apply form loads, auto-fill it (once) so the user
+          // only has to tick the reCAPTCHA and submit. The manual "Fill form +
+          // dropdowns" button stays as a fallback. We never auto-submit.
+          if (!autoFilledRef.current && /ServiceDelayRefunds\/Apply/i.test(url)) {
+            autoFilledRef.current = true;
+            bumpStage(3);
+            recordAudit('apply-autofill', url);
+            webRef.current?.injectJavaScript(buildDirectFillScript(applyPlan.fields));
           }
         }}
         // TfL-10: shared system cookie store, so the session from signing in
@@ -337,6 +387,19 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   claimedButtonText: { color: '#04220F', fontSize: 13, fontWeight: '800' },
+  progressRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.s },
+  progressStep: { flex: 1, alignItems: 'center' },
+  progressDot: {
+    width: 22, height: 22, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder,
+  },
+  progressDotActive: { backgroundColor: colors.accentBright, borderColor: colors.accentBright },
+  progressDotDone: { backgroundColor: colors.good, borderColor: colors.good },
+  progressDotText: { color: colors.textDim, fontSize: 11, fontWeight: '800' },
+  progressDotTextOn: { color: '#04220F' },
+  progressLabel: { color: colors.textDim, fontSize: 9, marginTop: 2, textAlign: 'center' },
+  progressLabelOn: { color: colors.text, fontWeight: '700' },
   assistBar: { flexGrow: 0, marginBottom: spacing.s },
   assistContent: { alignItems: 'center', paddingRight: spacing.m },
   fillButton: {
