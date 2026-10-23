@@ -9,6 +9,7 @@ import type { Assessment } from '../eligibility/engine';
 import { formatDay, formatGBP } from '../format';
 import type { StoredJourney } from '../journeys/db';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
+import { claimAgeDays, REJECT_AFTER_DAYS } from '../journeys/status-tags';
 import { colors, lineColors, spacing } from '../theme';
 
 interface Props {
@@ -50,6 +51,11 @@ export default function ClaimDetailScreen({ journey, assessment: a, overcharge, 
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const { deadline, daysLeft } = claimDeadline(journey.date, todayStr);
+  // TfL-35: a claim still unpaid 60 days after filing is treated as rejected
+  // (TfL pays within days; its online refund history doesn't carry old
+  // outcomes). Derived — not stored — so marking it Paid later still wins.
+  const agedOut = claim != null && claim.status === 'claimed'
+    && claimAgeDays(claim.claimedAt, todayStr) >= REJECT_AFTER_DAYS;
   const eligible = a?.status === 'eligible';
 
   return (
@@ -258,8 +264,19 @@ export default function ClaimDetailScreen({ journey, assessment: a, overcharge, 
             </>
           ) : (
             <>
-              <Text style={styles.claimedText}>✓ Marked claimed on {formatDay(claim.claimedAt.slice(0, 10))}</Text>
-              <Text style={styles.dimText}>When TfL responds, record the outcome:</Text>
+              {agedOut ? (
+                <>
+                  <Text style={styles.rejectedText}>
+                    ✗ Treated as rejected — no payment {REJECT_AFTER_DAYS} days after claiming
+                  </Text>
+                  <Text style={styles.dimText}>Filed {formatDay(claim.claimedAt.slice(0, 10))}. If TfL did pay, record it:</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.claimedText}>✓ Marked claimed on {formatDay(claim.claimedAt.slice(0, 10))}</Text>
+                  <Text style={styles.dimText}>When TfL responds, record the outcome:</Text>
+                </>
+              )}
               <View style={styles.outcomeRow}>
                 <Pressable
                   style={[styles.outcomeButton, styles.outcomePaid]}

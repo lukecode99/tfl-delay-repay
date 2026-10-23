@@ -106,6 +106,8 @@ export default function JourneysScreen({
         eligible: assessments.get(j.id)?.status === 'eligible',
         overcharged: oc != null && oc.claimStatus !== 'expired',
         claimStatus: claims.get(j.id)?.status ?? null,
+        claimedAt: claims.get(j.id)?.claimedAt ?? null,
+        today,
         daysLeft: claimDeadline(j.date, today).daysLeft,
       }));
     }

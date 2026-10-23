@@ -61,6 +61,35 @@ test('overcharged omitted behaves as before', () => {
   assert.deepEqual([...t].sort(), ['eligible']);
 });
 
+// TfL-35: 60-day auto-reject (derived, non-destructive).
+test('claimed < 60 days stays awaiting', () => {
+  const t = statusTags({ eligible: true, claimStatus: 'claimed', claimedAt: '2026-09-01T10:00:00.000Z', today: '2026-10-15', daysLeft: -5 });
+  assert.deepEqual([...t].sort(), ['awaiting', 'claimed', 'eligible']);
+});
+
+test('claimed >= 60 days ages out to rejected, drops awaiting', () => {
+  const t = statusTags({ eligible: true, claimStatus: 'claimed', claimedAt: '2026-08-01T10:00:00.000Z', today: '2026-10-15', daysLeft: -40 });
+  assert.deepEqual([...t].sort(), ['claimed', 'eligible', 'rejected']);
+  assert.equal(t.has('awaiting'), false);
+});
+
+test('60 days exactly ages out (boundary)', () => {
+  const t = statusTags({ eligible: false, claimStatus: 'claimed', claimedAt: '2026-08-15', today: '2026-10-14', daysLeft: -1 });
+  assert.equal(t.has('rejected'), true);
+  assert.equal(t.has('awaiting'), false);
+});
+
+test('a paid claim is never aged out, even past 60 days', () => {
+  const t = statusTags({ eligible: true, claimStatus: 'paid', claimedAt: '2026-01-01T10:00:00.000Z', today: '2026-10-15', daysLeft: -200 });
+  assert.deepEqual([...t].sort(), ['claimed', 'eligible', 'received']);
+  assert.equal(t.has('rejected'), false);
+});
+
+test('without today, old claim still shows awaiting (back-compat)', () => {
+  const t = statusTags({ eligible: true, claimStatus: 'claimed', claimedAt: '2026-01-01T10:00:00.000Z', daysLeft: -200 });
+  assert.deepEqual([...t].sort(), ['awaiting', 'claimed', 'eligible']);
+});
+
 test('matchesFilter: all matches everything, tags match membership', () => {
   const t = statusTags({ eligible: true, claimStatus: 'rejected', daysLeft: -40 });
   assert.equal(matchesFilter(t, 'all'), true);

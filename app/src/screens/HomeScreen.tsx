@@ -74,6 +74,8 @@ export default function HomeScreen({
         eligible: isEligible,
         overcharged: oc != null && oc.claimStatus !== 'expired',
         claimStatus: claims.get(j.id)?.status ?? null,
+        claimedAt: claims.get(j.id)?.claimedAt ?? null,
+        today,
         daysLeft,
       });
       // Count from tags so the headline matches the Eligible chip exactly —
