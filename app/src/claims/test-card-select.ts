@@ -75,6 +75,7 @@ function runSelect(opts: {
   href?: string;
   token?: string | null; // null → no hidden input
   html?: string; // documentElement.innerHTML for the DOM-scan fallback
+  cards?: Array<{ id: string; status?: 'active' | 'expired' | 'unknown'; href?: string }>; // TfL-33 DOM mock
   fetchResolves?: boolean; // true → onFulfilled, false → onRejected
   fetchOk?: boolean; // HTTP response.ok (default true → 2xx)
   fetchStatus?: number; // HTTP status code passed to .then
@@ -89,9 +90,34 @@ function runSelect(opts: {
     location,
   };
   const tokenInput = opts.token === null ? null : { value: opts.token ?? TOKEN, getAttribute: () => opts.token ?? TOKEN };
+  // TfL-33: when opts.cards is given, build a realistic MyCards DOM — each card is
+  // an <a> whose own block carries a status label ("Ready for travel" / "Card has
+  // expired" / "Unable to travel") and exactly one "Reference number". querySelectorAll
+  // returns those anchors so the classifier can tag each card by its block status.
+  let cardAnchors: any[] | null = null;
+  let cardsHtml = '';
+  if (opts.cards) {
+    cardAnchors = opts.cards.map((c) => {
+      const statusText =
+        c.status === 'active' ? '✓ Ready for travel'
+          : c.status === 'expired' ? '⚠️ Card has expired — Unable to travel'
+            : '';
+      const href = c.href ?? (CLAIM_APPLY_PATH + '?cardDisplayId=' + c.id);
+      // block = smallest ancestor with exactly one "Reference number" label.
+      const block: any = { textContent: `ending in 0000 ${statusText} Expires: 04/2030 Reference number: 100000000`, parentNode: null };
+      const anchor: any = {
+        getAttribute: (k: string) => (k === 'href' ? href : null),
+        parentNode: block,
+      };
+      block.parentNode = { textContent: '', parentNode: null }; // outer wrapper, harmless
+      cardsHtml += `<a href="${href}">card</a>`;
+      return anchor;
+    });
+  }
   const doc: any = {
     querySelector: (sel: string) => (sel.indexOf('__RequestVerificationToken') >= 0 ? tokenInput : null),
-    documentElement: { innerHTML: opts.html ?? '' },
+    querySelectorAll: cardAnchors ? (sel: string) => (sel === 'a' ? cardAnchors : []) : undefined,
+    documentElement: { innerHTML: opts.cards ? (opts.html ?? '') + cardsHtml : (opts.html ?? '') },
   };
   const resolves = opts.fetchResolves !== false;
   const res = { ok: opts.fetchOk !== false, status: opts.fetchStatus ?? 200 };
@@ -242,6 +268,71 @@ function runSelect(opts: {
   new Function('window', 'document', 'location', 'fetch', 'setInterval', 'clearInterval', script)(win, doc, location, fetch, si, ci);
   new Function('window', 'document', 'location', 'fetch', 'setInterval', 'clearInterval', script)(win, doc, location, fetch, si, ci);
   ok(posted.filter((p: any) => p.type === 'card-select' && p.stage === 'posting').length === 1, 'window.__tflCardSelect latch prevents a double selection');
+}
+
+// ── TfL-33: status-based auto-select across many cards (Luke 23-Oct) ──────────────
+const CARD_B = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6';
+const CARD_C = 'b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7';
+const CARD_D = 'c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8';
+
+// (a) 6-card reality: 5 expired + 1 "Ready for travel" → auto-select the active one, zero taps.
+{
+  const r = runSelect({
+    preferred: null, token: TOKEN,
+    cards: [
+      { id: CARD_A, status: 'expired' },
+      { id: CARD_B, status: 'expired' },
+      { id: CARD_C, status: 'expired' },
+      { id: CARD_D, status: 'active' },
+    ],
+  });
+  ok(!!r.fetched && r.fetched.opts.body.indexOf('cardDisplayId=' + CARD_D) >= 0, 'many cards, one active → POSTs the travel-ready card');
+  ok(r.located === CLAIM_APPLY_PATH + '?cardDisplayId=' + CARD_D, 'one active card → navigates straight to Apply (no tap)');
+  const amb = r.posted.filter((p: any) => p.type === 'card-select' && p.reason === 'ambiguous-cards');
+  ok(amb.length === 0, 'one active card → never reports ambiguous');
+}
+
+// (b) two "Ready for travel" cards, none learned → still refuse to guess.
+{
+  const r = runSelect({
+    preferred: null, token: TOKEN,
+    cards: [
+      { id: CARD_A, status: 'active' },
+      { id: CARD_B, status: 'active' },
+      { id: CARD_C, status: 'expired' },
+    ],
+  });
+  ok(r.fetched === null, 'two active cards, none learned → does NOT guess a card');
+  ok(r.located === null, 'two active cards → stays on MyCards for a tap');
+  const amb = r.posted.filter((p: any) => p.type === 'card-select' && p.reason === 'ambiguous-cards');
+  ok(amb.length === 1 && amb[0].count === 3 && amb[0].active === 2, 'two active → ambiguous count:3 active:2');
+}
+
+// (c) a learned card among several actives wins outright.
+{
+  const r = runSelect({
+    preferred: CARD_B, token: TOKEN,
+    cards: [
+      { id: CARD_A, status: 'active' },
+      { id: CARD_B, status: 'active' },
+    ],
+  });
+  ok(!!r.fetched && r.fetched.opts.body.indexOf('cardDisplayId=' + CARD_B) >= 0, 'learned card among actives → selects the learned one');
+  ok(r.located === CLAIM_APPLY_PATH + '?cardDisplayId=' + CARD_B, 'learned-among-actives → Apply with its id');
+}
+
+// (d) every card expired → ambiguous with active:0, no POST (nothing travel-ready).
+{
+  const r = runSelect({
+    preferred: null, token: TOKEN,
+    cards: [
+      { id: CARD_A, status: 'expired' },
+      { id: CARD_B, status: 'expired' },
+    ],
+  });
+  ok(r.fetched === null, 'all cards expired → does NOT POST');
+  const amb = r.posted.filter((p: any) => p.type === 'card-select' && p.reason === 'ambiguous-cards');
+  ok(amb.length === 1 && amb[0].active === 0, 'all expired → ambiguous active:0');
 }
 
 console.log(`\ntest-card-select: all ${passed} assertions passed`);

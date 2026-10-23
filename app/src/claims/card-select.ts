@@ -153,28 +153,73 @@ export function buildCardSelectScript(preferredId?: string | null): string {
       var tok = tokEl ? (tokEl.value || tokEl.getAttribute('value') || '') : '';
       if (!tok) { return false; }
       var html = document.documentElement ? (document.documentElement.innerHTML || '') : '';
-      // Collect the DISTINCT 32-hex CardDisplayIds the MyCards page presents.
+      // TfL-33 (Luke 23-Oct): the account can hold many cards (he has 6), but the
+      // MyCards page tags each one "Ready for travel" vs "Card has expired" /
+      // "Unable to travel". Classify every card by its own block's status so we
+      // can skip the dead cards and auto-pick the single travel-ready one — no tap.
+      var blockText = function (el) {
+        // Climb to the smallest ancestor that holds exactly one "Reference number"
+        // label: that is this card's own block, isolated from its siblings.
+        var node = el;
+        for (var up = 0; up < 12 && node && node.parentNode; up++) {
+          node = node.parentNode;
+          var t = node.textContent || '';
+          if (/Reference number/i.test(t)) {
+            var c = t.match(/Reference number/ig);
+            return (c && c.length === 1) ? t : '';
+          }
+        }
+        return '';
+      };
+      var statusOf = function (t) {
+        if (!t) { return 'unknown'; }
+        if (/unable to travel|card has expired/i.test(t)) { return 'expired'; }
+        if (/ready for travel/i.test(t)) { return 'active'; }
+        return 'unknown';
+      };
+      // Walk the card links, dedup by id, and tag each with its block status.
       var ids = [];
+      var status = {};
       var seen = {};
-      var re = /(?:CardDisplayId=|\\/Card\\/)([0-9a-fA-F]{32})/ig;
-      var mm;
-      while ((mm = re.exec(html)) !== null) {
-        var cid = mm[1].toLowerCase();
-        if (!seen[cid]) { seen[cid] = true; ids.push(mm[1]); }
+      var anchors = document.querySelectorAll ? document.querySelectorAll('a') : [];
+      for (var ai = 0; ai < anchors.length; ai++) {
+        var hr = anchors[ai].getAttribute('href') || '';
+        var hm = /(?:cardDisplayId=|\\/Card\\/)([0-9a-fA-F]{32})/i.exec(hr);
+        if (!hm) { continue; }
+        var aid = hm[1];
+        var akey = aid.toLowerCase();
+        if (seen[akey]) { continue; }
+        seen[akey] = true;
+        ids.push(aid);
+        status[akey] = statusOf(blockText(anchors[ai]));
       }
-      // Pick the card: our stored (statement-mined) id ONLY if the page lists it;
-      // else the sole card when there's exactly one. With several cards and no
-      // match we must NOT guess — filing against the wrong card is worse than one
-      // manual tap (TfL's own per-card Apply link works). TfL-31, Luke 22-Oct:
-      // stored 6b58… wasn't on the list and the page had multiple cards.
+      // Fallback for an unexpected DOM (no anchors): scan the raw HTML, status unknown.
+      if (ids.length === 0) {
+        var re = /(?:cardDisplayId=|\\/Card\\/)([0-9a-fA-F]{32})/ig;
+        var mm;
+        while ((mm = re.exec(html)) !== null) {
+          var cid = mm[1].toLowerCase();
+          if (!seen[cid]) { seen[cid] = true; ids.push(mm[1]); status[cid] = 'unknown'; }
+        }
+      }
+      var active = [];
+      for (var ii = 0; ii < ids.length; ii++) {
+        if (status[ids[ii].toLowerCase()] === 'active') { active.push(ids[ii]); }
+      }
+      // Pick, in order: a card we learned from a manual tap (if still listed) wins;
+      // else the single travel-ready card; else the sole card. With several viable
+      // cards and no learned match we must NOT guess — filing against the wrong
+      // card is worse than one tap (TfL's own per-card Apply link works).
       var id = '';
       if (/^[0-9a-fA-F]{32}$/.test(preferred) && html.indexOf(preferred) >= 0) {
         id = preferred;
+      } else if (active.length === 1) {
+        id = active[0];
       } else if (ids.length === 1) {
         id = ids[0];
-      } else if (ids.length > 1) {
+      } else {
         window.__tflCardSelect = true;
-        post({ type: 'card-select', ok: false, reason: 'ambiguous-cards', count: ids.length });
+        post({ type: 'card-select', ok: false, reason: 'ambiguous-cards', count: ids.length, active: active.length });
         return true;
       }
       if (!id) { return false; }
