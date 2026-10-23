@@ -32,8 +32,6 @@ export function attentionList(
       eligible: isEligible,
       overcharged: oc != null && oc.claimStatus !== 'expired',
       claimStatus: claims.get(j.id)?.status ?? null,
-      claimedAt: claims.get(j.id)?.claimedAt ?? null,
-      today,
       daysLeft,
     });
     // 'missed' means past the delay-repay window — exclude from actionable list.

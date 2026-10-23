@@ -61,33 +61,40 @@ test('overcharged omitted behaves as before', () => {
   assert.deepEqual([...t].sort(), ['eligible']);
 });
 
-// TfL-35: 60-day auto-reject (derived, non-destructive).
-test('claimed < 60 days stays awaiting', () => {
-  const t = statusTags({ eligible: true, claimStatus: 'claimed', claimedAt: '2026-09-01T10:00:00.000Z', today: '2026-10-15', daysLeft: -5 });
+// TfL-35: 60-day auto-reject — gated on a real data refresh, not the calendar.
+test('refresh < 60 days after claim stays awaiting', () => {
+  const t = statusTags({ eligible: true, claimStatus: 'claimed', claimedAt: '2026-08-01T10:00:00.000Z', lastRefreshAt: '2026-09-01T09:00:00.000Z', daysLeft: -5 });
   assert.deepEqual([...t].sort(), ['awaiting', 'claimed', 'eligible']);
 });
 
-test('claimed >= 60 days ages out to rejected, drops awaiting', () => {
-  const t = statusTags({ eligible: true, claimStatus: 'claimed', claimedAt: '2026-08-01T10:00:00.000Z', today: '2026-10-15', daysLeft: -40 });
+test('refresh >= 60 days after claim ages out to rejected, drops awaiting', () => {
+  const t = statusTags({ eligible: true, claimStatus: 'claimed', claimedAt: '2026-08-01T10:00:00.000Z', lastRefreshAt: '2026-10-15T09:00:00.000Z', daysLeft: -40 });
   assert.deepEqual([...t].sort(), ['claimed', 'eligible', 'rejected']);
   assert.equal(t.has('awaiting'), false);
 });
 
-test('60 days exactly ages out (boundary)', () => {
-  const t = statusTags({ eligible: false, claimStatus: 'claimed', claimedAt: '2026-08-15', today: '2026-10-14', daysLeft: -1 });
+test('refresh exactly 60 days after claim ages out (boundary)', () => {
+  const t = statusTags({ eligible: false, claimStatus: 'claimed', claimedAt: '2026-08-15', lastRefreshAt: '2026-10-14', daysLeft: -1 });
   assert.equal(t.has('rejected'), true);
   assert.equal(t.has('awaiting'), false);
 });
 
-test('a paid claim is never aged out, even past 60 days', () => {
-  const t = statusTags({ eligible: true, claimStatus: 'paid', claimedAt: '2026-01-01T10:00:00.000Z', today: '2026-10-15', daysLeft: -200 });
-  assert.deepEqual([...t].sort(), ['claimed', 'eligible', 'received']);
-  assert.equal(t.has('rejected'), false);
+test('old claim but no refresh past the window stays awaiting (Luke gate)', () => {
+  // Filed long ago, but the only refresh was 31 days in — we never looked
+  // past the window, so we must NOT call it rejected.
+  const t = statusTags({ eligible: true, claimStatus: 'claimed', claimedAt: '2026-01-01T10:00:00.000Z', lastRefreshAt: '2026-02-01T09:00:00.000Z', daysLeft: -200 });
+  assert.deepEqual([...t].sort(), ['awaiting', 'claimed', 'eligible']);
 });
 
-test('without today, old claim still shows awaiting (back-compat)', () => {
+test('no lastRefreshAt never ages out (calendar alone is not enough)', () => {
   const t = statusTags({ eligible: true, claimStatus: 'claimed', claimedAt: '2026-01-01T10:00:00.000Z', daysLeft: -200 });
   assert.deepEqual([...t].sort(), ['awaiting', 'claimed', 'eligible']);
+});
+
+test('a paid claim is never aged out, even with a late refresh', () => {
+  const t = statusTags({ eligible: true, claimStatus: 'paid', claimedAt: '2026-01-01T10:00:00.000Z', lastRefreshAt: '2026-10-15T09:00:00.000Z', daysLeft: -200 });
+  assert.deepEqual([...t].sort(), ['claimed', 'eligible', 'received']);
+  assert.equal(t.has('rejected'), false);
 });
 
 test('matchesFilter: all matches everything, tags match membership', () => {

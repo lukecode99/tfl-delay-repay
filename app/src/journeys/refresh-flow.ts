@@ -63,6 +63,12 @@ export type FetchMode = 'contactless' | 'oyster' | 'both';
 /** Meta-table key the persisted mode choice is stored under. */
 export const FETCH_MODE_KEY = 'fetchMode';
 
+/** Meta-table key: ISO timestamp of the last successful statement import.
+ *  Used by the 60-day auto-reject (TfL-35) so a claim is only aged out to
+ *  rejected once we've actually refreshed data past its window and still found
+ *  no payment — never on the calendar alone. */
+export const LAST_REFRESH_KEY = 'lastRefreshAt';
+
 /** History pages a mode visits, in visit order. */
 export function historyUrlsFor(mode: FetchMode): string[] {
   if (mode === 'oyster') return [OYSTER_HISTORY_URL];

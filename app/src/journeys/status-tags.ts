@@ -25,17 +25,35 @@ export const FILTER_LABELS: Record<JourneyFilter, string> = {
 // TfL-35: TfL pays delay-repay within days and never notifies a rejection on
 // the statement — and the online Refund-history page only carries recent
 // claims, so old outcomes can't be scraped. Luke's rule: a claim still
-// unpaid 60 days after submission is treated as rejected. Derived, not
-// persisted — if a (late) payment ever arrives, 'paid' still wins because the
-// stored status flips to 'paid' and this age-out no longer applies.
+// unpaid 60 days after submission is treated as rejected.
+//
+// Gated on a real data refresh, not the calendar (Luke, 23-Oct): we only age a
+// claim out once we've actually imported statement data landing on/after the
+// 60-day mark and STILL found no payment — otherwise a claim could show
+// rejected when a payment arrived at TfL that the app simply hasn't pulled
+// yet. Derived, not persisted — if a (late) payment ever imports, the stored
+// status flips to 'paid' and this age-out no longer applies, so paid wins.
 export const REJECT_AFTER_DAYS = 60;
 
-/** Whole days between an ISO claim timestamp and a YYYY-MM-DD "today". */
-export function claimAgeDays(claimedAt: string, today: string): number {
+/** Whole days between an ISO claim timestamp and a later ISO/YYYY-MM-DD date. */
+export function claimAgeDays(claimedAt: string, at: string): number {
   const a = new Date(claimedAt.slice(0, 10)).getTime();
-  const b = new Date(today).getTime();
+  const b = new Date(at.slice(0, 10)).getTime();
   if (Number.isNaN(a) || Number.isNaN(b)) return 0;
   return Math.floor((b - a) / 86400000);
+}
+
+/** A claimed-but-unpaid record is treated as rejected once the LAST data
+ *  refresh landed at least REJECT_AFTER_DAYS after the claim (so we looked
+ *  through the whole window and saw no payment). Returns false if we've never
+ *  refreshed past that point — the calendar alone never ages a claim out. */
+export function isAgedOutRejection(
+  claimStatus: ClaimStatus | null,
+  claimedAt: string | null | undefined,
+  lastRefreshAt: string | null | undefined,
+): boolean {
+  if (claimStatus !== 'claimed' || claimedAt == null || lastRefreshAt == null) return false;
+  return claimAgeDays(claimedAt, lastRefreshAt) >= REJECT_AFTER_DAYS;
 }
 
 export interface TagInput {
@@ -45,18 +63,17 @@ export interface TagInput {
    *  eligible even while the 48h auto-refund wait runs). */
   overcharged?: boolean;
   claimStatus: ClaimStatus | null; // null = never claimed
-  claimedAt?: string | null; // ISO; with `today`, ages an unpaid claim to rejected
-  today?: string | null; // YYYY-MM-DD; enables the 60-day auto-reject
+  claimedAt?: string | null; // ISO; with lastRefreshAt, ages an unpaid claim to rejected
+  lastRefreshAt?: string | null; // ISO of last successful import; gates the 60-day auto-reject
   daysLeft: number | null; // claim-window days left; negative = window closed
 }
 
-export function statusTags({ eligible, overcharged, claimStatus, claimedAt, today, daysLeft }: TagInput): Set<StatusTag> {
+export function statusTags({ eligible, overcharged, claimStatus, claimedAt, lastRefreshAt, daysLeft }: TagInput): Set<StatusTag> {
   const tags = new Set<StatusTag>();
-  // A claim marked 'claimed' that TfL hasn't paid within the window is aged
-  // out to rejected (TfL-35). Needs both claimedAt and today, so callers that
-  // omit them keep the old behaviour.
-  const agedOut = claimStatus === 'claimed' && claimedAt != null && today != null
-    && claimAgeDays(claimedAt, today) >= REJECT_AFTER_DAYS;
+  // A claim marked 'claimed' that's still unpaid 60 days after filing is aged
+  // out to rejected (TfL-35) — but only once a refresh has actually pulled
+  // data past the window. Callers that omit lastRefreshAt keep old behaviour.
+  const agedOut = isAgedOutRejection(claimStatus, claimedAt, lastRefreshAt);
   if (eligible || overcharged) tags.add('eligible');
   if (overcharged) tags.add('overcharged');
   if (claimStatus != null) tags.add('claimed');

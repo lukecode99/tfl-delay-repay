@@ -9,7 +9,9 @@ import type { Assessment } from '../eligibility/engine';
 import { formatDay, formatGBP } from '../format';
 import type { StoredJourney } from '../journeys/db';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
-import { claimAgeDays, REJECT_AFTER_DAYS } from '../journeys/status-tags';
+import { getMeta } from '../journeys/db';
+import { LAST_REFRESH_KEY } from '../journeys/refresh-flow';
+import { isAgedOutRejection, REJECT_AFTER_DAYS } from '../journeys/status-tags';
 import { colors, lineColors, spacing } from '../theme';
 
 interface Props {
@@ -53,9 +55,9 @@ export default function ClaimDetailScreen({ journey, assessment: a, overcharge, 
   const { deadline, daysLeft } = claimDeadline(journey.date, todayStr);
   // TfL-35: a claim still unpaid 60 days after filing is treated as rejected
   // (TfL pays within days; its online refund history doesn't carry old
-  // outcomes). Derived — not stored — so marking it Paid later still wins.
-  const agedOut = claim != null && claim.status === 'claimed'
-    && claimAgeDays(claim.claimedAt, todayStr) >= REJECT_AFTER_DAYS;
+  // outcomes). Gated on a real refresh landing past the window, not the
+  // calendar — and derived, not stored, so marking it Paid later still wins.
+  const agedOut = isAgedOutRejection(claim?.status ?? null, claim?.claimedAt, getMeta(LAST_REFRESH_KEY));
   const eligible = a?.status === 'eligible';
 
   return (

@@ -64,6 +64,7 @@ import type { RawStatement } from './raw-export';
 import {
   canHandover,
   FETCH_MODE_KEY,
+  LAST_REFRESH_KEY,
   FetchMode,
   FlowEvent,
   FlowState,
@@ -753,6 +754,10 @@ export default function RefreshSheet({ onClose }: Props) {
               recordAudit('deep-pull-partial', `${coveredPeriods.length}/${requested.length} this pass, ${shortfall} missing`);
             }
             recordAudit('imported', `${inserted} new journeys`);
+            // TfL-35: stamp the refresh even when 0 new rows — "we pulled
+            // current statements and saw no payment" is what ages an unpaid
+            // claim out to rejected past its 60-day window.
+            setMeta(LAST_REFRESH_KEY, new Date().toISOString());
             // Persist the raw statements for the Export CSV button (fire and
             // forget — the import result must not wait on a share file).
             saveRawStatements(rawFiles)
@@ -828,6 +833,7 @@ export default function RefreshSheet({ onClose }: Props) {
           const outcome = importCsvText(csv, `${pickCardId(listCards())}.csv`);
           outcomeRef.current = mergeOutcome(outcomeRef.current, outcome);
           recordAudit('imported', `${outcome.inserted} new journeys`);
+          setMeta(LAST_REFRESH_KEY, new Date().toISOString()); // TfL-35: refresh stamp gates auto-reject
           dispatch({ type: 'imported', inserted: outcome.inserted });
         } catch (e) {
           recordAudit('import-failed', String(e));

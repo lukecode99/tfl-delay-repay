@@ -9,7 +9,8 @@ import { claimTotals } from '../claims/stats';
 import { claimDeadline } from '../eligibility/deadline';
 import type { AssessmentMap } from '../eligibility/use-assessments';
 import { formatGBP } from '../format';
-import type { StoredJourney } from '../journeys/db';
+import { getMeta, type StoredJourney } from '../journeys/db';
+import { LAST_REFRESH_KEY } from '../journeys/refresh-flow';
 import type { ImportOutcome } from '../journeys/import';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
 import { attentionList } from '../journeys/home-stats';
@@ -64,6 +65,7 @@ export default function HomeScreen({
     }).filter(Boolean) as { lineId: string; lineName: string; lineColor: string; active: ReturnType<typeof worstActiveSpan>; liveData: boolean }[];
   }, [snapshot, yourLineIds]);
 
+  const lastRefreshAt = getMeta(LAST_REFRESH_KEY);
   const { eligibleCount, missedCount, attention } = React.useMemo(() => {
     let eligible = 0, missed = 0;
     for (const j of journeys) {
@@ -75,7 +77,7 @@ export default function HomeScreen({
         overcharged: oc != null && oc.claimStatus !== 'expired',
         claimStatus: claims.get(j.id)?.status ?? null,
         claimedAt: claims.get(j.id)?.claimedAt ?? null,
-        today,
+        lastRefreshAt,
         daysLeft,
       });
       // Count from tags so the headline matches the Eligible chip exactly —
@@ -84,7 +86,7 @@ export default function HomeScreen({
       if (tags.has('missed')) missed++;
     }
     return { eligibleCount: eligible, missedCount: missed, attention: attentionList(journeys, assessments, overchargeById, claims, today) };
-  }, [journeys, assessments, overchargeById, claims, today]);
+  }, [journeys, assessments, overchargeById, claims, today, lastRefreshAt]);
 
   const stat = (label: string, value: string, filter: JourneyFilter, valueStyle?: object) => (
     <Pressable style={styles.stat} onPress={() => onOpenJourneys(filter)}>

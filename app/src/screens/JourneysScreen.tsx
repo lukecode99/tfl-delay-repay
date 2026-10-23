@@ -9,9 +9,10 @@ import { claimDeadline } from '../eligibility/deadline';
 import type { Assessment } from '../eligibility/engine';
 import type { AssessmentMap } from '../eligibility/use-assessments';
 import { formatGBP, groupByDay } from '../format';
-import type { StoredJourney } from '../journeys/db';
+import { getMeta, type StoredJourney } from '../journeys/db';
 import type { ImportOutcome } from '../journeys/import';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
+import { LAST_REFRESH_KEY } from '../journeys/refresh-flow';
 import { shareRawStatements } from '../journeys/raw-export-io';
 import {
   FILTER_LABELS, FILTER_ORDER, matchesFilter, statusTags,
@@ -98,6 +99,7 @@ export default function JourneysScreen({
   // Tag every journey once per data change; chips and counts both read this.
   // Overcharge detail lives on the journey's own detail screen (TfL-OVERCHARGE-UX)
   // — discovery here is via the Overcharged/Eligible chips and the row badge.
+  const lastRefreshAt = getMeta(LAST_REFRESH_KEY);
   const tagsById = React.useMemo(() => {
     const m = new Map<number, Set<StatusTag>>();
     for (const j of journeys) {
@@ -107,12 +109,12 @@ export default function JourneysScreen({
         overcharged: oc != null && oc.claimStatus !== 'expired',
         claimStatus: claims.get(j.id)?.status ?? null,
         claimedAt: claims.get(j.id)?.claimedAt ?? null,
-        today,
+        lastRefreshAt,
         daysLeft: claimDeadline(j.date, today).daysLeft,
       }));
     }
     return m;
-  }, [journeys, assessments, overchargeById, claims, today]);
+  }, [journeys, assessments, overchargeById, claims, today, lastRefreshAt]);
 
   const cutoff = React.useMemo(cutoff13Mo, []);
   const visibleJourneys = showAll ? journeys : journeys.filter(j => j.date >= cutoff);
