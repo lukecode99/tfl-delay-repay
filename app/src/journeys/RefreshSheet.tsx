@@ -73,6 +73,8 @@ import {
   makeInitialFlow,
   progressOf,
   reduceFlow,
+  REFRESH_STAGES,
+  refreshStageOf,
   startUrlFor,
   statusText,
   CONTACTLESS_LOGIN_URL,
@@ -260,6 +262,32 @@ function ProgressBar({ state }: { state: FlowState }) {
   );
 }
 
+/**
+ * TfL-36: the refresh's high-level arc as the same numbered stepper the guided
+ * claim uses (ClaimWebScreen). `stageIdx` is tracked forward-only by the sheet,
+ * so a mid-flow bounce back to sign-in holds the furthest step reached rather
+ * than lurching backwards — the ProgressBar/status line below still narrate the
+ * live detail.
+ */
+function StepRow({ stageIdx }: { stageIdx: number }) {
+  return (
+    <View style={styles.stepRow}>
+      {REFRESH_STAGES.map((label, i) => {
+        const done = i < stageIdx;
+        const active = i === stageIdx;
+        return (
+          <View key={label} style={styles.step}>
+            <View style={[styles.stepDot, done && styles.stepDotDone, active && styles.stepDotActive]}>
+              <Text style={[styles.stepDotText, (done || active) && styles.stepDotTextOn]}>{done ? '✓' : String(i + 1)}</Text>
+            </View>
+            <Text style={[styles.stepLabel, (done || active) && styles.stepLabelOn]} numberOfLines={1}>{label}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function RefreshSheet({ onClose }: Props) {
   const webRef = useRef<WebView>(null);
   const urlRef = useRef(''); // last URL the WebView reported — picks the injected script
@@ -309,6 +337,14 @@ export default function RefreshSheet({ onClose }: Props) {
     stateRef.current = initial;
     return initial;
   });
+  // TfL-36: the furthest step reached, advanced forward-only (same contract as
+  // the claims stepper's bumpStage). refreshStageOf returns -1 for phases that
+  // shouldn't move the bar, so we only ever bump up.
+  const [stageIdx, setStageIdx] = useState(0);
+  useEffect(() => {
+    const n = refreshStageOf(state);
+    if (n >= 0) setStageIdx(s => (n > s ? n : s));
+  }, [state]);
 
   // Audit trail (TfL-18): a persistent record of what the refresh actually
   // did, shown in the app's Log tab. Capture only — a logging failure must
@@ -522,6 +558,7 @@ export default function RefreshSheet({ onClose }: Props) {
     setPendingPeriods(0);
     stateRef.current = makeInitialFlow(m);
     setState(stateRef.current);
+    setStageIdx(0); // TfL-36: new flow restarts the stepper at Sign in
     // TfL-25: the WebView remounts on mode change (key={mode}), so its
     // back/forward list goes with it. Leaving canGoBack true would offer a
     // ‹ Back button that does nothing.
@@ -966,6 +1003,7 @@ export default function RefreshSheet({ onClose }: Props) {
           </View>
         ) : (
           <>
+            <StepRow stageIdx={stageIdx} />
             <View style={[styles.statusBar, state.phase === 'error' && styles.statusBarError]}>
               <Text style={styles.statusText}>
                 {pausedCopy != null
@@ -1082,6 +1120,25 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.s,
   },
   statusBarError: { borderColor: colors.bad },
+  // TfL-36: numbered flow stepper, mirroring ClaimWebScreen's progress row.
+  stepRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: spacing.l,
+    marginBottom: spacing.s,
+  },
+  step: { flex: 1, alignItems: 'center' },
+  stepDot: {
+    width: 22, height: 22, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder,
+  },
+  stepDotActive: { backgroundColor: colors.accentBright, borderColor: colors.accentBright },
+  stepDotDone: { backgroundColor: colors.good, borderColor: colors.good },
+  stepDotText: { color: colors.textDim, fontSize: 11, fontWeight: '800' },
+  stepDotTextOn: { color: '#04220F' },
+  stepLabel: { color: colors.textDim, fontSize: 9, marginTop: 2, textAlign: 'center' },
+  stepLabelOn: { color: colors.text, fontWeight: '700' },
   statusText: { color: colors.text, fontSize: 13, flex: 1 },
   continueButton: {
     borderColor: colors.cardBorder,

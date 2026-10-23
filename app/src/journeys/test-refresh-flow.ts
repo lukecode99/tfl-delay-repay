@@ -25,6 +25,8 @@ import {
   OYSTER_HISTORY_URL,
   progressOf,
   reduceFlow,
+  REFRESH_STAGES,
+  refreshStageOf,
   startUrlFor,
   statusText,
 } from './refresh-flow.ts';
@@ -860,6 +862,48 @@ const CONSENT_URL = 'https://contactless.tfl.gov.uk/CookieSettings';
   const postTransition = reduceFlow(preTransition, { type: 'harvest', status: 'wrong-page' });
   ok(isPaused(postTransition) && postTransition.phase === 'signed-out',
     'bounce post-transition: harvest event alone crosses into paused — dispatch injection required');
+}
+
+// --- TfL-36: discrete flow stepper, mirroring the claims-side stepper ---
+{
+  // Four user-facing steps spanning the refresh arc.
+  ok(REFRESH_STAGES.length === 4 && REFRESH_STAGES[0] === 'Sign in' && REFRESH_STAGES[3] === 'Imported',
+    'stepper: four stages from Sign in to Imported');
+
+  // Phase → step mapping.
+  ok(refreshStageOf(INITIAL_FLOW) === 0, 'stepper: loading sits on step 0 (Sign in)');
+  const signedOut = reduceFlow(INITIAL_FLOW, { type: 'nav', url: LOGIN_URL });
+  ok(refreshStageOf(signedOut) === 0, 'stepper: signed-out is step 0 (Sign in)');
+  const challenge = run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'challenge' }]);
+  ok(refreshStageOf(challenge) === 0, 'stepper: challenge is still step 0 (Sign in)');
+  const consent = run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'consent' }]);
+  ok(refreshStageOf(consent) === 0, 'stepper: consent is still step 0 (Sign in)');
+  const dash = reduceFlow(INITIAL_FLOW, { type: 'nav', url: DASHBOARD_URL });
+  ok(refreshStageOf(dash) === 1, 'stepper: account-dashboard is step 1 (Find cards)');
+  const harvesting = reduceFlow(INITIAL_FLOW, { type: 'loaded', url: JOURNEY_HISTORY_URL });
+  ok(refreshStageOf(harvesting) === 2, 'stepper: harvesting is step 2 (Read history)');
+  const importing = run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'csv' }]);
+  ok(refreshStageOf(importing) === 2, 'stepper: importing is still step 2 (Read history)');
+  const done = run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'empty' }, ...CLOSE_DIRECT]);
+  ok(refreshStageOf(done) === REFRESH_STAGES.length,
+    'stepper: done pushes past the last stage so every step reads complete');
+
+  // Phases that must NOT move the stepper (steering is transient; cancelled/
+  // error aren't progress). The sheet advances forward-only off these -1s.
+  const steering = run([{ type: 'loaded', url: HOME_URL }, { type: 'harvest', status: 'wrong-page' }]);
+  ok(steering.phase === 'steering' && refreshStageOf(steering) === -1,
+    'stepper: steering returns -1 — it never moves the bar on its own');
+  const cancelled = reduceFlow(INITIAL_FLOW, { type: 'cancel' });
+  ok(cancelled.phase === 'cancelled' && refreshStageOf(cancelled) === -1, 'stepper: cancelled returns -1');
+  const errored = reduceFlow(harvesting, { type: 'web-error', message: 'x' });
+  ok(errored.phase === 'error' && refreshStageOf(errored) === -1, 'stepper: error returns -1 — bar freezes where it failed');
+
+  // Forward-only invariant: a session drop mid-harvest reports step 0, but the
+  // sheet (max of prior and current) must not fall back from 2 to 0.
+  const reached = refreshStageOf(harvesting); // 2
+  const dropped = refreshStageOf(signedOut);  // 0
+  ok(reached === 2 && dropped === 0 && Math.max(reached, dropped) === 2,
+    'stepper: forward-only — a mid-flow sign-in bounce cannot drag the bar backwards');
 }
 
 console.log(`\ntest-refresh-flow: all ${passed} assertions passed.`);

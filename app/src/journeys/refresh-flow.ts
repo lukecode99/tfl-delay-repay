@@ -588,6 +588,49 @@ export function statusText(s: FlowState): string {
   }
 }
 
+/**
+ * TfL-36: the refresh shown as the same discrete numbered stepper the guided
+ * claim uses (ClaimWebScreen's STAGES). Four user-facing steps spanning the
+ * flow's arc, whatever mode is running.
+ */
+export const REFRESH_STAGES = ['Sign in', 'Find cards', 'Read history', 'Imported'];
+
+/**
+ * Map a flow phase to a stepper index (0-based into REFRESH_STAGES), mirroring
+ * the claim flow's bumpStage.
+ *
+ * Returns -1 for phases that should NOT move the stepper — the sheet advances
+ * it forward-only (same as ClaimWebScreen), so:
+ *  - 'steering' is transient and ambiguous (it's used both to bounce to the
+ *    sign-in page AND to drive between history pages), so it never moves the
+ *    bar on its own — the phase it settles into does.
+ *  - a mid-flow bounce back to sign-in (session drop) returns 0, but forward-
+ *    only means the bar holds at the furthest step reached rather than lurching
+ *    backwards; the status line still narrates the live truth.
+ *  - 'cancelled'/'error' aren't progress, so the bar freezes where it failed.
+ *
+ * 'done' returns REFRESH_STAGES.length so every step shows complete (matching
+ * the claim flow bumping past its last stage on the confirmation page).
+ */
+export function refreshStageOf(s: FlowState): number {
+  switch (s.phase) {
+    case 'loading':
+    case 'signed-out':
+    case 'challenge':
+    case 'consent':
+      return 0; // Sign in
+    case 'account-dashboard':
+      return 1; // Find cards
+    case 'harvesting':
+    case 'importing':
+      return 2; // Read history
+    case 'done':
+      return REFRESH_STAGES.length; // all complete
+    default:
+      return -1; // steering / cancelled / error — leave the stepper where it is
+  }
+}
+
 /** What a progress bar can honestly show — see progressOf. */
 export interface Progress {
   /** Pages finished. */
