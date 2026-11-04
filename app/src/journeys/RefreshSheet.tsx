@@ -74,7 +74,7 @@ import {
   progressOf,
   reduceFlow,
   REFRESH_STAGES,
-  refreshStageOf,
+  nextRefreshStage,
   startUrlFor,
   statusText,
   CONTACTLESS_LOGIN_URL,
@@ -337,13 +337,13 @@ export default function RefreshSheet({ onClose }: Props) {
     stateRef.current = initial;
     return initial;
   });
-  // TfL-36: the furthest step reached, advanced forward-only (same contract as
-  // the claims stepper's bumpStage). refreshStageOf returns -1 for phases that
-  // shouldn't move the bar, so we only ever bump up.
+  // TfL-36: the step the stepper shows. Forward-only through the authenticated
+  // arc, but nextRefreshStage retreats to Sign in whenever the flow bounces to a
+  // real sign-in / security gate — otherwise a mid-flow security check left the
+  // earlier steps falsely green (Luke, 4-Nov-2026).
   const [stageIdx, setStageIdx] = useState(0);
   useEffect(() => {
-    const n = refreshStageOf(state);
-    if (n >= 0) setStageIdx(s => (n > s ? n : s));
+    setStageIdx(prev => nextRefreshStage(prev, state));
   }, [state]);
 
   // Audit trail (TfL-18): a persistent record of what the refresh actually

@@ -27,6 +27,7 @@ import {
   reduceFlow,
   REFRESH_STAGES,
   refreshStageOf,
+  nextRefreshStage,
   startUrlFor,
   statusText,
 } from './refresh-flow.ts';
@@ -898,12 +899,26 @@ const CONSENT_URL = 'https://contactless.tfl.gov.uk/CookieSettings';
   const errored = reduceFlow(harvesting, { type: 'web-error', message: 'x' });
   ok(errored.phase === 'error' && refreshStageOf(errored) === -1, 'stepper: error returns -1 — bar freezes where it failed');
 
-  // Forward-only invariant: a session drop mid-harvest reports step 0, but the
-  // sheet (max of prior and current) must not fall back from 2 to 0.
-  const reached = refreshStageOf(harvesting); // 2
-  const dropped = refreshStageOf(signedOut);  // 0
-  ok(reached === 2 && dropped === 0 && Math.max(reached, dropped) === 2,
-    'stepper: forward-only — a mid-flow sign-in bounce cannot drag the bar backwards');
+  // nextRefreshStage: forward-only through the authenticated arc, but RETREATS
+  // to Sign in on a genuine sign-in/security gate. This is the TfL-36 fix for
+  // the bug Luke reported (4-Nov): a mid-flow security check left Sign in +
+  // Find cards showing green ticks while the user hadn't actually signed in.
+  ok(nextRefreshStage(0, harvesting) === 2, 'stepper: advances 0 → 2 reaching Read history');
+  ok(nextRefreshStage(2, importing) === 2, 'stepper: holds at 2 across harvesting → importing');
+  ok(nextRefreshStage(2, steering) === 2, 'stepper: steering (-1) holds the furthest step reached');
+  ok(nextRefreshStage(1, harvesting) === 2, 'stepper: still bumps forward when live stage is ahead');
+  ok(nextRefreshStage(2, harvesting) === 2, 'stepper: never regresses on a forward phase (dash → stays)');
+  // The regression itself: from step 2, a bounce to a security check / session
+  // drop must DROP the bar back to Sign in — the earlier ticks are no longer true.
+  ok(nextRefreshStage(2, challenge) === 0,
+    'stepper: a mid-flow security check retreats the bar to Sign in (was the green-tick bug)');
+  ok(nextRefreshStage(2, signedOut) === 0,
+    'stepper: a mid-flow session drop retreats the bar to Sign in');
+  // ...but the cookie wall is NOT a sign-in loss, so it must not lurch backwards.
+  ok(nextRefreshStage(2, consent) === 2,
+    'stepper: the consent/cookie wall is not a sign-in gate — bar holds, no false retreat');
+  ok(nextRefreshStage(2, done) === REFRESH_STAGES.length,
+    'stepper: done still pushes every step to complete');
 }
 
 console.log(`\ntest-refresh-flow: all ${passed} assertions passed.`);

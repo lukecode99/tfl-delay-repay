@@ -631,6 +631,36 @@ export function refreshStageOf(s: FlowState): number {
   }
 }
 
+/**
+ * Phases that mean the user is genuinely back at a sign-in / security gate and
+ * has NOT yet authenticated: a session drop ('signed-out') or a TfL security
+ * check ('challenge'). When the flow bounces to one of these, the earlier steps
+ * are no longer truthfully "done" — the user still has to sign in — so the
+ * stepper must RETREAT to Sign in rather than keep the green ticks.
+ *
+ * 'consent' (the cookie wall) is deliberately excluded: it is not a loss of
+ * sign-in, so forcing a drop there would be a false backwards lurch.
+ */
+function isSignInGate(s: FlowState): boolean {
+  return s.phase === 'signed-out' || s.phase === 'challenge';
+}
+
+/**
+ * TfL-36 fix: advance the stepper forward-only through the authenticated arc,
+ * but RETREAT to Sign in (0) whenever the flow lands on a real sign-in/security
+ * gate. Without the retreat, a mid-flow security check left Sign in + Find cards
+ * showing green ticks while the email field was still empty (Luke, 4-Nov-2026).
+ *
+ * `prev` is the furthest stage the sheet has shown; `s` is the live state.
+ * Returns the next stage index the stepper should display.
+ */
+export function nextRefreshStage(prev: number, s: FlowState): number {
+  if (isSignInGate(s)) return 0; // back at the sign-in/security gate — drop the ticks
+  const n = refreshStageOf(s);
+  if (n < 0) return prev; // steering / cancelled / error — hold
+  return n > prev ? n : prev; // otherwise forward-only
+}
+
 /** What a progress bar can honestly show — see progressOf. */
 export interface Progress {
   /** Pages finished. */
