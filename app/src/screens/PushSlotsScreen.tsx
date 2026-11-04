@@ -7,7 +7,7 @@
 //
 // ALERT-ENTRY: origin/destination collected via searchable station picker (not
 // free-text Alert.prompt). Time collected via 30-min bucket scroller.
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Modal,
