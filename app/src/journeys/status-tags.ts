@@ -3,6 +3,7 @@
 // claimed AND rejected at once. Filters match "has this tag". Pure —
 // node-testable (see test-status-tags.ts).
 import type { ClaimStatus } from '../claims/db';
+import type { AssessmentStatus, Confidence } from '../eligibility/engine';
 
 export type StatusTag = 'eligible' | 'overcharged' | 'claimed' | 'awaiting' | 'received' | 'rejected' | 'missed';
 export type JourneyFilter = 'all' | StatusTag;
@@ -66,9 +67,13 @@ export interface TagInput {
   claimedAt?: string | null; // ISO; with lastRefreshAt, ages an unpaid claim to rejected
   lastRefreshAt?: string | null; // ISO of last successful import; gates the 60-day auto-reject
   daysLeft: number | null; // claim-window days left; negative = window closed
+  /** A statement refund was matched to this journey even without an in-app
+   *  claim (refund-match.ts) — surfaces refunds claimed on tfl.gov.uk directly
+   *  in the Received filter. */
+  receivedRefund?: boolean;
 }
 
-export function statusTags({ eligible, overcharged, claimStatus, claimedAt, lastRefreshAt, daysLeft }: TagInput): Set<StatusTag> {
+export function statusTags({ eligible, overcharged, claimStatus, claimedAt, lastRefreshAt, daysLeft, receivedRefund }: TagInput): Set<StatusTag> {
   const tags = new Set<StatusTag>();
   // A claim marked 'claimed' that's still unpaid 60 days after filing is aged
   // out to rejected (TfL-35) — but only once a refresh has actually pulled
@@ -78,7 +83,7 @@ export function statusTags({ eligible, overcharged, claimStatus, claimedAt, last
   if (overcharged) tags.add('overcharged');
   if (claimStatus != null) tags.add('claimed');
   if (claimStatus === 'claimed' && !agedOut) tags.add('awaiting');
-  if (claimStatus === 'paid') tags.add('received');
+  if (claimStatus === 'paid' || receivedRefund) tags.add('received');
   if (claimStatus === 'rejected' || agedOut) tags.add('rejected');
   // Missed: was eligible, never claimed, and the claim window has closed.
   if (eligible && claimStatus == null && daysLeft != null && daysLeft < 0) tags.add('missed');
@@ -87,4 +92,21 @@ export function statusTags({ eligible, overcharged, claimStatus, claimedAt, last
 
 export function matchesFilter(tags: Set<StatusTag>, filter: JourneyFilter): boolean {
   return filter === 'all' || tags.has(filter);
+}
+
+// RAG delay indicator for the Journeys list (Luke, 4-Nov). A coloured left
+// stripe on each row at a glance:
+//   red   — an eligible delay we're medium/high confident about
+//   amber — an eligible delay at low confidence (near-miss / collector gap)
+//   green — assessed with no qualifying delay
+//   none  — not assessable, or not assessed yet (stay neutral, don't imply "fine")
+export type RagLevel = 'red' | 'amber' | 'green' | 'none';
+
+export function delayRag(
+  status: AssessmentStatus | undefined,
+  confidence: Confidence | undefined,
+): RagLevel {
+  if (status === 'eligible') return confidence === 'low' ? 'amber' : 'red';
+  if (status === 'not-eligible') return 'green';
+  return 'none';
 }

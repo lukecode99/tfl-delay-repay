@@ -151,6 +151,18 @@ export function totalRefundsCore(d: DbLike): number {
   return d.getFirstSync<{ total: number }>('SELECT COALESCE(SUM(amount), 0) AS total FROM refunds')?.total ?? 0;
 }
 
+/** A stored refund row, pared to the fields the journey matcher needs
+ *  (TfL-RECEIVED-FIX follow-up: surface refunds in the Received filter). */
+export interface StoredRefund {
+  date: string;
+  amount: number;
+  card: string;
+}
+
+export function listRefundsCore(d: DbLike): StoredRefund[] {
+  return d.getAllSync<StoredRefund>('SELECT date, amount, card FROM refunds ORDER BY date') ?? [];
+}
+
 export function insertJourneysCore(d: DbLike, journeys: ParsedJourney[], now: string): ImportSummary {
   const summary: ImportSummary = { inserted: 0, duplicates: 0, incomplete: 0, upgraded: 0 };
   d.withTransactionSync(() => {

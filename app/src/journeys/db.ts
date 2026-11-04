@@ -13,14 +13,16 @@ import {
   getMetaCore,
   insertJourneysCore,
   insertRefundsCore,
+  listRefundsCore,
   migrateLegacyImportRows,
   setMetaCore,
   totalRefundsCore,
   type ImportSummary,
   type RefundInsertSummary,
+  type StoredRefund,
 } from './store-core';
 
-export type { ImportSummary, RefundInsertSummary } from './store-core';
+export type { ImportSummary, RefundInsertSummary, StoredRefund } from './store-core';
 
 export interface StoredJourney extends ParsedJourney {
   id: number;
@@ -63,6 +65,12 @@ export function insertRefunds(refunds: ParsedRefund[], card: string, period = ''
 
 export function totalReceivedRefunds(): number {
   return totalRefundsCore(openJourneyDb());
+}
+
+/** Every stored refund row (date/amount/card) — the Received filter matches
+ *  these to journeys so refunds claimed outside the app still surface. */
+export function listRefunds(): StoredRefund[] {
+  return listRefundsCore(openJourneyDb());
 }
 
 const ROW_TO_JOURNEY = (r: any): StoredJourney => ({

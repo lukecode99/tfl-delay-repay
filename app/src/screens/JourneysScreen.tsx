@@ -9,14 +9,15 @@ import { claimDeadline } from '../eligibility/deadline';
 import type { Assessment } from '../eligibility/engine';
 import type { AssessmentMap } from '../eligibility/use-assessments';
 import { formatGBP, groupByDay } from '../format';
-import { getMeta, type StoredJourney } from '../journeys/db';
+import { getMeta, listRefunds, type StoredJourney } from '../journeys/db';
 import type { ImportOutcome } from '../journeys/import';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
+import { matchRefundsToJourneys } from '../journeys/refund-match';
 import { LAST_REFRESH_KEY } from '../journeys/refresh-flow';
 import { shareRawStatements } from '../journeys/raw-export-io';
 import {
-  FILTER_LABELS, FILTER_ORDER, matchesFilter, statusTags,
-  type JourneyFilter, type StatusTag,
+  delayRag, FILTER_LABELS, FILTER_ORDER, matchesFilter, statusTags,
+  type JourneyFilter, type RagLevel, type StatusTag,
 } from '../journeys/status-tags';
 import { colors, spacing } from '../theme';
 
@@ -70,6 +71,13 @@ function Badge({ assessment, claim, missed, overcharge }: {
   return null; // not eligible / not assessable — keep rows quiet
 }
 
+// RAG stripe colours (green/amber/red) — 'none' never renders a stripe.
+const RAG_COLORS: Record<Exclude<RagLevel, 'none'>, string> = {
+  red: colors.bad,
+  amber: colors.warn,
+  green: colors.good,
+};
+
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 function cutoff13Mo(): string {
@@ -100,6 +108,13 @@ export default function JourneysScreen({
   // Overcharge detail lives on the journey's own detail screen (TfL-OVERCHARGE-UX)
   // — discovery here is via the Overcharged/Eligible chips and the row badge.
   const lastRefreshAt = getMeta(LAST_REFRESH_KEY);
+  // Refunds claimed outside the app (tfl.gov.uk) land on the statement but have
+  // no in-app claim to hang on; match them to journeys so Received isn't empty.
+  // Keyed on lastImport so a fresh import/refresh re-runs the match.
+  const receivedByRefund = React.useMemo(
+    () => matchRefundsToJourneys(listRefunds(), journeys),
+    [journeys, lastImport],
+  );
   const tagsById = React.useMemo(() => {
     const m = new Map<number, Set<StatusTag>>();
     for (const j of journeys) {
@@ -111,10 +126,11 @@ export default function JourneysScreen({
         claimedAt: claims.get(j.id)?.claimedAt ?? null,
         lastRefreshAt,
         daysLeft: claimDeadline(j.date, today).daysLeft,
+        receivedRefund: receivedByRefund.has(j.id),
       }));
     }
     return m;
-  }, [journeys, assessments, overchargeById, claims, today, lastRefreshAt]);
+  }, [journeys, assessments, overchargeById, claims, today, lastRefreshAt, receivedByRefund]);
 
   const cutoff = React.useMemo(cutoff13Mo, []);
   const visibleJourneys = showAll ? journeys : journeys.filter(j => j.date >= cutoff);
@@ -194,9 +210,14 @@ export default function JourneysScreen({
         renderItem={({ item }) => {
           const missed = tagsById.get(item.id)?.has('missed') ?? false;
           const a = assessments.get(item.id);
+          // RAG delay stripe (Luke, 4-Nov). Missed rows keep the dim stripe —
+          // the window's closed so the delay verdict is moot.
+          const rag = delayRag(a?.status, a?.confidence);
           return (
             <Pressable style={[styles.row, missed && styles.rowMissed]} onPress={() => onSelect(item)}>
-              {missed && <View style={styles.stripeMissed} />}
+              {missed
+                ? <View style={styles.stripeMissed} />
+                : rag !== 'none' && <View style={[styles.ragStripe, { backgroundColor: RAG_COLORS[rag] }]} />}
               <View style={styles.rowMain}>
                 <Text style={styles.route} numberOfLines={1}>
                   {item.origin} → {item.destination ?? '?'}
@@ -293,6 +314,7 @@ const styles = StyleSheet.create({
   },
   rowMissed: { opacity: 0.65 },
   stripeMissed: { width: 4, alignSelf: 'stretch', borderRadius: 3, backgroundColor: colors.textDim, marginRight: spacing.m },
+  ragStripe: { width: 4, alignSelf: 'stretch', borderRadius: 3, marginRight: spacing.m },
   rowMain: { flex: 1, marginRight: spacing.s },
   route: { color: colors.text, fontSize: 15, fontWeight: '600' },
   meta: { color: colors.textDim, fontSize: 12, marginTop: 2 },

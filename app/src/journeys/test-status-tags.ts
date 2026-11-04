@@ -1,7 +1,7 @@
 // Tests for the multi-status tag model (home v1.2).
 //   node --experimental-strip-types src/journeys/test-status-tags.ts
 import { strict as assert } from 'node:assert';
-import { matchesFilter, statusTags } from './status-tags.ts';
+import { delayRag, matchesFilter, statusTags } from './status-tags.ts';
 
 let n = 0;
 const test = (name: string, fn: () => void) => { fn(); n++; console.log(`  ok ${name}`); };
@@ -105,5 +105,30 @@ test('matchesFilter: all matches everything, tags match membership', () => {
   assert.equal(matchesFilter(t, 'missed'), false);
   assert.equal(matchesFilter(new Set(), 'all'), true);
 });
+
+// Received filter also surfaces statement refunds with no in-app claim (4-Nov).
+test('receivedRefund tags received without any claim', () => {
+  const t = statusTags({ eligible: true, claimStatus: null, daysLeft: -3, receivedRefund: true });
+  assert.equal(t.has('received'), true);
+  assert.equal(t.has('claimed'), false); // no in-app claim — only the money arrived
+});
+
+test('receivedRefund omitted keeps old behaviour (no received without paid)', () => {
+  const t = statusTags({ eligible: true, claimStatus: 'claimed', daysLeft: 2 });
+  assert.equal(t.has('received'), false);
+});
+
+test('paid claim still tags received even if receivedRefund is false', () => {
+  const t = statusTags({ eligible: true, claimStatus: 'paid', daysLeft: -3, receivedRefund: false });
+  assert.equal(t.has('received'), true);
+});
+
+// RAG delay stripe (4-Nov): red = med/high, amber = low, green = no delay.
+test('delayRag: eligible + high = red', () => assert.equal(delayRag('eligible', 'high'), 'red'));
+test('delayRag: eligible + medium = red', () => assert.equal(delayRag('eligible', 'medium'), 'red'));
+test('delayRag: eligible + low = amber', () => assert.equal(delayRag('eligible', 'low'), 'amber'));
+test('delayRag: not-eligible = green', () => assert.equal(delayRag('not-eligible', undefined), 'green'));
+test('delayRag: not-assessable = none', () => assert.equal(delayRag('not-assessable', undefined), 'none'));
+test('delayRag: unassessed (undefined) = none', () => assert.equal(delayRag(undefined, undefined), 'none'));
 
 console.log(`${n} tests passed`);
