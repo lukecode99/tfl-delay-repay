@@ -205,6 +205,41 @@ ok(statusText(run([
   ok(done.phase === 'done' && done.inserted === 2, 'flow completes after in-sheet sign-in');
 }
 {
+  // TfL-SIGNIN-LANDING (Luke, 6-Nov-2026): a paused sign-in gate must escape the
+  // moment the user finishes signing in and TfL lands them on the signed-in
+  // contactless Dashboard. Before the fix the stepper froze on "Sign in /
+  // Complete TfL's security check" while the user stared at their own account.
+  const CONTACTLESS_DASH = CONTACTLESS_LOGIN_URL; // https://contactless.tfl.gov.uk/Dashboard
+  ok(isContactlessDashboard(CONTACTLESS_DASH), 'precondition: the escape URL is the contactless Dashboard');
+
+  // From a robot-check challenge (the captcha gate upgrades into this phase).
+  const chal = run([{ type: 'loaded', url: JOURNEY_HISTORY_URL }, { type: 'harvest', status: 'challenge' }]);
+  ok(chal.phase === 'challenge', 'precondition: parked in challenge');
+  const escChal = reduceFlow(chal, { type: 'loaded', url: CONTACTLESS_DASH });
+  ok(escChal.phase === 'harvesting' && refreshStageOf(escChal) === 2,
+    'signed-in contactless Dashboard loads during a challenge → escape to harvesting, stepper leaves Sign in');
+
+  // From a signed-out gate (session-drop / OAuth sign-in page).
+  const so2 = reduceFlow(INITIAL_FLOW, { type: 'nav', url: LOGIN_URL });
+  ok(so2.phase === 'signed-out', 'precondition: parked in signed-out');
+  ok(reduceFlow(so2, { type: 'nav', url: CONTACTLESS_DASH }).phase === 'signed-out',
+    'the nav to the Dashboard holds (waits for the settled load) — one-shot direct CSV runs on loaded');
+  const escSo = reduceFlow(so2, { type: 'loaded', url: CONTACTLESS_DASH });
+  ok(escSo.phase === 'harvesting' && refreshStageOf(escSo) === 2,
+    'signed-in contactless Dashboard loads while signed-out → escape to harvesting');
+
+  // The escape is specific to the CONTACTLESS Dashboard. The account.tfl.gov.uk
+  // dashboard can appear mid-sign-in, so it must still be ignored while paused.
+  ok(reduceFlow(chal, { type: 'loaded', url: DASHBOARD_URL }) === chal,
+    'the account.tfl.gov.uk dashboard during a challenge stays paused — no premature escape');
+
+  // Once direct CSV has already run this refresh, a later gate→Dashboard escape
+  // parks on the account dashboard (one tap from done) rather than re-firing it.
+  const esc2 = reduceFlow(escSo, { type: 'direct-failed', url: CONTACTLESS_DASH }); // consumes directTried, parks
+  ok(esc2.phase === 'account-dashboard',
+    'direct CSV already tried → gate→Dashboard parks as account-dashboard');
+}
+{
   // TfL-LOGIN-FIRST: PAUSED_SCAN_SCRIPT found a Sign In anchor → steer to it.
   const SIGNIN_HREF = 'https://account.tfl.gov.uk/Login?returnUrl=y';
   const so = reduceFlow(INITIAL_FLOW, { type: 'nav', url: LOGIN_URL });

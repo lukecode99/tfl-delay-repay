@@ -456,7 +456,18 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       // Scope: challenge only, unregistered URL only. Any other paused state
       // stays paused — yanking a consent or real-challenge page is TfL-13/25.
       if (s.phase === 'challenge' && isUnregisteredUrl(e.url)) return toSignIn(l);
-      if (isPaused(s)) return s; // user browsing freely — stay out of the way
+      // TfL-SIGNIN-LANDING (6-Nov-2026): escape a paused sign-in gate the moment
+      // TfL lands us on the signed-in contactless Dashboard. A sign-in gate
+      // (signed-out / the captcha-upgraded challenge) pauses and ignores every
+      // load — which is right while the user is still signing in, but once they
+      // HAVE signed in TfL redirects to contactless.tfl.gov.uk/Dashboard and the
+      // machine was dropping that load too, leaving the stepper frozen on "Sign
+      // in / Complete TfL's security check" with the user staring at their own
+      // account (Luke, 6-Nov). The contactless Dashboard is the post-login
+      // landing (and same-origin with the CSV endpoint), so fall through to the
+      // Dashboard handling below instead of staying latched. Consent and a real
+      // in-place challenge (harvest-reported) stay paused — see isSignInGate.
+      if (isPaused(s) && !(isSignInGate(s) && isContactlessDashboard(e.url))) return s;
       // Robot check spotted from the reported page title — no injection needed.
       if (e.title != null && isChallengeTitle(e.title)) return { ...l, phase: 'challenge' };
       // An expired session redirects to the account sign-in mid-navigation.
@@ -482,8 +493,11 @@ export function reduceFlow(s: FlowState, e: FlowEvent): FlowState {
       if (s.phase === 'challenge' && isUnregisteredUrl(e.url)) return toSignIn(l);
       // Paused: pages load while the user solves/signs in — none of them are
       // ours to touch. No harvesting transition means no injection (TfL-13);
-      // the flow resumes only via handover.
-      if (isPaused(s)) return s;
+      // the flow resumes only via handover. EXCEPT a sign-in gate escaping onto
+      // the signed-in contactless Dashboard: login succeeded, so fall through to
+      // the Dashboard handling (direct CSV / account-dashboard) rather than stay
+      // frozen on the security-check pause (TfL-SIGNIN-LANDING, Luke 6-Nov-2026).
+      if (isPaused(s) && !(isSignInGate(s) && isContactlessDashboard(e.url))) return s;
       if (isLoginUrl(e.url)) return { ...l, phase: 'signed-out' };
       // TfL-25: same three gates as the 'nav' case. Pausing here is what stops
       // the harvest being injected into a consent or captcha page at all.
