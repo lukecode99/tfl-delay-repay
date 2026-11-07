@@ -59,7 +59,7 @@ import { setClaimOutcome } from '../claims/db';
 import { getMeta, insertRefunds, insertRefundApplications, listCards, setMeta } from './db';
 import { importCsvText, ImportOutcome } from './import';
 import { isJourneyCsv, parseStatement } from './parse';
-import { parseRefundHistory } from './refund-history';
+import { parseRefundHistory, htmlToLines } from './refund-history';
 import { saveRawStatements } from './raw-export-io';
 import type { RawStatement } from './raw-export';
 import {
@@ -871,6 +871,22 @@ export default function RefreshSheet({ onClose }: Props) {
                 })));
                 newApps += inserted;
               }
+              // Diagnostic (TfL-36): the parser was built before we had the real
+              // page markup, so when 0 applications come back we can't tell a
+              // JS-rendered shell from a layout mismatch. Record what the fetch
+              // actually returned into the shareable audit log so a real sample
+              // can be read back without a browser (TfL WAFs datacenter IPs).
+              try {
+                const lines = htmlToLines(html);
+                const relevant = lines.filter(l =>
+                  / to /i.test(l) ||
+                  /\b(refund|submitted|approved|rejected|application|notified)\b/i.test(l) ||
+                  /^(mon|tue|wed|thu|fri|sat|sun)\b/i.test(l) ||
+                  /^\d{1,2}\s+[A-Za-z]{3,}/.test(l));
+                const sample = (relevant.length ? relevant : lines).slice(0, 30).join(' ¦ ').slice(0, 1800);
+                recordAudit('refund-diag', `card ${rcard.slice(0, 8)}: ${html.length}b, ${lines.length} lines, ${relevant.length} relevant, parsed ${apps.length}`);
+                recordAudit('refund-lines', sample || '(no text extracted)');
+              } catch { /* diagnostics must never break the refresh */ }
             } catch { /* non-fatal */ }
           }
           if (pages.length > 0) recordAudit('refund-history', `${pages.length} page(s), ${newApps} application(s)`);
