@@ -211,14 +211,19 @@ async function runDirect(
   return messages;
 }
 
-// TfL-19: the script always fetches MyCards first for card discovery. This
-// wrapper answers that fetch (default: a card-less page) so download stubs
-// only see the download traffic their assertions count.
+// TfL-19: the script always fetches MyCards first for card discovery, and
+// (TfL-36) finishes with a per-card Refunds/RefundHistory fetch. This wrapper
+// answers both (MyCards: a card-less page by default; RefundHistory: an empty
+// body so no refund-history message is emitted) so the download stubs below
+// only see the DownloadJourneyCsv/DownloadBillingCsv traffic their call counts
+// assert. The dedicated refund-history block uses its own stub to exercise it.
 function withMyCards(inner: (url: string, opts?: any) => any, html = '<html><body>no cards here</body></html>') {
-  return (url: string, opts?: any) =>
-    (String(url) === MY_CARDS_URL
-      ? Promise.resolve({ ok: true, text: () => Promise.resolve(html) })
-      : inner(url, opts));
+  return (url: string, opts?: any) => {
+    const u = String(url);
+    if (u === MY_CARDS_URL) return Promise.resolve({ ok: true, text: () => Promise.resolve(html) });
+    if (u.indexOf('/Refunds/RefundHistory') !== -1) return Promise.resolve({ ok: true, text: () => Promise.resolve('') });
+    return inner(u, opts);
+  };
 }
 
 {
@@ -267,6 +272,32 @@ function withMyCards(inner: (url: string, opts?: any) => any, html = '<html><bod
   ok(msgs[0].files.every((f: any) => f.text === CSV_BODY && f.url.includes('DownloadJourneyCsv')
     && /^\d{1,2}\|\d{4}$/.test(f.period) && /^[0-9a-f]{32}$/.test(f.card)),
     'script: each file carries text, card, period and URL for the import + endpoint log');
+}
+{
+  // TfL-36: after the journey + billing passes, the script fetches each card's
+  // Refunds/RefundHistory page from the signed-in session and reports the raw
+  // HTML (one entry per card that came back as a page) for RN-side parsing —
+  // the only TfL source for an in-flight Delay Repay application.
+  const refundHtml = '<html><body><span>Wed 21 Oct</span>'
+    + '<span>Great Portland Street to Eastcote</span>'
+    + '<p>Service delay refund application submitted</p></body></html>';
+  const calls: string[] = [];
+  const fetchStub = (url: string) => {
+    const u = String(url);
+    calls.push(u);
+    if (u === MY_CARDS_URL) return Promise.resolve({ ok: true, text: () => Promise.resolve('<html><body>no cards here</body></html>') });
+    if (u.indexOf('/Refunds/RefundHistory') !== -1) return Promise.resolve({ ok: true, text: () => Promise.resolve(refundHtml) });
+    return Promise.resolve({ ok: true, text: () => Promise.resolve(CSV_BODY) });
+  };
+  const msgs = await runDirect(statementsDoc({ anchors: [{ href: `/x?CardDisplayId=${CARD_A}` }] }), { fetch: fetchStub });
+  const refundMsg = msgs.find((m: any) => m.status === 'refund-history');
+  ok(!!refundMsg, 'script: refund-history pass emits a refund-history message once pages come back');
+  ok(refundMsg.refundHistory.length === 1
+    && refundMsg.refundHistory[0].card === CARD_A
+    && refundMsg.refundHistory[0].html.indexOf('Great Portland Street') !== -1,
+    'script: refund page reported per card with its raw html');
+  ok(calls.some(u => u.indexOf('/Refunds/RefundHistory?cardDisplayId=' + CARD_A) !== -1),
+    'script: refund history fetched with the lowercase cardDisplayId query key');
 }
 {
   // One month comes back as an HTML page (signed-out mid-way, TfL error page…)
@@ -449,8 +480,8 @@ const DASHBOARD_HREF = 'https://contactless.tfl.gov.uk/Dashboard';
   const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }),
     { href: DASHBOARD_HREF, fetch: fetchStub }, ['7|2026', '6|2026'], [CARD_C]);
   ok(msgs.length === 2 && msgs[0].status === 'csv' && msgs[0].files.length === 2
-    && calls.length === 4 && msgs[0].files.every((f: any) => f.card === CARD_C),
-    'TfL-19: MyCards fetch failure falls through to known ids — discovery is never fatal; 2 journey + 2 billing fetches');
+    && calls.length === 5 && msgs[0].files.every((f: any) => f.card === CARD_C),
+    'TfL-19: MyCards fetch failure falls through to known ids — discovery is never fatal; 2 journey + 2 billing + 1 refund-history fetch');
 }
 
 // --- flow: where a refresh starts, and the fallback path ---

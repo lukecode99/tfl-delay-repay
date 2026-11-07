@@ -163,6 +163,78 @@ export function listRefundsCore(d: DbLike): StoredRefund[] {
   return d.getAllSync<StoredRefund>('SELECT date, amount, card FROM refunds ORDER BY date') ?? [];
 }
 
+// --- Refund-application persistence (TfL-36) ---
+// Delay Repay applications scraped from the refund-history page. Distinct from
+// the `refunds` table (which holds amount-bearing credit rows from billing
+// CSVs): these carry date + route + application status but NO amount, so they
+// match journeys by route rather than by fare.
+
+export interface RefundApplicationRow {
+  date: string; // YYYY-MM-DD — the delayed journey's date
+  origin: string;
+  destination: string;
+  status: string; // submitted | approved | paid | rejected | unknown
+  rawStatus: string;
+  card?: string | null;
+}
+
+export interface StoredRefundApplication {
+  id: number;
+  date: string;
+  origin: string;
+  destination: string;
+  status: string;
+  card: string | null;
+}
+
+export function ensureRefundApplicationSchema(d: DbLike): void {
+  d.execSync(`
+    CREATE TABLE IF NOT EXISTS refund_applications (
+      id INTEGER PRIMARY KEY,
+      date TEXT NOT NULL,
+      origin TEXT NOT NULL,
+      destination TEXT NOT NULL,
+      status TEXT NOT NULL,
+      raw_status TEXT NOT NULL,
+      card TEXT,
+      imported_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_refund_apps_dedupe
+      ON refund_applications (date, IFNULL(card, ''), origin, destination);
+  `);
+}
+
+export function insertRefundApplicationsCore(
+  d: DbLike,
+  apps: RefundApplicationRow[],
+  now: string,
+): RefundInsertSummary {
+  const summary: RefundInsertSummary = { inserted: 0, duplicates: 0 };
+  if (!apps.length) return summary;
+  d.withTransactionSync(() => {
+    for (const a of apps) {
+      // Re-applied status is the live truth — refresh an existing row's status
+      // in place (submitted → approved → paid) while the dedupe key holds.
+      const res = d.runSync(
+        `INSERT INTO refund_applications (date, origin, destination, status, raw_status, card, imported_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(date, IFNULL(card, ''), origin, destination)
+         DO UPDATE SET status = excluded.status, raw_status = excluded.raw_status, imported_at = excluded.imported_at`,
+        a.date, a.origin, a.destination, a.status, a.rawStatus, a.card ?? null, now,
+      );
+      if (res.changes > 0) summary.inserted++;
+      else summary.duplicates++;
+    }
+  });
+  return summary;
+}
+
+export function listRefundApplicationsCore(d: DbLike): StoredRefundApplication[] {
+  return d.getAllSync<StoredRefundApplication>(
+    'SELECT id, date, origin, destination, status, card FROM refund_applications ORDER BY date',
+  ) ?? [];
+}
+
 export function insertJourneysCore(d: DbLike, journeys: ParsedJourney[], now: string): ImportSummary {
   const summary: ImportSummary = { inserted: 0, duplicates: 0, incomplete: 0, upgraded: 0 };
   d.withTransactionSync(() => {

@@ -9,10 +9,13 @@ import { claimDeadline } from '../eligibility/deadline';
 import type { Assessment } from '../eligibility/engine';
 import type { AssessmentMap } from '../eligibility/use-assessments';
 import { formatGBP, groupByDay } from '../format';
-import { getMeta, listRefunds, type StoredJourney } from '../journeys/db';
+import { getMeta, listRefunds, listRefundApplications, type StoredJourney } from '../journeys/db';
 import type { ImportOutcome } from '../journeys/import';
 import type { OverchargeCandidate } from '../journeys/incomplete-fare';
 import { matchRefundsToJourneys } from '../journeys/refund-match';
+import {
+  matchRefundApplicationsToJourneys, isReceivedStatus, type RefundAppStatus,
+} from '../journeys/refund-history';
 import { LAST_REFRESH_KEY } from '../journeys/refresh-flow';
 import { shareRawStatements } from '../journeys/raw-export-io';
 import {
@@ -38,11 +41,25 @@ interface Props {
   onFilterChange: (f: JourneyFilter) => void;
 }
 
-function Badge({ assessment, claim, missed, overcharge }: {
+// How a Delay Repay refund-history status reads on the row badge (TfL-36). Only
+// shown when the journey has NO in-app claim of its own — it fills the gap for
+// refunds claimed/tracked outside the app.
+function refundBadge(status: RefundAppStatus) {
+  switch (status) {
+    case 'paid': return <Text style={styles.badgeClaimed}>✓ refund paid</Text>;
+    case 'approved': return <Text style={styles.badgeClaimed}>✓ refund approved</Text>;
+    case 'submitted': return <Text style={styles.badgeClaimed}>✓ refund claimed</Text>;
+    case 'rejected': return <Text style={styles.badgeRejected}>✗ refund rejected</Text>;
+    default: return <Text style={styles.badgeClaimed}>• refund logged</Text>;
+  }
+}
+
+function Badge({ assessment, claim, missed, overcharge, refundStatus }: {
   assessment: Assessment | undefined;
   claim: ClaimRecord | undefined;
   missed: boolean;
   overcharge: OverchargeCandidate | undefined;
+  refundStatus: RefundAppStatus | undefined;
 }) {
   if (missed) return <Text style={styles.badgeExpired}>Expired</Text>;
   if (claim?.status === 'paid') {
@@ -54,6 +71,9 @@ function Badge({ assessment, claim, missed, overcharge }: {
   }
   if (claim?.status === 'rejected') return <Text style={styles.badgeRejected}>✗ rejected</Text>;
   if (claim) return <Text style={styles.badgeClaimed}>✓ claimed</Text>;
+  // No in-app claim, but TfL's refund-history page shows an application for this
+  // journey (claimed on tfl.gov.uk) — surface its status.
+  if (refundStatus) return refundBadge(refundStatus);
   if (overcharge && overcharge.claimStatus !== 'expired') {
     return <Text style={styles.badgeWarn}>⚠ +{formatGBP(overcharge.estimatedRefund)}</Text>;
   }
@@ -115,10 +135,18 @@ export default function JourneysScreen({
     () => matchRefundsToJourneys(listRefunds(), journeys),
     [journeys, lastImport],
   );
+  // Delay Repay applications from TfL's refund-history page (TfL-36), matched to
+  // journeys by date + route. These carry no amount, so they're matched/stored
+  // separately from the amount-bearing refunds above. Map journeyId → status.
+  const refundAppStatusById = React.useMemo(
+    () => matchRefundApplicationsToJourneys(listRefundApplications(), journeys),
+    [journeys, lastImport],
+  );
   const tagsById = React.useMemo(() => {
     const m = new Map<number, Set<StatusTag>>();
     for (const j of journeys) {
       const oc = overchargeById.get(j.id);
+      const appStatus = refundAppStatusById.get(j.id);
       m.set(j.id, statusTags({
         eligible: assessments.get(j.id)?.status === 'eligible',
         overcharged: oc != null && oc.claimStatus !== 'expired',
@@ -126,11 +154,11 @@ export default function JourneysScreen({
         claimedAt: claims.get(j.id)?.claimedAt ?? null,
         lastRefreshAt,
         daysLeft: claimDeadline(j.date, today).daysLeft,
-        receivedRefund: receivedByRefund.has(j.id),
+        receivedRefund: receivedByRefund.has(j.id) || (appStatus != null && isReceivedStatus(appStatus)),
       }));
     }
     return m;
-  }, [journeys, assessments, overchargeById, claims, today, lastRefreshAt, receivedByRefund]);
+  }, [journeys, assessments, overchargeById, claims, today, lastRefreshAt, receivedByRefund, refundAppStatusById]);
 
   const cutoff = React.useMemo(cutoff13Mo, []);
   const visibleJourneys = showAll ? journeys : journeys.filter(j => j.date >= cutoff);
@@ -233,6 +261,7 @@ export default function JourneysScreen({
                 claim={claims.get(item.id)}
                 missed={missed}
                 overcharge={overchargeById.get(item.id)}
+                refundStatus={refundAppStatusById.get(item.id)}
               />
               <Text style={styles.chevron}>›</Text>
             </Pressable>

@@ -38,6 +38,18 @@ export const NEW_STATEMENTS_URL = 'https://contactless.tfl.gov.uk/NewStatements'
  * same-origin source of the account's current card ids. */
 export const MY_CARDS_URL = 'https://contactless.tfl.gov.uk/MyCards';
 
+/** The per-card Delay Repay refund-history page (TfL-36). Lists each refund
+ * APPLICATION (date + route + status line) — the only TfL source for an
+ * in-flight refund; the journey CSV carries no refund rows and the money shows
+ * up card-side, not here. Note the query key is lowercase `cardDisplayId`,
+ * unlike the capital `CardDisplayId` on the CSV download endpoints. */
+export const REFUND_HISTORY_URL = 'https://contactless.tfl.gov.uk/Refunds/RefundHistory';
+
+/** The refund-history page URL for one card display id. */
+export function buildRefundHistoryUrl(cardDisplayId: string): string {
+  return `${REFUND_HISTORY_URL}?cardDisplayId=${encodeURIComponent(cardDisplayId)}`;
+}
+
 /** Whether a loaded URL is the statements page. */
 export function isNewStatementsUrl(url: string): boolean {
   return /newstatements/i.test(url);
@@ -279,6 +291,9 @@ export const MAX_DIRECT_CARDS = 8;
  *   status 'signed-out'   — login (or mid-login) page; user signs in here
  *   status 'wrong-page'   — not the statements page; fall back to steering
  *   status 'csv', files   — statements fetched: [{text, card, period, url}]
+ *   status 'billing', billingFiles — payment statements (refund credit rows)
+ *   status 'refund-history', refundHistory — Delay Repay application pages:
+ *                           [{html, card, url}] (TfL-36)
  *   status 'failed'       — no card ids found / nothing fetched; fall back
  *
  * Challenge and signed-out detection mirror the harvest script exactly — the
@@ -404,6 +419,33 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
       }
       var files = [];
       var journeyReported = false;
+
+      // Refund-history pass (TfL-36, non-fatal). One fetch per card of the
+      // Delay Repay refund-history page — the ONLY TfL source for an in-flight
+      // refund application (the journey CSV has no refund rows; the money lands
+      // card-side). Reports the raw HTML per card for the parser on the RN side.
+      var runRefundHistory = function () {
+        var refundFiles = [];
+        var refundNext = function (rk) {
+          if (rk >= ids.length) {
+            if (refundFiles.length) {
+              report({ type: 'direct-csv', status: 'refund-history', refundHistory: refundFiles });
+            }
+            return;
+          }
+          var rcard = ids[rk];
+          var rurl = '${REFUND_HISTORY_URL}?cardDisplayId=' + encodeURIComponent(rcard);
+          win.fetch(rurl, { credentials: 'include' })
+            .then(function (res) { return res.ok ? res.text() : ''; })
+            .then(function (t) {
+              var s = String(t || '');
+              if (s && s.indexOf('<') !== -1) { refundFiles.push({ html: s, card: rcard, url: rurl }); }
+            })
+            .catch(function () { })
+            .then(function () { refundNext(rk + 1); });
+        };
+        refundNext(0);
+      };
       // Sequential, not parallel — kinder to the WAF, and order keeps the
       // report deterministic. A failed month is skipped, not fatal.
       var next = function (k) {
@@ -429,6 +471,9 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
               } else if (!journeyReported) {
                 report({ type: 'direct-csv', status: 'failed', message: 'no statement CSV came back' });
               }
+              // Refund-history pass runs after billing, regardless of outcome:
+              // a refund application can exist with no fresh billing/journey CSV.
+              runRefundHistory();
               return;
             }
             var bjob = billingJobs[bk];

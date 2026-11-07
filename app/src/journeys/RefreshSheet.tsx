@@ -56,9 +56,10 @@ import {
 } from './direct-csv';
 import { autoMatchRefunds } from '../claims/auto-match';
 import { setClaimOutcome } from '../claims/db';
-import { getMeta, insertRefunds, listCards, setMeta } from './db';
+import { getMeta, insertRefunds, insertRefundApplications, listCards, setMeta } from './db';
 import { importCsvText, ImportOutcome } from './import';
 import { isJourneyCsv, parseStatement } from './parse';
+import { parseRefundHistory } from './refund-history';
 import { saveRawStatements } from './raw-export-io';
 import type { RawStatement } from './raw-export';
 import {
@@ -844,6 +845,35 @@ export default function RefreshSheet({ onClose }: Props) {
             } catch { /* non-fatal */ }
           }
           if (billingFiles.length > 0) recordAudit('billing-csv', `${billingFiles.length} files, ${billingRefunds} new refunds`);
+        } else if (msg.status === 'refund-history') {
+          // Delay Repay applications (TfL-36). The journey CSV carries no refund
+          // rows and the money lands card-side, so this per-card page is the
+          // only source for an in-flight refund. Parse date+route+status and
+          // store — JourneysScreen matches them to journeys by date + route.
+          // Non-fatal: never transitions phase or undoes the journey import.
+          const pages = Array.isArray(msg.refundHistory) ? msg.refundHistory : [];
+          const nowISO = new Date().toISOString();
+          let newApps = 0;
+          for (const pg of pages) {
+            try {
+              const html = String(pg?.html ?? '');
+              const rcard = String(pg?.card ?? '').trim() || 'unknown';
+              if (!html) continue;
+              const apps = parseRefundHistory(html, nowISO, rcard);
+              if (apps.length > 0) {
+                const { inserted } = insertRefundApplications(apps.map(a => ({
+                  date: a.date,
+                  origin: a.origin,
+                  destination: a.destination,
+                  status: a.status,
+                  rawStatus: a.rawStatus,
+                  card: a.card ?? rcard,
+                })));
+                newApps += inserted;
+              }
+            } catch { /* non-fatal */ }
+          }
+          if (pages.length > 0) recordAudit('refund-history', `${pages.length} page(s), ${newApps} application(s)`);
         } else if (msg.status === 'signed-out' || msg.status === 'challenge') {
           recordAudit('direct-csv', String(msg.status));
           dispatch({ type: 'harvest', status: msg.status });

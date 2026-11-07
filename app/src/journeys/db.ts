@@ -10,19 +10,30 @@ import {
   ensureJourneySchema,
   ensureMetaSchema,
   ensureRefundSchema,
+  ensureRefundApplicationSchema,
   getMetaCore,
   insertJourneysCore,
   insertRefundsCore,
+  insertRefundApplicationsCore,
   listRefundsCore,
+  listRefundApplicationsCore,
   migrateLegacyImportRows,
   setMetaCore,
   totalRefundsCore,
   type ImportSummary,
   type RefundInsertSummary,
   type StoredRefund,
+  type RefundApplicationRow,
+  type StoredRefundApplication,
 } from './store-core';
 
-export type { ImportSummary, RefundInsertSummary, StoredRefund } from './store-core';
+export type {
+  ImportSummary,
+  RefundInsertSummary,
+  StoredRefund,
+  RefundApplicationRow,
+  StoredRefundApplication,
+} from './store-core';
 
 export interface StoredJourney extends ParsedJourney {
   id: number;
@@ -37,6 +48,7 @@ export function openJourneyDb(): SQLite.SQLiteDatabase {
   ensureJourneySchema(db);
   ensureMetaSchema(db);
   ensureRefundSchema(db);
+  ensureRefundApplicationSchema(db);
   migrateLegacyImportRows(db); // idempotent TfL-8 cleanup of pre-hotfix rows
   return db;
 }
@@ -71,6 +83,18 @@ export function totalReceivedRefunds(): number {
  *  these to journeys so refunds claimed outside the app still surface. */
 export function listRefunds(): StoredRefund[] {
   return listRefundsCore(openJourneyDb());
+}
+
+/** Store Delay Repay applications scraped from the refund-history page (TfL-36).
+ *  Upserts status in place so a later refresh promotes submitted → paid. */
+export function insertRefundApplications(apps: RefundApplicationRow[]): RefundInsertSummary {
+  return insertRefundApplicationsCore(openJourneyDb(), apps, new Date().toISOString());
+}
+
+/** Every stored refund application (date/route/status) — the Received filter
+ *  and the refund badge match these to journeys by date + route. */
+export function listRefundApplications(): StoredRefundApplication[] {
+  return listRefundApplicationsCore(openJourneyDb());
 }
 
 const ROW_TO_JOURNEY = (r: any): StoredJourney => ({
