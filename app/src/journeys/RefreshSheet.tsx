@@ -886,6 +886,21 @@ export default function RefreshSheet({ onClose }: Props) {
                 const sample = (relevant.length ? relevant : lines).slice(0, 30).join(' ¦ ').slice(0, 1800);
                 recordAudit('refund-diag', `card ${rcard.slice(0, 8)}: ${html.length}b, ${lines.length} lines, ${relevant.length} relevant, parsed ${apps.length}`);
                 recordAudit('refund-lines', sample || '(no text extracted)');
+                // When applications are visibly present ("...submitted") but the
+                // parser found none, the date/route live in markup our text-strip
+                // drops (attributes, data-*, or a JSON/script blob). Capture the
+                // RAW markup window around the first entry — tags intact — so we
+                // can see exactly how TfL encodes the journey date + route.
+                if (apps.length === 0) {
+                  const si = html.search(/application submitted/i);
+                  if (si >= 0) {
+                    const raw = html.slice(Math.max(0, si - 1800), si + 300).replace(/\s+/g, ' ').trim().slice(0, 1900);
+                    recordAudit('refund-raw', raw);
+                  }
+                  // Also surface any embedded JSON/script that may carry the data.
+                  const sc = html.match(/<script\b[^>]*>([\s\S]{0,1900}?(?:date|origin|destination|station|journey|refund)[\s\S]{0,400})<\/script>/i);
+                  if (sc) recordAudit('refund-script', sc[1].replace(/\s+/g, ' ').trim().slice(0, 1900));
+                }
               } catch { /* diagnostics must never break the refresh */ }
             } catch { /* non-fatal */ }
           }
