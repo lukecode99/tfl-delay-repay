@@ -60,6 +60,7 @@ import { getMeta, insertRefunds, insertRefundApplications, listCards, setMeta } 
 import { importCsvText, ImportOutcome } from './import';
 import { isJourneyCsv, parseStatement } from './parse';
 import { parseRefundHistory, htmlToLines } from './refund-history';
+import { appBuildStamp } from './app-build';
 import { saveRawStatements } from './raw-export-io';
 import type { RawStatement } from './raw-export';
 import {
@@ -93,6 +94,10 @@ interface Props {
 }
 
 const DISMISS_DELAY_MS = 1200; // long enough to read the success line
+// TfL-37: after 'done', the sheet waits for the refund-history report before
+// closing (a cold session's close beat the refund pass on 8-Nov and the
+// capture was lost). Capped so a dead WebView can never hold the sheet open.
+const REFUND_SETTLE_CAP_MS = 25_000;
 
 const MODES: { value: FetchMode; label: string }[] = [
   { value: 'contactless', label: 'Contactless' },
@@ -302,6 +307,11 @@ export default function RefreshSheet({ onClose }: Props) {
   // TfL-18: set while a dispatch() call injects the in-place direct script,
   // so the handler that triggered it doesn't inject a second time.
   const dispatchInjected = useRef(false);
+  // TfL-37: the direct script now ALWAYS posts a refund-history report (even
+  // empty), so 'done' can hold the close until it lands. directCsvRanRef
+  // gates the wait — a classic-harvest session has no refund pass to wait on.
+  const directCsvRanRef = useRef(false);
+  const refundSettledRef = useRef(false);
   // Harvest timeout — cleared whenever the phase leaves 'harvesting'.
   const harvestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Remaining backfill months shown in the status bar during direct-csv passes.
@@ -399,6 +409,7 @@ export default function RefreshSheet({ onClose }: Props) {
 
   const injectHarvest = () => {
     const direct = isDirectCsvUrl(urlRef.current);
+    if (direct) directCsvRanRef.current = true;
     recordAudit('inject', `${direct ? 'direct-csv' : 'harvest'} on ${urlRef.current}`);
     webRef.current?.injectJavaScript(buildNetProbeScript() + '\n' + (direct ? directScript() : buildHarvestScript()));
   };
@@ -406,6 +417,7 @@ export default function RefreshSheet({ onClose }: Props) {
   // TfL-18: the in-place direct attempt runs on whatever page is showing —
   // always the direct script, never the URL-keyed harvest picker.
   const injectDirect = () => {
+    directCsvRanRef.current = true;
     recordAudit('inject', `direct-csv in place on ${urlRef.current}`);
     webRef.current?.injectJavaScript(buildNetProbeScript() + '\n' + directScript());
   };
@@ -479,6 +491,25 @@ export default function RefreshSheet({ onClose }: Props) {
         setPausedCopy(`${next.message} · ${n} claim${n === 1 ? '' : 's'} auto-marked paid`);
       }
       const doClose = () => close(outcome ? { kind: 'imported', outcome } : { kind: 'empty' });
+      // TfL-37: a direct-csv session holds the close until the refund-history
+      // report lands (it always reports now, even empty) or the cap expires —
+      // on 8-Nov a cold session closed 1s after the csv report and the refund
+      // capture never happened. Harvest sessions close as before.
+      const closeWhenSettled = () => {
+        const started = Date.now();
+        let waitingShown = false;
+        const tick = () => {
+          if (closedRef.current) return;
+          if (!directCsvRanRef.current || refundSettledRef.current
+            || Date.now() - started > REFUND_SETTLE_CAP_MS) { doClose(); return; }
+          if (!waitingShown) {
+            waitingShown = true;
+            setPausedCopy('Checking refund history…');
+          }
+          setTimeout(tick, 400);
+        };
+        tick();
+      };
       // Dedupe by journeyId — a journey appearing in two billing files would
       // otherwise prompt twice for the same claim.
       const seenJourneys = new Set<number>();
@@ -497,7 +528,7 @@ export default function RefreshSheet({ onClose }: Props) {
 
       // Chain: corrections first, then suggestions, then close.
       const offerSuggestion = (remaining: typeof pendingSuggestions) => {
-        if (!remaining.length) { doClose(); return; }
+        if (!remaining.length) { closeWhenSettled(); return; }
         const [s, ...rest] = remaining;
         Alert.alert(
           'Overcharge refund found',
@@ -528,7 +559,7 @@ export default function RefreshSheet({ onClose }: Props) {
       } else if (pendingSuggestions.length > 0) {
         setTimeout(() => offerSuggestion(pendingSuggestions), DISMISS_DELAY_MS);
       } else {
-        setTimeout(doClose, DISMISS_DELAY_MS);
+        setTimeout(closeWhenSettled, DISMISS_DELAY_MS);
       }
     }
     // 'error' stays open — the status bar shows what went wrong and the page
@@ -542,12 +573,12 @@ export default function RefreshSheet({ onClose }: Props) {
 
   useEffect(() => {
     // A persisted mode starts the flow straight from mount (no chooseMode).
-    if (persistedMode()) recordAudit('refresh-start', `mode ${persistedMode()}`);
+    if (persistedMode()) recordAudit('refresh-start', `mode ${persistedMode()} · build ${appBuildStamp()}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const chooseMode = (m: FetchMode) => {
-    recordAudit('refresh-start', `mode ${m}`);
+    recordAudit('refresh-start', `mode ${m} · build ${appBuildStamp()}`);
     setMeta(FETCH_MODE_KEY, m);
     // Fresh start: new mode, new flow, new tallies. The WebView remounts via
     // key={mode} and loads the mode's first history page.
@@ -556,6 +587,8 @@ export default function RefreshSheet({ onClose }: Props) {
     sessionAutoMatchedRef.current = 0;
     sessionCorrectionsRef.current = [];
     sessionSuggestionsRef.current = [];
+    directCsvRanRef.current = false;
+    refundSettledRef.current = false;
     setPendingPeriods(0);
     stateRef.current = makeInitialFlow(m);
     setState(stateRef.current);
@@ -851,6 +884,7 @@ export default function RefreshSheet({ onClose }: Props) {
           // only source for an in-flight refund. Parse date+route+status and
           // store — JourneysScreen matches them to journeys by date + route.
           // Non-fatal: never transitions phase or undoes the journey import.
+          refundSettledRef.current = true; // TfL-37: releases closeWhenSettled
           const pages = Array.isArray(msg.refundHistory) ? msg.refundHistory : [];
           const nowISO = new Date().toISOString();
           let newApps = 0;
@@ -904,7 +938,10 @@ export default function RefreshSheet({ onClose }: Props) {
               } catch { /* diagnostics must never break the refresh */ }
             } catch { /* non-fatal */ }
           }
-          if (pages.length > 0) recordAudit('refund-history', `${pages.length} page(s), ${newApps} application(s)`);
+          // Always record (TfL-37): an empty pass must be distinguishable from
+          // a pass that never ran — that ambiguity is what hid the 8-Nov race.
+          recordAudit('refund-history', `${pages.length} page(s), ${newApps} application(s)`
+            + (Number(msg.errors) > 0 ? `, ${Number(msg.errors)} fetch error(s)` : ''));
         } else if (msg.status === 'signed-out' || msg.status === 'challenge') {
           recordAudit('direct-csv', String(msg.status));
           dispatch({ type: 'harvest', status: msg.status });

@@ -426,11 +426,13 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
       // card-side). Reports the raw HTML per card for the parser on the RN side.
       var runRefundHistory = function () {
         var refundFiles = [];
+        var refundErrors = 0;
         var refundNext = function (rk) {
           if (rk >= ids.length) {
-            if (refundFiles.length) {
-              report({ type: 'direct-csv', status: 'refund-history', refundHistory: refundFiles });
-            }
+            // Always report, even with nothing fetched (TfL-37): the RN side
+            // holds the sheet open until this report lands, so silence on an
+            // empty/failed pass would stall the close instead of settling it.
+            report({ type: 'direct-csv', status: 'refund-history', refundHistory: refundFiles, errors: refundErrors });
             return;
           }
           var rcard = ids[rk];
@@ -440,8 +442,9 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
             .then(function (t) {
               var s = String(t || '');
               if (s && s.indexOf('<') !== -1) { refundFiles.push({ html: s, card: rcard, url: rurl }); }
+              else { refundErrors++; }
             })
-            .catch(function () { })
+            .catch(function () { refundErrors++; })
             .then(function () { refundNext(rk + 1); });
         };
         refundNext(0);
@@ -471,9 +474,6 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
               } else if (!journeyReported) {
                 report({ type: 'direct-csv', status: 'failed', message: 'no statement CSV came back' });
               }
-              // Refund-history pass runs after billing, regardless of outcome:
-              // a refund application can exist with no fresh billing/journey CSV.
-              runRefundHistory();
               return;
             }
             var bjob = billingJobs[bk];
@@ -485,6 +485,12 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
               .catch(function () { })
               .then(function () { billingNext(bk + 1); });
           };
+          // Refund-history pass runs concurrently with billing (TfL-37): the
+          // two hit different endpoints, and the RN side now holds the sheet
+          // open until the refund report lands — serialising it behind a dozen
+          // billing fetches is what made a cold session lose that race (8-Nov:
+          // sheet closed 1s after the csv report, refund pass never reported).
+          runRefundHistory();
           billingNext(0);
           return;
         }

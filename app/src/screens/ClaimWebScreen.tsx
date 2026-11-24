@@ -21,6 +21,7 @@ import type { Assessment } from '../eligibility/engine';
 import type { StoredJourney } from '../journeys/db';
 import { getMeta, setMeta } from '../journeys/db';
 import { appendAudit, AUDIT_LOG_KEY } from '../journeys/audit-log';
+import { appBuildStamp } from '../journeys/app-build';
 import { buildNetCaptureScript, describeCapture } from '../journeys/claim-capture';
 import { colors, spacing } from '../theme';
 
@@ -33,6 +34,18 @@ interface Props {
 // TfL-34: the guided claim's visible stages, in order. Index drives the
 // progress stepper at the top of the screen (see stageIdx / bumpStage).
 const STAGES = ['Sign in', 'Identify card', 'Open form', 'Fill form', 'Submit'];
+
+// TfL-37: a real submission bounced to /ServiceDelayRefunds/Error after the
+// captcha (24-Nov) and the log held no reason — claim-nav records URLs only.
+// Injected once when the WebView lands on the Error page: posts the page's
+// visible text so the audit log shows WHY TfL rejected the claim.
+const ERROR_PAGE_CAPTURE_SCRIPT = `(function(){
+  try {
+    var el = document.querySelector('main') || document.body;
+    var txt = (el && el.innerText ? el.innerText : '').replace(/\\s+/g, ' ').trim().slice(0, 1800);
+    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'claim-error-page', text: txt }));
+  } catch (e) { }
+})(); true;`;
 
 export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   const webRef = useRef<WebView>(null);
@@ -84,6 +97,8 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
   const confirmPromptedRef = useRef(false);
   // TfL-34: one-shot guard so the Apply form auto-fills exactly once.
   const autoFilledRef = useRef(false);
+  // TfL-37: one-shot guard for the Error-page text capture below.
+  const errorCapturedRef = useRef(false);
 
   // The Apply form is the only page with the mode/station dropdowns. On every
   // other page (sign-in, card list) fall back to the keyword fill.
@@ -99,7 +114,7 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
     } catch { /* capture only */ }
   };
 
-  useEffect(() => { recordAudit('claim-open', claimUrl); }, []);
+  useEffect(() => { recordAudit('claim-open', `${claimUrl} · build ${appBuildStamp()}`); }, []);
 
   // Shared by the "Mark claimed" button and the confirmation-page prompt.
   const doMarkClaimed = () => {
@@ -160,6 +175,12 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
       }
       // TfL-26: the scan found TfL's confirmation page — prompt (once) to mark claimed.
       if (msg.type === 'claim-confirmation') { bumpStage(5); promptMarkClaimed(); return; }
+      // TfL-37: the Error page's visible text → audit log, so a bounced claim
+      // carries its reason instead of a bare /ServiceDelayRefunds/Error URL.
+      if (msg.type === 'claim-error-page') {
+        recordAudit('claim-error', String(msg.text ?? '').slice(0, 1800) || '(no text on error page)');
+        return;
+      }
       // TfL-28: result of the MyCards card-selection steer. On success it's
       // already navigating to Apply (nothing to do). On failure, tell the user
       // to tap their card by hand so they still reach the form.
@@ -326,6 +347,12 @@ export default function ClaimWebScreen({ journey, assessment, onDone }: Props) {
           const url = String(e?.nativeEvent?.url ?? currentUrl);
           // Don't act on the sign-in bounce pages; the guard-reset above handles them.
           if (isLoginRedirectUrl(url)) return;
+          // TfL-37: capture the Error page's text (once) — see the script above.
+          if (!errorCapturedRef.current && /\/ServiceDelayRefunds\/Error/i.test(url)) {
+            errorCapturedRef.current = true;
+            webRef.current?.injectJavaScript(ERROR_PAGE_CAPTURE_SCRIPT);
+            return;
+          }
           // TfL-28: TfL's post-login OAuth lands on the contactless Dashboard.
           // Advance to MyCards once, where the card-selection steer then runs.
           if (!advancedRef.current && isDashboardPage(url)) {

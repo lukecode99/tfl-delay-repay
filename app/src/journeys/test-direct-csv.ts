@@ -212,11 +212,12 @@ async function runDirect(
 }
 
 // TfL-19: the script always fetches MyCards first for card discovery, and
-// (TfL-36) finishes with a per-card Refunds/RefundHistory fetch. This wrapper
-// answers both (MyCards: a card-less page by default; RefundHistory: an empty
-// body so no refund-history message is emitted) so the download stubs below
-// only see the DownloadJourneyCsv/DownloadBillingCsv traffic their call counts
-// assert. The dedicated refund-history block uses its own stub to exercise it.
+// (TfL-36) runs a per-card Refunds/RefundHistory pass. This wrapper answers
+// both (MyCards: a card-less page by default; RefundHistory: an empty body —
+// which still yields an always-report refund-history message with an empty
+// list, TfL-37) so the download stubs below only see the DownloadJourneyCsv/
+// DownloadBillingCsv traffic their call counts assert. The dedicated
+// refund-history block uses its own stub to exercise a real page.
 function withMyCards(inner: (url: string, opts?: any) => any, html = '<html><body>no cards here</body></html>') {
   return (url: string, opts?: any) => {
     const u = String(url);
@@ -260,11 +261,17 @@ function withMyCards(inner: (url: string, opts?: any) => any, html = '<html><bod
     ],
     options: [CARD_C, 'not-a-card'],
   }), { fetch: withMyCards(fetchStub) });
-  // Journey pass emits {status:'csv'} immediately; billing pass follows with
-  // {status:'billing'} so closing the sheet mid-billing can't lose journeys.
-  ok(msgs.length === 2 && msgs[0].status === 'csv', 'script: journey pass emits csv first, billing follows as a second message');
+  // Journey pass emits {status:'csv'} immediately; billing and refund-history
+  // passes run concurrently after it (TfL-37), so closing the sheet
+  // mid-billing can't lose journeys. Order of the two trailing messages is
+  // timing-dependent — find them by status.
+  ok(msgs.length === 3 && msgs[0].status === 'csv', 'script: journey pass emits csv first; billing + refund-history follow');
   ok(msgs[0].files.length === 6, 'script: 3 cards × 2 periods = 6 statements, duplicates collapsed');
-  ok(msgs[1].status === 'billing' && msgs[1].billingFiles.length === 6, 'script: billing pass emits 3 cards × 2 billing periods = 6 billing files');
+  const billingMsg = msgs.find((m: any) => m.status === 'billing');
+  ok(!!billingMsg && billingMsg.billingFiles.length === 6, 'script: billing pass emits 3 cards × 2 billing periods = 6 billing files');
+  const emptyRefundMsg = msgs.find((m: any) => m.status === 'refund-history');
+  ok(!!emptyRefundMsg && emptyRefundMsg.refundHistory.length === 0,
+    'script: refund-history always reports (TfL-37) — empty pages → empty list, never silence');
   ok(calls.length === 12 && calls.every(c => c.opts.credentials === 'include'),
     'script: 6 journey + 6 billing fetches, every one carries the session cookie (credentials: include)');
   ok(calls[0].url === buildCsvUrl('7|2026', CARD_A) && calls[1].url === buildCsvUrl('6|2026', CARD_A),
@@ -313,21 +320,24 @@ function withMyCards(inner: (url: string, opts?: any) => any, html = '<html><bod
   const msgs = await runDirect(statementsDoc({
     anchors: [{ href: `/x?CardDisplayId=${CARD_A}` }],
   }), { fetch: withMyCards(flaky) });
-  ok(msgs.length === 2 && msgs[0].status === 'csv' && msgs[0].files.length === 1,
-    'script: an HTML response is dropped, surviving statements still reported; billing message follows');
+  ok(msgs.length === 3 && msgs[0].status === 'csv' && msgs[0].files.length === 1,
+    'script: an HTML response is dropped, surviving statements still reported; billing + refund-history follow');
 }
 {
   const msgs = await runDirect(statementsDoc({
     anchors: [{ href: `/x?CardDisplayId=${CARD_A}` }],
   }), { fetch: withMyCards(() => Promise.reject(new Error('WAF said no'))) });
-  ok(msgs.length === 1 && msgs[0].status === 'failed',
+  ok(msgs.length === 2 && msgs.some((m: any) => m.status === 'failed'),
     'script: every fetch failing → failed (steering harvest takes over), not a crash');
+  ok(msgs.some((m: any) => m.status === 'refund-history' && m.refundHistory.length === 0),
+    'script: refund-history still settles with an empty report when downloads fail (TfL-37)');
 }
 {
   const msgs = await runDirect(statementsDoc({
     anchors: [{ href: `/x?CardDisplayId=${CARD_A}` }],
   }), { fetch: withMyCards(() => Promise.resolve({ ok: false, status: 403, text: () => Promise.resolve('') })) });
-  ok(msgs.length === 1 && msgs[0].status === 'failed', 'script: non-OK responses count as failures too');
+  ok(msgs.length === 2 && msgs.some((m: any) => m.status === 'failed'),
+    'script: non-OK responses count as failures too (refund-history still settles empty)');
 }
 {
   const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }),
@@ -368,8 +378,8 @@ const DASHBOARD_HREF = 'https://contactless.tfl.gov.uk/Dashboard';
   };
   const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }),
     { href: DASHBOARD_HREF, fetch: withMyCards(fetchStub) }, ['7|2026', '6|2026'], [CARD_A]);
-  ok(msgs.length === 2 && msgs[0].status === 'csv' && msgs[0].files.length === 2,
-    'TfL-17: Dashboard + logged card id → both months fetched, no statements page needed; billing follows');
+  ok(msgs.length === 3 && msgs[0].status === 'csv' && msgs[0].files.length === 2,
+    'TfL-17: Dashboard + logged card id → both months fetched, no statements page needed; billing + refund-history follow');
   ok(calls[0].url === buildCsvUrl('7|2026', CARD_A) && calls.every(c => c.opts.credentials === 'include'),
     'TfL-17: Dashboard fetches hit the same endpoint with the session cookie');
 }
@@ -400,10 +410,10 @@ const DASHBOARD_HREF = 'https://contactless.tfl.gov.uk/Dashboard';
     html: `<script>var x = "/NewStatements/DownloadBillingCsv?Period=6|2026&CardDisplayId=${CARD_B}";`
       + ` var dup = "?CardDisplayId=${CARD_B}";</script>`,
   }), { href: DASHBOARD_HREF, fetch: withMyCards(fetchStub) });
-  ok(msgs.length === 2 && msgs[0].status === 'csv' && msgs[0].files.length === 2
+  ok(msgs.length === 3 && msgs[0].status === 'csv' && msgs[0].files.length === 2
     && msgs[0].files.every((f: any) => f.card === CARD_B)
     && calls[0] === buildCsvUrl('7|2026', CARD_B),
-    'TfL-18: current page HTML mined for card ids when links and log are empty — no dead-page fetch; billing follows');
+    'TfL-18: current page HTML mined for card ids when links and log are empty — no dead-page fetch; billing + refund-history follow');
 }
 {
   // Ids found on the page suppress the HTML mining — it is a last resort.
@@ -457,8 +467,8 @@ const DASHBOARD_HREF = 'https://contactless.tfl.gov.uk/Dashboard';
   };
   const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }),
     { href: DASHBOARD_HREF, fetch: fetchStub });
-  ok(msgs.length === 2 && msgs[0].status === 'csv' && msgs[0].files.length === 4,
-    'TfL-19: MyCards discovers 2 active cards on a bare Dashboard → 2 cards × 2 periods; billing follows');
+  ok(msgs.length === 3 && msgs[0].status === 'csv' && msgs[0].files.length === 4,
+    'TfL-19: MyCards discovers 2 active cards on a bare Dashboard → 2 cards × 2 periods; billing + refund-history follow');
   ok(calls[0].url === MY_CARDS_URL && calls[0].opts.credentials === 'include',
     'TfL-19: MyCards is fetched first, with the session cookie');
   ok(calls.slice(1, 5).every(c => /\/DownloadJourneyCsv\?/.test(c.url)),
@@ -479,7 +489,7 @@ const DASHBOARD_HREF = 'https://contactless.tfl.gov.uk/Dashboard';
   };
   const msgs = await runDirect(statementsDoc({ anchors: [{ href: '/help' }] }),
     { href: DASHBOARD_HREF, fetch: fetchStub }, ['7|2026', '6|2026'], [CARD_C]);
-  ok(msgs.length === 2 && msgs[0].status === 'csv' && msgs[0].files.length === 2
+  ok(msgs.length === 3 && msgs[0].status === 'csv' && msgs[0].files.length === 2
     && calls.length === 5 && msgs[0].files.every((f: any) => f.card === CARD_C),
     'TfL-19: MyCards fetch failure falls through to known ids — discovery is never fatal; 2 journey + 2 billing + 1 refund-history fetch');
 }
