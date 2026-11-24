@@ -41,6 +41,128 @@ const PAGE = `
   </section>
 </body></html>`;
 
+// VERBATIM markup captured from Luke's live account (refund-raw audit,
+// 24-Nov-2026, build 97) — tile structure, attribute order and text exactly as
+// TfL serves it, extended to three entries. THE canonical fixture: if this
+// test breaks, TfL changed the page.
+const REAL_PAGE = `
+<html><body>
+<h2 id="selectedcard-name">ending in 5006</h2>
+<div class="statements-list">
+  <button id="journey-date-heading-0" tabindex="0" class="list-group-item collapsed journey-date-heading" data-toggle="collapse" data-target="#journey-0" aria-expanded="false" aria-controls="journey-0" data-pageobject="journey-date-heading">
+    <span class="pull-right font-plus" aria-hidden="true"></span> October
+  </button>
+  <div class="list-group collapse" id="journey-0" aria-labelledby="journey-date-heading-0">
+    <div class="list-group-item journey-tile">
+      <div class="row" data-pageobject="statement-paymentrow">
+        <div class="col-xs-12">
+          <h3 data-pageobject="refund-travelday">Wednesday 28th October 2026</h3>
+          <p>
+            <span class="journey-to-from" data-pageobject="refund-journey-to-from">
+              <span data-pageobject="journey-from">White City</span>
+              <span>to</span>
+              <span data-pageobject="journey-to">Northolt</span>
+            </span>
+          </p>
+          <h4 class="refund-status" data-pageobject="refund-status">Service delay refund application submitted</h4>
+          <p data-pageobject="refund-message">You will be notified of the outcome separately via email.</p>
+        </div>
+      </div>
+    </div>
+    <div class="list-group-item journey-tile">
+      <div class="row" data-pageobject="statement-paymentrow">
+        <div class="col-xs-12">
+          <h3 data-pageobject="refund-travelday">Thursday 22nd October 2026</h3>
+          <p>
+            <span class="journey-to-from" data-pageobject="refund-journey-to-from">
+              <span data-pageobject="journey-from">South Ruislip</span>
+              <span>to</span>
+              <span data-pageobject="journey-to">White City</span>
+            </span>
+          </p>
+          <h4 class="refund-status" data-pageobject="refund-status">Service delay refund application submitted</h4>
+          <p data-pageobject="refund-message">You will be notified of the outcome separately via email.</p>
+        </div>
+      </div>
+    </div>
+    <div class="list-group-item journey-tile">
+      <div class="row" data-pageobject="statement-paymentrow">
+        <div class="col-xs-12">
+          <h3 data-pageobject="refund-travelday">Wednesday 21st October 2026</h3>
+          <p>
+            <span class="journey-to-from" data-pageobject="refund-journey-to-from">
+              <span data-pageobject="journey-from">Great Portland Street</span>
+              <span>to</span>
+              <span data-pageobject="journey-to">Eastcote</span>
+            </span>
+          </p>
+          <h4 class="refund-status" data-pageobject="refund-status">Service delay refund application submitted</h4>
+          <p data-pageobject="refund-message">You will be notified of the outcome separately via email.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>`;
+
+test('REAL captured markup: parses all three applications (TfL-37)', () => {
+  const apps = parseRefundHistory(REAL_PAGE, NOW, '2f6956f8');
+  assert.equal(apps.length, 3);
+  assert.deepEqual(apps[0], {
+    date: '2026-10-28',
+    origin: 'White City',
+    destination: 'Northolt',
+    status: 'submitted',
+    rawStatus: 'Service delay refund application submitted',
+    card: '2f6956f8',
+  });
+  assert.deepEqual(apps.map(a => a.date), ['2026-10-28', '2026-10-22', '2026-10-21']);
+  assert.deepEqual(apps.map(a => `${a.origin}>${a.destination}`),
+    ['White City>Northolt', 'South Ruislip>White City', 'Great Portland Street>Eastcote']);
+});
+
+test('REAL markup: a tile with an unrecognised status still stores rawStatus', () => {
+  const page = REAL_PAGE.replace('Service delay refund application submitted',
+    'Some future wording TfL has not shown us yet');
+  const apps = parseRefundHistory(page, NOW, 'c1');
+  assert.equal(apps.length, 3);
+  assert.equal(apps[0].status, 'unknown');
+  assert.equal(apps[0].rawStatus, 'Some future wording TfL has not shown us yet');
+});
+
+test('REAL markup: a tile missing its route is skipped, others survive', () => {
+  const page = REAL_PAGE.replace('<span data-pageobject="journey-from">White City</span>', '');
+  const apps = parseRefundHistory(page, NOW, 'c1');
+  assert.equal(apps.length, 2);
+  assert.ok(apps.every(a => a.origin !== 'White City' || a.destination !== 'Northolt'));
+});
+
+test('REAL markup: full-weekday ordinal dates parse (parseRefundDate)', () => {
+  assert.equal(parseRefundDate('Wednesday 28th October 2026', NOW), '2026-10-28');
+  assert.equal(parseRefundDate('Thursday 22nd October 2026', NOW), '2026-10-22');
+  assert.equal(parseRefundDate('Monday 1st December 2025', NOW), '2025-12-01');
+  assert.equal(parseRefundDate('Saturday 3rd January 2026', NOW), '2026-01-03');
+});
+
+test('REAL markup end-to-end: applications match Luke\'s journeys by date + route', () => {
+  const apps = parseRefundHistory(REAL_PAGE, NOW, 'unknown');
+  const journeys = [
+    { id: 1, date: '2026-10-28', origin: 'White City', destination: 'Northolt', card: '2f6956f8' },
+    { id: 2, date: '2026-10-22', origin: 'South Ruislip', destination: 'White City', card: '2f6956f8' },
+    { id: 3, date: '2026-10-21', origin: 'Great Portland Street', destination: 'Eastcote', card: '2f6956f8' },
+    { id: 4, date: '2026-10-20', origin: 'Baker Street', destination: 'Bond Street', card: '2f6956f8' },
+  ];
+  const m = matchRefundApplicationsToJourneys(apps, journeys);
+  assert.deepEqual([...m.keys()].sort(), [1, 2, 3]);
+  assert.ok([...m.values()].every(s => s === 'submitted'));
+});
+
+test('empty-history page ("processed no refund applications") parses to zero', () => {
+  const page = '<html><body><h2 id="selectedcard-name">ending in 1234</h2>'
+    + '<p>We have processed no refund applications in the last 12 weeks.</p></body></html>';
+  assert.deepEqual(parseRefundHistory(page, NOW, 'c9'), []);
+});
+
 test('parses every entry on the page with date + route + status', () => {
   const apps = parseRefundHistory(PAGE, NOW, 'card1');
   assert.equal(apps.length, 3);

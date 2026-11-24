@@ -4,17 +4,20 @@
 // money itself lands card-side (invisible to us). The ONLY TfL source for an
 // in-flight refund is a separate screen:
 //   https://contactless.tfl.gov.uk/Refunds/RefundHistory?cardDisplayId=<id>
-// which lists each refund APPLICATION as a date + route + status line, e.g.
-//   Wed 21 Oct  Great Portland Street to Eastcote
-//   Service delay refund application submitted
-//   You will be notified of the outcome separately via email
+//
+// Real markup (captured from a live account via the refund-raw audit, TfL-37):
+// each application is a div.journey-tile carrying data-pageobject attributes —
+//   <h3 data-pageobject="refund-travelday">Wednesday 28th October 2026</h3>
+//   <span data-pageobject="journey-from">White City</span> <span>to</span>
+//   <span data-pageobject="journey-to">Northolt</span>
+//   <h4 data-pageobject="refund-status">Service delay refund application submitted</h4>
+// The route being split across three sibling spans is why a text-strip parser
+// cannot see "X to Y" on one line: parse the MARKUP first, keyed on those
+// data-pageobject hooks (they are TfL's own test ids, so more stable than
+// layout), and keep the old line state machine only as a fallback.
 //
 // Pure module — no React Native imports — so it runs under plain node for
 // tests (node --experimental-strip-types src/journeys/test-refund-history.ts).
-// We fetch the page HTML in the WebView (direct-csv refund-history pass) and
-// parse it here. The markup is treated as untrusted: strip tags to text, then
-// walk the lines with a small state machine so a layout tweak on TfL's side
-// can't silently break detection.
 
 export type RefundAppStatus = 'submitted' | 'approved' | 'paid' | 'rejected' | 'unknown';
 
@@ -32,7 +35,7 @@ const MONTHS: Record<string, string> = {
   jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
 };
 
-const DOW = /^(mon|tue|wed|thu|fri|sat|sun)\b/i;
+const DOW = /^(mon(day)?|tue(s(day)?)?|wed(nesday)?|thu(r(s(day)?)?)?|fri(day)?|sat(urday)?|sun(day)?)\b/i;
 const REFUND_LINE = /\brefund\b|\bdelay repay\b|application (submitted|approved|received|paid|refunded|rejected|declined|unsuccessful)/i;
 const NOTIFY_LINE = /you will be notified|notified of the outcome|separately via email/i;
 
@@ -51,13 +54,16 @@ export function classifyStatus(line: string): RefundAppStatus {
 }
 
 /**
- * "Wed 21 Oct" / "21 Oct" / "21 October" → YYYY-MM-DD. The screen omits the
- * year, so it's inferred relative to nowISO: the most recent occurrence of that
- * day+month that isn't in the future (a refund application is always for a past
- * journey). Returns null if the text carries no recognisable day+month.
+ * "Wednesday 28th October 2026" / "Wed 21 Oct" / "21 October" → YYYY-MM-DD.
+ * Ordinal suffixes are stripped; a missing year is inferred relative to nowISO:
+ * the most recent occurrence of that day+month that isn't in the future (a
+ * refund application is always for a past journey). Returns null if the text
+ * carries no recognisable day+month.
  */
 export function parseRefundDate(text: string, nowISO: string): string | null {
-  const t = String(text || '').trim();
+  const t = String(text || '')
+    .replace(/\b(\d{1,2})(st|nd|rd|th)\b/gi, '$1') // 28th → 28
+    .trim();
   // Already a full ISO date somewhere?
   const iso = t.match(/(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
@@ -113,14 +119,57 @@ function routeOf(line: string): { origin: string; destination: string } | null {
   return { origin, destination };
 }
 
+const decodeEntities = (s: string): string => s
+  .replace(/&nbsp;/gi, ' ')
+  .replace(/&amp;/gi, '&')
+  .replace(/&lt;/gi, '<')
+  .replace(/&gt;/gi, '>')
+  .replace(/&quot;/gi, '"')
+  .replace(/&#0*39;|&apos;/gi, "'");
+
+/** Text content of the first element in `chunk` tagged with the given
+ * data-pageobject value, or null. Only direct text (up to the next tag) is
+ * taken — every field on this page is a leaf element. */
+function pageObjectText(chunk: string, name: string): string | null {
+  const m = chunk.match(new RegExp(`data-pageobject=["']${name}["'][^>]*>([^<]*)<`, 'i'));
+  if (!m) return null;
+  const t = decodeEntities(m[1]).replace(/\s+/g, ' ').trim();
+  return t || null;
+}
+
+/** Markup-first parse: one application per journey-tile, fields keyed on TfL's
+ * own data-pageobject attributes. A tile missing any of date/from/to/status is
+ * skipped entirely — no data beats dodgy data. */
+function parseRefundTiles(html: string, nowISO: string, card?: string | null): RefundApplication[] {
+  const src = String(html || '');
+  if (!/data-pageobject=["']refund-travelday["']/i.test(src)) return [];
+  // Split on tile boundaries; every chunk after the first holds one tile's
+  // inner markup (up to the start of the next tile).
+  const chunks = src.split(/class=["'][^"']*journey-tile[^"']*["']/i).slice(1);
+  const out: RefundApplication[] = [];
+  for (const chunk of chunks) {
+    const dateText = pageObjectText(chunk, 'refund-travelday');
+    const origin = pageObjectText(chunk, 'journey-from');
+    const destination = pageObjectText(chunk, 'journey-to');
+    const rawStatus = pageObjectText(chunk, 'refund-status');
+    if (!dateText || !origin || !destination || !rawStatus) continue;
+    const date = parseRefundDate(dateText, nowISO);
+    if (!date) continue;
+    out.push({ date, origin, destination, status: classifyStatus(rawStatus), rawStatus, card: card ?? null });
+  }
+  return out;
+}
+
 /**
- * Parse one refund-history page's HTML into applications. A state machine over
- * the text lines: a date line arms pendingDate, a route line arms pendingRoute,
- * and a refund/status line flushes the trio into an application. Date-only or
- * route-only noise never emits. Entries missing a date fall back to the most
- * recent month-group header seen (the screen groups by month).
+ * Parse one refund-history page's HTML into applications. The real page is
+ * handled by parseRefundTiles (data-pageobject markup); the line state machine
+ * below is the fallback for any markup shape without those hooks: a date line
+ * arms pendingDate, a route line arms pendingRoute, and a refund/status line
+ * flushes the trio into an application.
  */
 export function parseRefundHistory(html: string, nowISO: string, card?: string | null): RefundApplication[] {
+  const fromTiles = parseRefundTiles(html, nowISO, card);
+  if (fromTiles.length > 0) return dedupeApps(fromTiles);
   const lines = htmlToLines(html);
   const out: RefundApplication[] = [];
   let pendingDate: string | null = null;
@@ -154,9 +203,13 @@ export function parseRefundHistory(html: string, nowISO: string, card?: string |
       : null;
     if (d) pendingDate = d;
   }
-  // Dedupe identical rows (page can repeat an entry across responsive layouts).
+  return dedupeApps(out);
+}
+
+/** Dedupe identical rows (page can repeat an entry across responsive layouts). */
+function dedupeApps(apps: RefundApplication[]): RefundApplication[] {
   const seen = new Set<string>();
-  return out.filter(a => {
+  return apps.filter(a => {
     const k = `${a.date}|${a.origin.toLowerCase()}|${a.destination.toLowerCase()}|${a.status}`;
     if (seen.has(k)) return false;
     seen.add(k);

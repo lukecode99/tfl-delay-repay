@@ -905,35 +905,24 @@ export default function RefreshSheet({ onClose }: Props) {
                 })));
                 newApps += inserted;
               }
-              // Diagnostic (TfL-36): the parser was built before we had the real
-              // page markup, so when 0 applications come back we can't tell a
-              // JS-rendered shell from a layout mismatch. Record what the fetch
-              // actually returned into the shareable audit log so a real sample
-              // can be read back without a browser (TfL WAFs datacenter IPs).
+              // Diagnostic (TfL-37): the parser is now built against the real
+              // captured markup (data-pageobject tiles), so diagnostics only
+              // fire on the regression case — a page that visibly contains an
+              // application yet parses to zero (TfL changed the markup). The
+              // raw window around the first entry shows the new encoding.
               try {
-                const lines = htmlToLines(html);
-                const relevant = lines.filter(l =>
-                  / to /i.test(l) ||
-                  /\b(refund|submitted|approved|rejected|application|notified)\b/i.test(l) ||
-                  /^(mon|tue|wed|thu|fri|sat|sun)\b/i.test(l) ||
-                  /^\d{1,2}\s+[A-Za-z]{3,}/.test(l));
-                const sample = (relevant.length ? relevant : lines).slice(0, 30).join(' ¦ ').slice(0, 1800);
-                recordAudit('refund-diag', `card ${rcard.slice(0, 8)}: ${html.length}b, ${lines.length} lines, ${relevant.length} relevant, parsed ${apps.length}`);
-                recordAudit('refund-lines', sample || '(no text extracted)');
-                // When applications are visibly present ("...submitted") but the
-                // parser found none, the date/route live in markup our text-strip
-                // drops (attributes, data-*, or a JSON/script blob). Capture the
-                // RAW markup window around the first entry — tags intact — so we
-                // can see exactly how TfL encodes the journey date + route.
-                if (apps.length === 0) {
-                  const si = html.search(/application submitted/i);
+                // "We have processed no refund applications…" (the empty page)
+                // must NOT trip this — key on an actual entry: a refund-status
+                // tile hook or the per-entry "application submitted" wording.
+                const hasEntry = /application submitted|data-pageobject=["']refund-(travelday|status)["']/i.test(html);
+                if (apps.length === 0 && hasEntry) {
+                  const lines = htmlToLines(html);
+                  recordAudit('refund-diag', `card ${rcard.slice(0, 8)}: ${html.length}b, ${lines.length} lines, parsed 0 despite entry markup — markup changed?`);
+                  const si = html.search(/application submitted|data-pageobject=["']refund-(travelday|status)["']/i);
                   if (si >= 0) {
                     const raw = html.slice(Math.max(0, si - 1800), si + 300).replace(/\s+/g, ' ').trim().slice(0, 1900);
                     recordAudit('refund-raw', raw);
                   }
-                  // Also surface any embedded JSON/script that may carry the data.
-                  const sc = html.match(/<script\b[^>]*>([\s\S]{0,1900}?(?:date|origin|destination|station|journey|refund)[\s\S]{0,400})<\/script>/i);
-                  if (sc) recordAudit('refund-script', sc[1].replace(/\s+/g, ' ').trim().slice(0, 1900));
                 }
               } catch { /* diagnostics must never break the refresh */ }
             } catch { /* non-fatal */ }
