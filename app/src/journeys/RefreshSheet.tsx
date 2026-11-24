@@ -36,6 +36,8 @@ import {
 import { appendAudit, AUDIT_LOG_KEY } from './audit-log';
 import { buildNetCaptureScript, describeCapture } from './claim-capture';
 import {
+  BILLING_DEEP_PULL_META_KEY,
+  billingPeriodsForRefresh,
   buildDirectCsvScript,
   cardIdsFromLog,
   deepPullMetaKeyFor,
@@ -45,7 +47,6 @@ import {
   isCsvDownloadUrl,
   isDeepPullComplete,
   isDirectCsvUrl,
-  lastNPeriods,
   looksLikeCsv,
   MAX_DIRECT_CARDS,
   mergeDeepPullCoverage,
@@ -312,6 +313,10 @@ export default function RefreshSheet({ onClose }: Props) {
   // gates the wait — a classic-harvest session has no refund pass to wait on.
   const directCsvRanRef = useRef(false);
   const refundSettledRef = useRef(false);
+  // TfL-38: the billing report is always posted too (even empty) and the close
+  // now waits for it — during the one-off deep pull it carries months of
+  // refund credits that a close-on-refund-settled used to race against.
+  const billingSettledRef = useRef(false);
   // Harvest timeout — cleared whenever the phase leaves 'harvesting'.
   const harvestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Remaining backfill months shown in the status bar during direct-csv passes.
@@ -321,6 +326,9 @@ export default function RefreshSheet({ onClose }: Props) {
   // nowISO (which could shift at midnight between call and response).
   const requestedPeriodsRef = useRef<string[]>([]);
   const requestedNowISORef = useRef<string>('');
+  // TfL-38: billing periods this pass requested — sizes the settle cap so the
+  // one-off deep pull isn't cut off at the routine refund-settle timeout.
+  const requestedBillingPeriodsRef = useRef<string[]>([]);
   // null = never chosen: the sheet opens with the chooser and no WebView.
   const [mode, setMode] = useState<FetchMode | null>(persistedMode);
   // Per-leg label shown in the status bar when phase = 'harvesting'.
@@ -403,8 +411,11 @@ export default function RefreshSheet({ onClose }: Props) {
     // pendingPeriods drives the status bar: shows "N months remaining" during
     // the incremental backfill so the user knows a multi-refresh fill is underway.
     setPendingPeriods(pendingDeepPullPeriods(nowISO, meta));
-    const routineWindow = lastNPeriods(nowISO, PASS_PERIODS);
-    return buildDirectCsvScript(periods, cardIdsFromLog(getMeta(CSV_LOG_KEY)), routineWindow);
+    // TfL-38: billing window — routine 2 months, or the whole uncovered
+    // history window while the one-off billing deep pull is unproven.
+    const billingPeriods = billingPeriodsForRefresh(nowISO, getMeta(BILLING_DEEP_PULL_META_KEY));
+    requestedBillingPeriodsRef.current = billingPeriods;
+    return buildDirectCsvScript(periods, cardIdsFromLog(getMeta(CSV_LOG_KEY)), billingPeriods);
   };
 
   const injectHarvest = () => {
@@ -497,14 +508,23 @@ export default function RefreshSheet({ onClose }: Props) {
       // capture never happened. Harvest sessions close as before.
       const closeWhenSettled = () => {
         const started = Date.now();
-        let waitingShown = false;
+        let shownCopy = '';
+        // TfL-38: the close also waits for the billing report now. The cap
+        // stretches only for the one-off deep pull's extra months — a routine
+        // session (billing = the 2-month PASS_PERIODS window) keeps the
+        // original refund-settle cap.
+        const extraBillingPeriods = Math.max(0, requestedBillingPeriodsRef.current.length - PASS_PERIODS);
+        const settleCapMs = REFUND_SETTLE_CAP_MS + extraBillingPeriods * MAX_DIRECT_CARDS * PER_JOB_MS;
         const tick = () => {
           if (closedRef.current) return;
-          if (!directCsvRanRef.current || refundSettledRef.current
-            || Date.now() - started > REFUND_SETTLE_CAP_MS) { doClose(); return; }
-          if (!waitingShown) {
-            waitingShown = true;
-            setPausedCopy('Checking refund history…');
+          if (!directCsvRanRef.current || (refundSettledRef.current && billingSettledRef.current)
+            || Date.now() - started > settleCapMs) { doClose(); return; }
+          const copy = refundSettledRef.current && extraBillingPeriods > 0
+            ? 'Pulling older statements…'
+            : 'Checking refund history…';
+          if (copy !== shownCopy) {
+            shownCopy = copy;
+            setPausedCopy(copy);
           }
           setTimeout(tick, 400);
         };
@@ -589,6 +609,8 @@ export default function RefreshSheet({ onClose }: Props) {
     sessionSuggestionsRef.current = [];
     directCsvRanRef.current = false;
     refundSettledRef.current = false;
+    billingSettledRef.current = false;
+    requestedBillingPeriodsRef.current = [];
     setPendingPeriods(0);
     stateRef.current = makeInitialFlow(m);
     setState(stateRef.current);
@@ -878,6 +900,25 @@ export default function RefreshSheet({ onClose }: Props) {
             } catch { /* non-fatal */ }
           }
           if (billingFiles.length > 0) recordAudit('billing-csv', `${billingFiles.length} files, ${billingRefunds} new refunds`);
+          // TfL-38: the report's arrival proves every echoed period was
+          // attempted for every card — attempt-level proof, so a month TfL no
+          // longer serves billing for completes the one-off deep pull rather
+          // than wedging it open. Once every history month is proven,
+          // billingPeriodsForRefresh reverts to the routine 2-month window.
+          const echoedPeriods = (Array.isArray(msg.billingPeriods) ? msg.billingPeriods : [])
+            .map((p: any) => String(p ?? '')).filter(Boolean);
+          if (echoedPeriods.length > 0) {
+            const prevBillingMeta = getMeta(BILLING_DEEP_PULL_META_KEY);
+            const mergedBillingMeta = mergeDeepPullCoverage(prevBillingMeta, echoedPeriods);
+            setMeta(BILLING_DEEP_PULL_META_KEY, mergedBillingMeta);
+            const bNowISO = requestedNowISORef.current ||
+              `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+            if (!isDeepPullComplete(prevBillingMeta, bNowISO) && isDeepPullComplete(mergedBillingMeta, bNowISO)) {
+              recordAudit('billing-deep-complete',
+                `${echoedPeriods.length} statement period(s) pulled — routine 2-month billing window resumes`);
+            }
+          }
+          billingSettledRef.current = true; // TfL-38: releases closeWhenSettled
         } else if (msg.status === 'refund-history') {
           // Delay Repay applications (TfL-36). The journey CSV carries no refund
           // rows and the money lands card-side, so this per-card page is the

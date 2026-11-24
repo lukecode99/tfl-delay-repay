@@ -133,6 +133,16 @@ export const HISTORY_MONTHS = 12;
  */
 export const DEEP_PULL_META_KEY = 'deep-pull-done-v1';
 
+/**
+ * Meta key for the one-off billing-statement deep pull (TfL-38). Same marker
+ * format as the journey deep pull (JSON array of proven period tokens). While
+ * incomplete, the billing pass requests the full HISTORY_MONTHS window so
+ * refunds PAID more than two months ago — invisible to both the routine
+ * billing window and the 12-week refund-history page — are recovered; once
+ * proven it reverts to the routine 2-month window automatically.
+ */
+export const BILLING_DEEP_PULL_META_KEY = 'billing-deep-pull-done-v1';
+
 /** Periods fetched per refresh pass (backfill and routine). Capped at 2 so
  * job count (cards × periods × 2) stays ≤ 32 and completes well within the
  * scaled harvest timeout even on a 6-card account. */
@@ -165,6 +175,25 @@ export function periodsForRefresh(nowISO: string, meta: string | null): string[]
   const covered = deepPullCoveredPeriods(meta);
   const uncoveredHistory = lastNPeriods(nowISO, HISTORY_MONTHS).slice(2).filter(p => !covered.has(p));
   return [...routineWindow, ...uncoveredHistory.slice(0, PASS_PERIODS)];
+}
+
+/**
+ * Billing periods for this refresh (TfL-38). Routine: the PASS_PERIODS window
+ * (current + previous month). While the one-off billing deep pull is
+ * unproven, ALL uncovered history months are appended in a single pass —
+ * unlike the journey pass there is no harvest timer to beat (billing runs
+ * after the journey report is banked), billing CSVs are a few rows each, and
+ * the sheet holds its close on the billing report with a cap scaled to the
+ * extra months. Coverage is proven when the pass's report arrives
+ * (attempt-level, not file-level): a month TfL no longer serves billing for
+ * must complete the pull, not wedge it open forever.
+ */
+export function billingPeriodsForRefresh(nowISO: string, meta: string | null): string[] {
+  const routineWindow = lastNPeriods(nowISO, PASS_PERIODS);
+  if (isDeepPullComplete(meta, nowISO)) return routineWindow;
+  const covered = deepPullCoveredPeriods(meta);
+  const uncovered = lastNPeriods(nowISO, HISTORY_MONTHS).slice(2).filter(p => !covered.has(p));
+  return [...routineWindow, ...uncovered];
 }
 
 /**
@@ -459,9 +488,11 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
             report({ type: 'direct-csv', status: 'csv', files: files, billingFiles: [] });
             journeyReported = true;
           }
-          // Billing CSV pass (non-fatal — refund credit data only). Restricted
-          // to the routine window (billingPeriods) so a close-before-finish
-          // cannot drop history-pass journey data already banked above.
+          // Billing CSV pass (non-fatal — refund credit data only). Runs only
+          // after the journey report above is banked, so however long
+          // billingPeriods is (routine 2-month window, or the whole history
+          // window during the one-off TfL-38 deep pull) a close-before-finish
+          // cannot drop journey data.
           var billingJobs = [];
           for (var bc = 0; bc < ids.length; bc++) {
             for (var bp = 0; bp < billingPeriods.length; bp++) { billingJobs.push({ card: ids[bc], period: billingPeriods[bp] }); }
@@ -469,11 +500,15 @@ export function buildDirectCsvScript(periods: string[], knownCards: string[] = [
           var billingFiles = [];
           var billingNext = function (bk) {
             if (bk >= billingJobs.length) {
-              if (billingFiles.length) {
-                report({ type: 'direct-csv', status: 'billing', billingFiles: billingFiles });
-              } else if (!journeyReported) {
+              if (!billingFiles.length && !journeyReported) {
                 report({ type: 'direct-csv', status: 'failed', message: 'no statement CSV came back' });
+                return;
               }
+              // Always reported, even with no files (TfL-38): the RN side
+              // holds the sheet open until this lands, and the echoed period
+              // list is what proves billing coverage — the report's arrival
+              // means every period was attempted for every card.
+              report({ type: 'direct-csv', status: 'billing', billingFiles: billingFiles, billingPeriods: billingPeriods });
               return;
             }
             var bjob = billingJobs[bk];

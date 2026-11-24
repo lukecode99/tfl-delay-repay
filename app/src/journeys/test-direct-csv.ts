@@ -5,6 +5,7 @@
 // Card ids in here are deliberately fake (aaa…/bbb…): never a real one.
 import assert from 'node:assert/strict';
 import {
+  billingPeriodsForRefresh,
   buildCsvUrl,
   buildDirectCsvScript,
   cardIdsFromLog,
@@ -12,6 +13,7 @@ import {
   extractCardDisplayId,
   primaryCardDisplayId,
   HISTORY_MONTHS,
+  mergeDeepPullCoverage,
   isCsvDownloadUrl,
   isDirectCsvUrl,
   isNewStatementsUrl,
@@ -127,6 +129,24 @@ ok(lastNPeriods('2026-07', 1).join(',') === '7|2026',
 ok(HISTORY_MONTHS >= 12,
   'HISTORY_MONTHS pulls at least a year so route-learning + old missing tap-outs are covered');
 
+// --- billingPeriodsForRefresh: one-off billing deep pull window (TfL-38) ---
+ok(billingPeriodsForRefresh('2026-11-07', null).join(',') === lastNPeriods('2026-11-07', HISTORY_MONTHS).join(','),
+  'TfL-38: unproven marker → the whole history window in one pass, routine months first');
+ok(billingPeriodsForRefresh('2026-11-07', 'done').length === HISTORY_MONTHS,
+  'TfL-38: legacy "done" marker counts as unproven — full window pulled');
+{
+  const partial = mergeDeepPullCoverage(null, ['9|2026', '8|2026']);
+  const got = billingPeriodsForRefresh('2026-11-07', partial);
+  ok(got.length === HISTORY_MONTHS - 2 && got[0] === '11|2026' && got[1] === '10|2026'
+    && !got.includes('9|2026') && !got.includes('8|2026'),
+    'TfL-38: proven months drop out of a resumed pull; the routine window always stays');
+}
+{
+  const all = mergeDeepPullCoverage(null, lastNPeriods('2026-11-07', HISTORY_MONTHS).slice(2));
+  ok(billingPeriodsForRefresh('2026-11-07', all).join(',') === lastNPeriods('2026-11-07', 2).join(','),
+    'TfL-38: complete marker → routine current+previous billing window only');
+}
+
 // --- URL construction: the captured endpoint's exact shape ---
 ok(buildCsvUrl('5|2026', CARD_A)
   === `https://contactless.tfl.gov.uk/NewStatements/DownloadJourneyCsv?Period=5%7C2026&CardDisplayId=${CARD_A}`,
@@ -199,6 +219,7 @@ async function runDirect(
   winOver: { href?: string; fetch?: any } = {},
   periods = ['7|2026', '6|2026'],
   knownCards: string[] = [],
+  billingPeriods: string[] = [],
 ) {
   const messages: any[] = [];
   const win: any = {
@@ -206,7 +227,7 @@ async function runDirect(
     fetch: winOver.fetch,
     ReactNativeWebView: { postMessage: (s: string) => messages.push(JSON.parse(s)) },
   };
-  new Function('document', 'window', buildDirectCsvScript(periods, knownCards))(doc, win);
+  new Function('document', 'window', buildDirectCsvScript(periods, knownCards, billingPeriods))(doc, win);
   await new Promise(r => setTimeout(r, 20)); // let the fetch chain settle
   return messages;
 }
@@ -305,6 +326,43 @@ function withMyCards(inner: (url: string, opts?: any) => any, html = '<html><bod
     'script: refund page reported per card with its raw html');
   ok(calls.some(u => u.indexOf('/Refunds/RefundHistory?cardDisplayId=' + CARD_A) !== -1),
     'script: refund history fetched with the lowercase cardDisplayId query key');
+}
+{
+  // TfL-38: during the one-off billing deep pull the billing pass fetches the
+  // whole requested window, the report echoes exactly what it attempted (the
+  // RN side's coverage proof), and journey fetch volume is untouched.
+  const deepBilling = lastNPeriods('2026-11-07', 4); // compact stand-in for the 12-month window
+  const calls: string[] = [];
+  const fetchStub = (url: string) => {
+    calls.push(String(url));
+    return Promise.resolve({ ok: true, text: () => Promise.resolve(CSV_BODY) });
+  };
+  const msgs = await runDirect(statementsDoc({ anchors: [{ href: `/x?CardDisplayId=${CARD_A}` }] }),
+    { fetch: withMyCards(fetchStub) }, ['7|2026', '6|2026'], [], deepBilling);
+  const billingMsg = msgs.find((m: any) => m.status === 'billing');
+  ok(!!billingMsg && billingMsg.billingFiles.length === 4
+    && billingMsg.billingPeriods.join(',') === deepBilling.join(','),
+    'TfL-38: billing pass fetches the deep window and the report echoes the attempted periods');
+  ok(calls.filter(u => u.includes('DownloadBillingCsv')).length === 4
+    && calls.filter(u => u.includes('DownloadJourneyCsv')).length === 2,
+    'TfL-38: a deep billing window leaves the journey pass volume untouched');
+}
+{
+  // TfL-38: billing always reports, even when every billing download comes
+  // back as HTML — the RN side holds the close until this report lands, and
+  // its arrival (not its file count) is what proves period coverage.
+  const fetchStub = (url: string) => {
+    const u = String(url);
+    return Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(u.includes('DownloadBillingCsv') ? '<html>error page</html>' : CSV_BODY),
+    });
+  };
+  const msgs = await runDirect(statementsDoc({ anchors: [{ href: `/x?CardDisplayId=${CARD_A}` }] }),
+    { fetch: withMyCards(fetchStub) });
+  const billingMsg = msgs.find((m: any) => m.status === 'billing');
+  ok(!!billingMsg && billingMsg.billingFiles.length === 0 && billingMsg.billingPeriods.length === 2,
+    'TfL-38: zero billing files still reports — empty list + echoed periods, never silence');
 }
 {
   // One month comes back as an HTML page (signed-out mid-way, TfL error page…)
